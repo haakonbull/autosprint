@@ -49,3 +49,9 @@ dmypy.json
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Personal / local-only — kept on disk, not committed
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+todos.md
+.data/

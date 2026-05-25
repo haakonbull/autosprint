@@ -1,0 +1,57 @@
+[project]
+name = "autosprint"
+version = "0.2.0"
+description = "Automated sprint loop — Plan, Implement, Test — powered by Claude Agent SDK and GitHub Copilot SDK"
+license = { file = "LICENSE" }
+authors = [{ name = "Haakon Hove", email = "hbhove@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "claude-agent-sdk>=0.1.0",
+    "github-copilot-sdk>=0.2.0",
+    "pydantic-settings>=2.13.1",
+    "pyttsx3>=2.90",
+]
+
+[project.urls]
+Homepage = "https://github.com/haakonbull/autosprint"
+Repository = "https://github.com/haakonbull/autosprint"
+Issues = "https://github.com/haakonbull/autosprint/issues"
+Changelog = "https://github.com/haakonbull/autosprint/blob/master/CHANGELOG.md"
+
+[project.scripts]
+autosprint = "autosprint.orchestrator:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/autosprint"]
+
+[tool.black]
+line-length = 1000
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 1000
+target-version = "py312"
+
+[tool.ruff.lint.per-file-ignores]
+# orchestrator.py is a re-export shim — it deliberately imports sibling-module
+# names purely to surface them under `autosprint.orchestrator` for tests.
+"src/autosprint/orchestrator.py" = ["F401"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-m 'not live'"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "live: marks tests that hit real LLM APIs (deselect by default; run explicitly with '-m live' or '-m \"live or not live\"')",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]

@@ -52,6 +52,83 @@ def test_run_doctor_exits_nonzero_on_failed_dispatch(monkeypatch: pytest.MonkeyP
 
 
 # ---------------------------------------------------------------------------
+# _check_install_health — spots stale `pip install -e .` installs whose
+# metadata doesn't list the new runtime deps. Direct unit tests so we don't
+# have to fight `run_doctor`'s full setup.
+# ---------------------------------------------------------------------------
+
+
+def test_check_install_health_green_in_normal_env() -> None:
+    """In the dev venv where pytest runs, both runtime deps are importable and the installed version matches pyproject. So this is a real-environment smoke test — no mocking."""
+    from autosprint.init import _check_install_health
+
+    ok, msg = _check_install_health()
+    assert ok, f"Expected install health OK in the dev venv, got: {msg}"
+    assert "Install health OK" in msg
+
+
+def test_check_install_health_flags_missing_runtime_dep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When a runtime dep can't be imported, doctor reports the missing module + install hint + the uv-tool-install recovery command."""
+    import importlib
+
+    from autosprint.init import _check_install_health
+
+    real_import = importlib.import_module
+
+    def fake_import(name: str, *args, **kwargs):
+        if name == "copilot":
+            raise ImportError("No module named 'copilot'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+    ok, msg = _check_install_health()
+    assert not ok
+    assert "Stale install detected" in msg
+    assert "`copilot`" in msg
+    assert "github-copilot-sdk" in msg
+    assert "uv tool install --editable" in msg
+
+
+def test_check_install_health_flags_version_skew(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When `importlib.metadata.version('autosprint')` returns a different version than this checkout's pyproject.toml declares, doctor flags it as a stale install (the trap caused by pip-installed v0.1.0 metadata pointing at editable v0.2.0 code)."""
+    import importlib.metadata
+
+    from autosprint.init import _check_install_health
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.1.0" if name == "autosprint" else importlib.metadata.version(name))
+    ok, msg = _check_install_health()
+    assert not ok
+    assert "version skew" in msg
+    assert "0.1.0" in msg
+    assert "uv tool install --editable" in msg
+
+
+def test_run_doctor_exits_nonzero_when_install_is_stale(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """End-to-end: a stale install (mocked as missing `copilot`) makes doctor exit non-zero even when everything else would have passed."""
+    import importlib
+
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import run_doctor
+
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    _make_doctor_target(tmp_path)
+    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr("autosprint.dispatch.query_agent", AsyncMock(return_value="OK"))
+
+    real_import = importlib.import_module
+
+    def fake_import(name: str, *args, **kwargs):
+        if name == "copilot":
+            raise ImportError("No module named 'copilot'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+    with pytest.raises(SystemExit):
+        run_doctor()
+
+
+# ---------------------------------------------------------------------------
 # run_how_far — read-only distance-to-destination measurement command.
 # ---------------------------------------------------------------------------
 

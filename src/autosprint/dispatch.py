@@ -51,7 +51,7 @@ from typing import Callable
 
 from pydantic import BaseModel, Field
 
-from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY, VALID_PRESETS
+from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH, VALID_PRESETS
 from autosprint.config import config
 from autosprint.errors import StopSignalDetected, add_context
 from autosprint.output import printlev
@@ -87,7 +87,10 @@ class AgentResults:
 
 _CLAUDE_TOOLS: dict[str, list[str]] = {
     TOOLS_READ_ONLY: ["Read", "Glob", "Grep"],
-    TOOLS_FULL: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+    # Full preset includes web access so the unified implementor can fetch external sources on research tasks (and reach API docs on code tasks); a code task that doesn't need web simply doesn't use it.
+    TOOLS_FULL: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
+    # Research preset: read + write + web, no Bash. Used by Plan-phase research agents (Web Researcher) that need web access during planning even though Plan-phase normally clips to TOOLS_READ_ONLY — see `_effective_preset`.
+    TOOLS_RESEARCH: ["Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch"],
 }
 
 _COPILOT_READ_ONLY_TOOLS: set[str] = {"read_file", "view", "glob", "grep"}
@@ -125,10 +128,12 @@ def _evict_cache_if_over_cap() -> None:
 
 
 def _effective_preset(agent: dict, override: str | None) -> str:
-    """Pick the more restrictive of the agent's declared preset and the caller's override."""
+    """Pick the more restrictive of the agent's declared preset and the caller's override. Research agents are a special case: their declared TOOLS_RESEARCH preset is preserved even when a caller overrides to TOOLS_READ_ONLY, because the Plan phase's read-only contract is enforced by the prompt protocol (agents are asked to *propose tasks*, not execute writes), and stripping web access from a Web Researcher member would neuter its role for no security gain."""
     declared = agent.get("tools", TOOLS_FULL)
     if override is None:
         return declared
+    if declared == TOOLS_RESEARCH:
+        return TOOLS_RESEARCH
     if TOOLS_READ_ONLY in (declared, override):
         return TOOLS_READ_ONLY
     return TOOLS_FULL

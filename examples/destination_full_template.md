@@ -24,6 +24,8 @@ The destination document will describe the state we want to come to. It will not
 > **Status marker format** (used by agents when resolving an open question): `> **Status:** resolved <YYYY-MM-DD> — <one-line answer>. See ` `` `adr.md` `` ` <ADR title or date>.`
 >
 > **Promotion path.** When you want a resolution to graduate into the main spec, edit the original section to write the chosen answer in (replacing the prompt or "open" line), delete the status marker, and delete the receipt from `## AI-resolved questions`. The decision now reads as a normal human-authored answer; rationale stays in `adr.md` as history.
+>
+> **For non-code projects.** This template ships with code-project defaults — "Project shape" assumes a `src/` Python layout and "Code-quality invariants" reads as code rules. For research, writing, or other artifact-deliverable projects: skip "Project shape" entirely, and treat "Code-quality invariants" as artifact-quality invariants (citation rules, source-quality bar, scope discipline, freshness markers — see `destination_research_ai_bubble.example.md` for the shape). "Test strategy" similarly becomes verification strategy (citation density, scenario completeness, source schema instead of unit/integration). The remaining sections work as-is for both project types.
 
 ## Purpose
 

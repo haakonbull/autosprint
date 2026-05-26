@@ -10,6 +10,8 @@ For each concern below, decide one of three things:
 
 **Aim for tightness.** A section that's marked "open and unlikely to be answered any time soon" is noise on every sprint. If you find yourself adding a section *because the checklist mentions it* rather than *because your project actually needs it*, drop it. The destination should fit roughly one screen of section names and re-read in under 60 seconds.
 
+**For non-code projects** (research, writing, design — projects whose deliverable is markdown / text / artifacts rather than running code): the checklist still applies, but the concrete answers differ. "Test strategy" below becomes verification strategy (citation density, scenario completeness, source schema instead of unit / integration / e2e). "Project shape" is usually skippable — there's no `src/` layout to declare. "Code-quality invariants" becomes artifact-quality invariants (citation rules, source-quality bar, scope discipline, freshness markers). See `destination_research_ai_bubble.example.md` for a worked example of the non-code shape.
+
 ---
 
 ## Always include

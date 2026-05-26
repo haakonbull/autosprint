@@ -24,14 +24,14 @@
 
 # TL;DR
 
-You write down what you want in `destination.md`. Autosprint runs a Plan / Implement / Test / Commit loop against your repo until it gets there:
+You write down what you want in `destination.md`. Autosprint measures the gap between that target state and your repo as it stands today, decomposes the gap into a sequence of small steps, and executes them one at a time. With `--auto-replan` it will automatically create the next batch of steps and execute them once the initial plan is completed.
 
 - **Plan** — a team of AI agents reads `destination.md` and your code, each independently drafts a list of next tasks, and a team lead merges them into one ordered `plan.md`.
 - **Implement** — an AI agent picks the top pending task, writes the code, and writes tests for the change.
 - **Test** — the target repo's own test suite runs (pytest or vitest, not LLM judgment).
 - **Commit** — if tests pass, the sprint is committed. If not, the working tree is reverted and the next sprint plans around the failure.
 
-The loop keeps going until you stop it, `MAX_SPRINTS` is hit, or the plan empties. With `--auto-replan` it re-plans itself as it goes; the default reviewed-plan mode runs a human-approved `plan.md` top to bottom.
+By default (reviewed-plan mode), autosprint runs through a human-approved `plan.md` top to bottom and stops when the list empties — `MAX_SPRINTS` and your own `autosprint stop` are the other exit doors. With `--auto-replan`, once the initial plan finishes autosprint re-measures the gap and drafts a fresh plan, repeating sprint after sprint until you stop it or the destination is genuinely reached.
 
 # Prerequisites
 
@@ -84,7 +84,7 @@ autosprint init --update-skills
 
 **Prerequisite:** finish [Installing autosprint](#installing-autosprint) above first — clone the repo, `uv sync`, and set up `autosprint` so it's callable from any directory (shell alias, or `uv tool install --editable <path>`).
 
-Two paths below: a **quick start** that runs autosprint against a built-in demo destination (a small 2D platformer game) so you can see the loop work in ~2 minutes, and a **real project** path where you write your own destination.
+Two paths below: a **quick start** that runs autosprint against a built-in demo destination (a small 3D action game) so you can see the loop work in ~2 minutes, and a **real project** path where you write your own destination.
 
 ## Quick start — see the loop work
 
@@ -98,8 +98,8 @@ cd my-game
 git init
 uv init --package                                       # creates src/my_game/ package layout
 uv add --dev pytest                                     # creates .venv, installs the package editable, AND adds pytest — required for autosprint's pre-flight gates
-autosprint init                                         # seeds autosprint/destination.example.md (platformer demo)
-mv autosprint/destination.example.md autosprint/destination.md
+autosprint init                                         # seeds autosprint/examples/ with destination templates
+cp autosprint/examples/destination_game.example.md autosprint/destination.md
 git add .
 git commit -m "init"
 autosprint run --auto-replan
@@ -113,26 +113,28 @@ cd my-game
 git init
 npm init -y
 npm install -D vitest typescript                        # autosprint needs vitest on PATH to gate sprints
-autosprint init                                         # seeds autosprint/destination.example.md AND a Node/TS .gitignore so `git add .` doesn't suck in node_modules/
-mv autosprint/destination.example.md autosprint/destination.md
+autosprint init                                         # seeds autosprint/examples/ + a Node/TS .gitignore so `git add .` doesn't suck in node_modules/
+cp autosprint/examples/destination_game.example.md autosprint/destination.md
 git add .
 git commit -m "init"
 autosprint run --auto-replan
 ```
 
-`autosprint run --auto-replan` starts the loop with autosprint re-planning each sprint as it goes (no hand-review needed). The seeded demo destination is a tiny 2D platformer — concrete enough that the planner can produce real tasks immediately. After ~5–10 sprints you'll have a working baseline.
+`autosprint run --auto-replan` starts the loop with autosprint re-planning each sprint as it goes (no hand-review needed). The seeded demo destination is a small 3D action game — concrete enough that the planner can produce real tasks immediately. After ~5–10 sprints you'll have a working baseline.
 
 ### Pick a different demo
 
-Two demo destinations ship in `examples/` in the autosprint clone:
+Several destination templates ship in `autosprint/examples/` after init:
 
-- **`destination_platformer.example.md`** — 2D platformer: run, jump, shoot enemies. Uses pygame or equivalent. This is the **default** seed.
-- **`destination_flight_shooter.example.md`** — 2D arcade flight shooter: pilot a plane, shoot enemies, watch explosions. Uses pygame or equivalent.
+- **`destination_game.example.md`** — small 3D action game with mouse-aim, LMB/RMB, WASD, jump, weapon switch, and explosions. **Default seed.** Worked example for a code project.
+- **`destination_research_ai_bubble.example.md`** — long-form, source-backed research paper on the AI investment cycle. Worked example for a non-code (markdown-deliverable) project.
+- **`destination_full_template.md`** — every section of the spec with prompts inline. Use when you want to write your own destination from scratch.
+- **`destination_concerns_checklist.md`** — a walkthrough for deciding *which* sections your destination should include.
 
-To use the flight shooter instead, replace `mv autosprint/destination.example.md autosprint/destination.md` with:
+To use the research demo instead, replace the `cp` line with:
 
 ```bash
-cp /path/to/autosprint/examples/destination_flight_shooter.example.md autosprint/destination.md
+cp autosprint/examples/destination_research_ai_bubble.example.md autosprint/destination.md
 ```
 
 ## Real project — write your own destination
@@ -149,7 +151,7 @@ For an actual project, skip the quick start above. Replace the demo destination 
 - AI backend (Claude only / Copilot only / both)
 - enable auto-detected per-sprint gates? (format-check, lint-check, coverage-track — recommended Y)
 
-It then writes `autosprint/config.toml`, seeds `autosprint/destination.example.md` and `autosprint/adr.md`, plus a `.gitignore` block, and copies skill + agent prompts into `.claude/`. Pass `--yes` to skip the wizard and accept defaults. Full file map: [Target-repo layout](#target-repo-layout).
+It then writes `autosprint/config.toml`, seeds `autosprint/examples/` with destination templates and `autosprint/adr.md`, plus a `.gitignore` block, and copies skill + agent prompts into `.claude/`. Pass `--yes` to skip the wizard and accept defaults. Full file map: [Target-repo layout](#target-repo-layout).
 
 **1.3 (Optional) Drop reference material into your own `docs/` folder.** A Figma export, a data-model sketch, an external spec — anything the planner should be able to consult. Create the folder yourself if you don't already have one; autosprint doesn't seed it.
 
@@ -371,6 +373,9 @@ The implementor is a separate internal concept from the planning team — you ca
 | `mixed` | 5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.7 lead | high | broad perspective diversity |
 | `duo` | 2 planners (Thinker Opus 4.7 + Bug Hunter GPT-5.5) + Opus 4.7 lead | medium-high | lightweight real-work runs |
 | `trio_gpt55` | 3 planners (Innovator + Visionary + Tester GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot GPT-5.5 team; pair with `implementor_gpt55` |
+| `research_council` | 4 planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.7, Editor GPT-5.5) + Research Lead Opus 4.7 | medium-high | **research projects** whose deliverables are markdown documents (sources / paper / deep-dives); four lenses on source coverage, synthesis, argument balance, format discipline |
+| `research_council_opus` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all Opus 4.7) + Opus 4.7 lead | high | all-Claude mirror of `research_council` |
+| `research_council_gpt55` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot mirror of `research_council` |
 | `solo` / `solo_opus` | 1 × Opus 4.7 | medium | single-agent production runs |
 | `solo_sonnet` | 1 × Sonnet 4.6 | medium | cheaper single-agent alternative |
 | `solo_gpt52` | 1 × GPT-5.2 Copilot | low-medium | single-agent Copilot alternative |

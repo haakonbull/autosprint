@@ -26,6 +26,8 @@ from autosprint.agents import (
     AGENT_DECIDER_HAIKU_CLAUDE,
     AGENT_DELIBERATOR_OPUS_CLAUDE,
     AGENT_DELIBERATOR_SONNET_CLAUDE,
+    AGENT_EDITOR_GPT55,
+    AGENT_EDITOR_OPUS47,
     AGENT_GUARDIAN_COPILOT,
     AGENT_GUARDIAN_GPT55,
     AGENT_INNOVATOR_GPT55,
@@ -39,8 +41,14 @@ from autosprint.agents import (
     AGENT_QUICK_A_GPT41_COPILOT,
     AGENT_QUICK_B_GPT41_COPILOT,
     AGENT_REFACTORER_GPT55,
+    AGENT_RESEARCH_LEAD_GPT55,
+    AGENT_RESEARCH_LEAD_OPUS47,
     AGENT_SPEED_RUNNER_COPILOT,
+    AGENT_STEELMANNER_GPT55,
+    AGENT_STEELMANNER_OPUS47,
     AGENT_STRATEGIST_OPUS47,
+    AGENT_SYNTHESIZER_GPT55,
+    AGENT_SYNTHESIZER_OPUS47,
     AGENT_TEAMLEAD_GPT55,
     AGENT_TEAMLEAD_OPUS47,
     AGENT_TESTER_COPILOT,
@@ -50,6 +58,8 @@ from autosprint.agents import (
     AGENT_VISIONARY_CLAUDE,
     AGENT_VISIONARY_GPT55,
     AGENT_VISIONARY_OPUS47,
+    AGENT_WEB_RESEARCHER_GPT55,
+    AGENT_WEB_RESEARCHER_OPUS47,
 )
 
 # -----------------------------------------------------------------------------
@@ -206,6 +216,47 @@ TEAM_REFINER: dict[str, Any] = {
     "description": "4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.7) + Team Lead Opus 4.7 — focused on structural cleanliness, naming, subtraction, and test consolidation. For cleanup phases after feature surface stabilises; use sparingly and not as a default — running a full repo through a refiner team when there's unfinished feature work wastes sprint budget on polish",
 }
 
+# -----------------------------------------------------------------------------
+# Research teams — four lenses (Web Researcher, Synthesizer, Steelmanner,
+# Editor) tuned for research projects whose deliverables are markdown documents
+# (sources / paper / deep-dives), not running code. All three variants route
+# both members and selector to the research-flavored plan-team prompts via the
+# `plan_prompt_file` / `plan_lead_prompt_file` attributes on each agent.
+# -----------------------------------------------------------------------------
+
+TEAM_RESEARCH_COUNCIL: dict[str, Any] = {
+    "agents": [
+        AGENT_WEB_RESEARCHER_GPT55,
+        AGENT_SYNTHESIZER_OPUS47,
+        AGENT_STEELMANNER_OPUS47,
+        AGENT_EDITOR_GPT55,
+    ],
+    "selector": AGENT_RESEARCH_LEAD_OPUS47,
+    "description": "4 research planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.7, Editor GPT-5.5) + Research Lead Opus 4.7 — four research lenses (source coverage, synthesis across material, argument balance, format discipline) for projects whose deliverables are markdown documents (sources / paper / deep-dives). Mixed Opus + GPT to spread cost; the thinking-heavy roles (Synthesizer, Steelmanner) get Opus, the rule-checking and external-fetching roles (Editor, Web Researcher) get GPT-5.5.",
+}
+
+TEAM_RESEARCH_COUNCIL_OPUS: dict[str, Any] = {
+    "agents": [
+        AGENT_WEB_RESEARCHER_OPUS47,
+        AGENT_SYNTHESIZER_OPUS47,
+        AGENT_STEELMANNER_OPUS47,
+        AGENT_EDITOR_OPUS47,
+    ],
+    "selector": AGENT_RESEARCH_LEAD_OPUS47,
+    "description": "All-Opus 4.7 mirror of `research_council` — same four research lenses, every seat filled by a Claude agent. Use when you want a Claude-only research run, or when GPT-5.5 quota is the binding constraint.",
+}
+
+TEAM_RESEARCH_COUNCIL_GPT55: dict[str, Any] = {
+    "agents": [
+        AGENT_WEB_RESEARCHER_GPT55,
+        AGENT_SYNTHESIZER_GPT55,
+        AGENT_STEELMANNER_GPT55,
+        AGENT_EDITOR_GPT55,
+    ],
+    "selector": AGENT_RESEARCH_LEAD_GPT55,
+    "description": "All-GPT-5.5 mirror of `research_council` — same four research lenses, every seat filled by a Copilot agent. Use when you want to lean on a Copilot subscription and spare Claude tokens. Pair with an implementor on the Copilot side too.",
+}
+
 TEAM_QUICK_MIXED: dict[str, Any] = {
     "agents": [
         AGENT_DECIDER_HAIKU_CLAUDE,
@@ -265,6 +316,9 @@ TEAMS: dict[str, dict[str, Any]] = {
     "quick": TEAM_QUICK,
     "quick_mixed": TEAM_QUICK_MIXED,
     "refiner": TEAM_REFINER,
+    "research_council": TEAM_RESEARCH_COUNCIL,
+    "research_council_gpt55": TEAM_RESEARCH_COUNCIL_GPT55,
+    "research_council_opus": TEAM_RESEARCH_COUNCIL_OPUS,
     "solo": TEAM_SOLO,
     "solo_lite": TEAM_SOLO_LITE,
     "solo_gpt52": TEAM_SOLO_GPT52,

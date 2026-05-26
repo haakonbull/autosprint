@@ -166,9 +166,10 @@ def plan_phase_context() -> str:
 
 
 def build_prompt_for_plan_phase(agent: dict) -> str:
-    """Assemble the plan-phase prompt for `agent` by reading .claude/agents/plan-agent.md fresh each call (so prompt edits apply without restart) and substituting the agent's name + persona, then appending the shared plan-phase context block."""
+    """Assemble the plan-phase prompt for `agent` by reading the prompt template fresh each call (so prompt edits apply without restart) and substituting the agent's name + persona, then appending the shared plan-phase context block. Defaults to `.claude/agents/plan-agent.md` (the code-flavored prompt); research agents declare `plan_prompt_file = ".claude/agents/plan-agent-research.md"` on their agent dict to use the research-flavored variant instead."""
     try:
-        template = read_agent_file(".claude/agents/plan-agent.md")
+        prompt_file = agent.get("plan_prompt_file", ".claude/agents/plan-agent.md")
+        template = read_agent_file(prompt_file)
         prompt = template.replace("{name}", agent["name"]).replace("{system_prompt}", agent["system_prompt"])
         prompt += plan_phase_context()
         return prompt
@@ -255,9 +256,10 @@ async def build_context_for_team_lead(team_members: list[dict], sprint_number: i
         raise add_context(e, f"Failed to build team-lead context (sprint_number={sprint_number}, prev_reverted={prev_sprint_reverted})") from e
 
 
-def assemble_prompt_for_team_lead(ctx: TeamLeadContext, post_revert_hint: str = "", plan_only_mode: bool = False) -> str:
-    """Stitch the full team-lead prompt from the already-built context: plan-team.md base + optional plan-only depth section + optional post-revert hint + optional pre-flight section + previous sprint's test output + the Proposals block (one per team member). Pure string concatenation. `plan_only_mode` is True only on an `autosprint plan-only` run; it appends guidance telling the lead to produce a fuller, human-curated candidate list."""
-    prompt_for_team_lead = read_agent_file(".claude/agents/plan-team.md") + waypoint_section() + lock_destination_section() + prioritize_section() + plan_depth_section(plan_only_mode) + post_revert_hint + preflight_prompt_section(ctx.preflight_summary) + last_test_output_section(ctx.last_test_output) + f"\n\n## Proposals\n\n{ctx.proposed_task_lists.to_proposals_text()}"
+def assemble_prompt_for_team_lead(ctx: TeamLeadContext, selector: dict | None = None, post_revert_hint: str = "", plan_only_mode: bool = False) -> str:
+    """Stitch the full team-lead prompt from the already-built context: team-lead-prompt-file base + optional plan-only depth section + optional post-revert hint + optional pre-flight section + previous sprint's test output + the Proposals block (one per team member). Pure string concatenation. The prompt-file path defaults to `.claude/agents/plan-team.md` (code-flavored); research selectors declare `plan_lead_prompt_file = ".claude/agents/plan-team-research.md"` on their agent dict to use the research-flavored variant. `selector=None` is accepted (defaults to the code prompt) so older callers and test fixtures that didn't pass the selector keep working — pass `selector=<agent dict>` when you want the prompt-file selection respected. `plan_only_mode` is True only on an `autosprint plan-only` run; it appends guidance telling the lead to produce a fuller, human-curated candidate list."""
+    prompt_file = (selector or {}).get("plan_lead_prompt_file", ".claude/agents/plan-team.md")
+    prompt_for_team_lead = read_agent_file(prompt_file) + waypoint_section() + lock_destination_section() + prioritize_section() + plan_depth_section(plan_only_mode) + post_revert_hint + preflight_prompt_section(ctx.preflight_summary) + last_test_output_section(ctx.last_test_output) + f"\n\n## Proposals\n\n{ctx.proposed_task_lists.to_proposals_text()}"
     printlev(f"[P] Full team-lead prompt ({len(prompt_for_team_lead)} chars):\n{prompt_for_team_lead}", level=1)
     return prompt_for_team_lead
 
@@ -379,7 +381,7 @@ async def update_plan(team: list[dict], selector: dict, sprint_number: int = 0, 
             printlev(f"[P] Team agents: {agent_names} | Selector: {selector.get('name', 'unknown')}", level=5)
             printlev(f"[P] Running {len(team)} agents in parallel...", level=20)
             context: TeamLeadContext = await build_context_for_team_lead(team, sprint_number, prev_sprint_reverted)
-            team_lead_prompt = assemble_prompt_for_team_lead(context, post_revert_hint=post_revert_hint, plan_only_mode=plan_only_mode)
+            team_lead_prompt = assemble_prompt_for_team_lead(context, selector=selector, post_revert_hint=post_revert_hint, plan_only_mode=plan_only_mode)
             printlev(f"[P] All {len(team)} team proposals received. Asking '{selector.get('name', 'unknown')}' (team-lead role) to merge them into the final plan...", level=20)
             _raise_if_stop_between_phases()  # `stop --now` issued during team-members dispatch should short-circuit before another LLM call
             parsed_plan = await query_team_lead_with_retry(selector, team_lead_prompt, sprint_number, on_result=log_proposed_tasks)

@@ -35,7 +35,8 @@ from typing import Any
 
 TOOLS_READ_ONLY = "read_only"
 TOOLS_FULL = "full"
-VALID_PRESETS = {TOOLS_READ_ONLY, TOOLS_FULL}
+TOOLS_RESEARCH = "research"  # read + write + web — for research agents that fetch external sources into the artifacts
+VALID_PRESETS = {TOOLS_READ_ONLY, TOOLS_FULL, TOOLS_RESEARCH}
 
 
 # =============================================================================
@@ -370,6 +371,128 @@ AGENT_ARCHITECT_OPUS47: dict[str, Any] = {
 }
 
 # -----------------------------------------------------------------------------
+# 3b-iii. Research-team specialists — four complementary lenses for research
+# projects (sources / paper / deep-dives output), in both Opus 4.7 and GPT-5.5
+# variants. Council's code-flavored lenses (Bug Hunter, Architect, Tester, ...)
+# don't fit a research deliverable; these four are designed for it instead.
+#
+# All four declare `plan_prompt_file = ".claude/agents/plan-agent-research.md"`
+# and the research team leads declare
+# `plan_lead_prompt_file = ".claude/agents/plan-team-research.md"`.
+# `build_prompt_for_plan_phase` / `assemble_prompt_for_team_lead` route to the
+# research-flavored prompts when those attributes are set.
+#
+# Web Researcher uses `TOOLS_RESEARCH` so it can fetch external sources; the
+# other three roles stay on `TOOLS_FULL` (they work over artifacts already in
+# the repo).
+# -----------------------------------------------------------------------------
+
+_PROMPT_WEB_RESEARCHER = f"{_THINK_CAREFULLY}\n\nYour specialty: bringing fresh sources into the research. You hunt for high-quality external material that closes gaps the existing `docs/sources.md` has — primary papers, financial filings, earnings transcripts, investigative pieces, datasets. You name candidates (with stable URLs — DOI / arXiv / SEC.gov / archive.org snapshots preferred), tag them with the topic they support and a quality rating (primary data / secondary analysis / opinion). You also flag entries already in `sources.md` whose links may have rotted or whose quality is below the destination's bar. You do NOT draft narrative or argument content — your job is the inputs, not the synthesis. Web access (WebFetch / WebSearch) is available for assessing what's fetchable; the actual fetch happens in Implement, the propose-the-fetch task is what you produce here."
+
+_PROMPT_SYNTHESIZER = f"{_THINK_CAREFULLY}\n\nYour specialty: patterns across existing material. You read `docs/sources.md` and the in-progress `docs/paper.md` / deep-dives, then surface convergences, contradictions, and gaps that the current synthesis doesn't yet capture. You see when two sources say opposite things and the paper hasn't acknowledged the disagreement. You see when a scenario's trigger conditions don't actually match its 2–3-year market shape. You see when an obvious sub-question is undiscussed. Propose tasks that integrate, reconcile, or expand — never fetch (Web Researcher does that). Bias toward the smallest synthesis task that closes a real gap."
+
+_PROMPT_STEELMANNER = f"{_THINK_CAREFULLY}\n\nYour specialty: argument balance. Every deep-dive needs the strongest version of each side, not strawmen. You hunt for places where one side has been argued well and the other has been left thin — or where the author's apparent preference has shaped which arguments got real treatment. Propose tasks that expand the under-treated side with its genuinely best case (data, expert voices, scenarios where it's right). You are deliberately willing to argue for positions you find unconvincing — the goal is honest balance, not advocacy. Flag a deep-dive that reads like a one-sided essay even when the prose is good."
+
+_PROMPT_EDITOR = f"{_THINK_CAREFULLY}\n\nYour specialty: rule-enforcement on the artifacts. You audit `paper.md` and deep-dives against destination.md's invariants: every scenario has a probability % with rationale, every paragraph above ~80 words has a source link, citation style is consistent, freshness markers are present and recent, anchor links resolve, the structure matches what destination.md declared. You also enforce scope: a section drifting into adjacent topics (e.g. AI bubble → history of AI) gets a 'trim back' task. You do NOT add new content yourself — your proposals are fix-the-defect or trim-the-drift tasks, surgical and specific. Cite the exact file:section that has the defect."
+
+
+AGENT_WEB_RESEARCHER_OPUS47: dict[str, Any] = {
+    "name": "The Web Researcher (Opus 4.7)",
+    "assistant": "claude",
+    "model": "claude-opus-4-7",
+    "system_prompt": _PROMPT_WEB_RESEARCHER,
+    "tools": TOOLS_RESEARCH,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+AGENT_WEB_RESEARCHER_GPT55: dict[str, Any] = {
+    "name": "The Web Researcher (GPT-5.5)",
+    "assistant": "copilot",
+    "model": "gpt-5.5",
+    "system_prompt": _PROMPT_WEB_RESEARCHER,
+    "tools": TOOLS_RESEARCH,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+AGENT_SYNTHESIZER_OPUS47: dict[str, Any] = {
+    "name": "The Synthesizer (Opus 4.7)",
+    "assistant": "claude",
+    "model": "claude-opus-4-7",
+    "system_prompt": _PROMPT_SYNTHESIZER,
+    "tools": TOOLS_FULL,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+AGENT_SYNTHESIZER_GPT55: dict[str, Any] = {
+    "name": "The Synthesizer (GPT-5.5)",
+    "assistant": "copilot",
+    "model": "gpt-5.5",
+    "system_prompt": _PROMPT_SYNTHESIZER,
+    "tools": TOOLS_FULL,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+AGENT_STEELMANNER_OPUS47: dict[str, Any] = {
+    "name": "The Steelmanner (Opus 4.7)",
+    "assistant": "claude",
+    "model": "claude-opus-4-7",
+    "system_prompt": _PROMPT_STEELMANNER,
+    "tools": TOOLS_FULL,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+AGENT_STEELMANNER_GPT55: dict[str, Any] = {
+    "name": "The Steelmanner (GPT-5.5)",
+    "assistant": "copilot",
+    "model": "gpt-5.5",
+    "system_prompt": _PROMPT_STEELMANNER,
+    "tools": TOOLS_FULL,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+AGENT_EDITOR_OPUS47: dict[str, Any] = {
+    "name": "The Editor (Opus 4.7)",
+    "assistant": "claude",
+    "model": "claude-opus-4-7",
+    "system_prompt": _PROMPT_EDITOR,
+    "tools": TOOLS_FULL,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+AGENT_EDITOR_GPT55: dict[str, Any] = {
+    "name": "The Editor (GPT-5.5)",
+    "assistant": "copilot",
+    "model": "gpt-5.5",
+    "system_prompt": _PROMPT_EDITOR,
+    "tools": TOOLS_FULL,
+    "plan_prompt_file": ".claude/agents/plan-agent-research.md",
+}
+
+# Research team leads — same merge-job as the code TEAMLEAD agents but pointing
+# at the research-flavored plan-team prompt so the merge-rules are research-fit
+# (cite quality, scenario completeness, layout-decision detection — not story
+# points on test tasks and ADR-for-library-choice).
+
+AGENT_RESEARCH_LEAD_OPUS47: dict[str, Any] = {
+    "name": "Research Lead (Opus 4.7)",
+    "assistant": "claude",
+    "model": "claude-opus-4-7",
+    "system_prompt": f"{_THINK_CAREFULLY}\n\nYou are the research team lead. Read each team member's proposal, weigh them against destination.md and adr.md, and produce the single merged plan. Resolve disagreements with reasoning, drop duplicates, and order tasks by strategic value toward the research destination — cite quality, source coverage, scenario completeness, argument balance, format discipline.",
+    "tools": TOOLS_FULL,
+    "plan_lead_prompt_file": ".claude/agents/plan-team-research.md",
+}
+
+AGENT_RESEARCH_LEAD_GPT55: dict[str, Any] = {
+    "name": "Research Lead (GPT-5.5)",
+    "assistant": "copilot",
+    "model": "gpt-5.5",
+    "system_prompt": f"{_THINK_CAREFULLY}\n\nYou are the research team lead. Read each team member's proposal, weigh them against destination.md and adr.md, and produce the single merged plan. Resolve disagreements with reasoning, drop duplicates, and order tasks by strategic value toward the research destination — cite quality, source coverage, scenario completeness, argument balance, format discipline.",
+    "tools": TOOLS_FULL,
+    "plan_lead_prompt_file": ".claude/agents/plan-team-research.md",
+}
+
+
+# -----------------------------------------------------------------------------
 # 3c. Duo-team specialists — two complementary planners (Thinker + Bug Hunter)
 # that together cover strategy + rigor without the cost of the full power roster.
 # -----------------------------------------------------------------------------
@@ -484,6 +607,8 @@ AGENTS: dict[str, dict[str, Any]] = {
     "decider_haiku_claude": AGENT_DECIDER_HAIKU_CLAUDE,
     "deliberator_opus_claude": AGENT_DELIBERATOR_OPUS_CLAUDE,
     "deliberator_sonnet_claude": AGENT_DELIBERATOR_SONNET_CLAUDE,
+    "editor_gpt55": AGENT_EDITOR_GPT55,
+    "editor_opus47": AGENT_EDITOR_OPUS47,
     "guardian_copilot": AGENT_GUARDIAN_COPILOT,
     "guardian_gpt55": AGENT_GUARDIAN_GPT55,
     "howfar_gpt55": AGENT_HOWFAR_GPT55,
@@ -503,8 +628,14 @@ AGENTS: dict[str, dict[str, Any]] = {
     "quick_b_gpt41_copilot": AGENT_QUICK_B_GPT41_COPILOT,
     "refactorer_claude": AGENT_REFACTORER_CLAUDE,
     "refactorer_gpt55": AGENT_REFACTORER_GPT55,
+    "research_lead_gpt55": AGENT_RESEARCH_LEAD_GPT55,
+    "research_lead_opus47": AGENT_RESEARCH_LEAD_OPUS47,
     "speed_runner_copilot": AGENT_SPEED_RUNNER_COPILOT,
+    "steelmanner_gpt55": AGENT_STEELMANNER_GPT55,
+    "steelmanner_opus47": AGENT_STEELMANNER_OPUS47,
     "strategist_opus47": AGENT_STRATEGIST_OPUS47,
+    "synthesizer_gpt55": AGENT_SYNTHESIZER_GPT55,
+    "synthesizer_opus47": AGENT_SYNTHESIZER_OPUS47,
     "teamlead_gpt55": AGENT_TEAMLEAD_GPT55,
     "teamlead_opus47": AGENT_TEAMLEAD_OPUS47,
     "tester_copilot": AGENT_TESTER_COPILOT,
@@ -514,4 +645,6 @@ AGENTS: dict[str, dict[str, Any]] = {
     "visionary_claude": AGENT_VISIONARY_CLAUDE,
     "visionary_gpt55": AGENT_VISIONARY_GPT55,
     "visionary_opus47": AGENT_VISIONARY_OPUS47,
+    "web_researcher_gpt55": AGENT_WEB_RESEARCHER_GPT55,
+    "web_researcher_opus47": AGENT_WEB_RESEARCHER_OPUS47,
 }

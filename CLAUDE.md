@@ -45,9 +45,11 @@ src/autosprint/
   output.py         # printlev() — level-gated stdout
   errors.py         # add_context, RevertReason, PhaseFailedError, StopRequested, WaypointReached
 .claude/agents/
-  plan-agent.md     # Prompt template for a single agent's Plan phase
-  plan-team.md      # Prompt for the selector when merging team proposals
-  implement.md      # Prompt for the Implement phase
+  plan-agent.md            # Prompt template for a single agent's Plan phase (code projects)
+  plan-team.md             # Prompt for the selector when merging team proposals (code projects)
+  plan-agent-research.md   # Plan-phase prompt for research-team members (sources / paper / deep-dives)
+  plan-team-research.md    # Selector prompt for the research team lead
+  implement.md             # Prompt for the Implement phase (artifact-agnostic — code or research)
 tests/
   test_plan_phase.py
   test_implement.py

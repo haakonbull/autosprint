@@ -53,33 +53,47 @@ def _assert_target_repo_not_self() -> None:
 # ---------------------------------------------------------------------------
 
 
-DESTINATION_EXAMPLE_PATH = "examples/destination_platformer.example.md"
+EXAMPLES_SOURCE_DIR = "examples"
+DEFAULT_DESTINATION_SEED_FILENAME = "destination_game.example.md"
 
 
-def _read_canonical_seed(relative_path: str, label: str) -> str:
-    """Returns the canonical seed content for `label` from autosprint's own repo at `relative_path`. Used by the seed helpers so the example/README files at examples/ stay the single source of truth — editing those Markdown files updates what `autosprint init` writes to target repos."""
+def _ensure_examples_dir_seeded() -> list[str]:
+    """Mirror autosprint's `examples/` folder into `<target>/autosprint/examples/` so users see all available destination templates (game, flight-shooter, full template, blank template, concerns checklist) and the waypoint example alongside their own `destination.md`. Idempotent: per-file copy, existing files are left alone so user edits survive re-init. Returns the list of filenames newly copied (empty when nothing changed) so callers can log. Silent (returns []) when autosprint's own examples/ folder is missing — defensive, shouldn't happen in a normal install."""
     try:
-        return (_project_root() / relative_path).read_text(encoding="utf-8")
+        src_root = _project_root() / EXAMPLES_SOURCE_DIR
+        if not src_root.is_dir():
+            return []
+        dst_root = config.TARGET_REPO_PATH / AUTOSPRINT_DIR_NAME / EXAMPLES_SOURCE_DIR
+        dst_root.mkdir(parents=True, exist_ok=True)
+        copied: list[str] = []
+        for entry in sorted(src_root.iterdir()):
+            if not entry.is_file():
+                continue
+            dst = dst_root / entry.name
+            if dst.exists():
+                continue
+            shutil.copy2(entry, dst)
+            copied.append(entry.name)
+        if copied:
+            printlev(f"[init] Seeded {AUTOSPRINT_DIR_NAME}/{EXAMPLES_SOURCE_DIR}/: {', '.join(copied)}", level=100)
+        return copied
     except Exception as e:
-        raise add_context(e, f"Failed to read canonical {label} seed at {relative_path}") from e
+        raise add_context(e, f"Failed to seed examples/ folder into {config.TARGET_REPO_PATH}") from e
 
 
 def _ensure_destination_or_abort() -> None:
-    """Abort if destination.md is missing. On first run, drops a `destination.example.md` next to where `destination.md` is expected (a short ready-to-run snake-game demo from `examples/destination.example.md` in autosprint's own repo), and tells the user to either rename it to `destination.md` to use the demo or write their own from scratch. The example file in autosprint's repo is the single source of truth for the seed content."""
+    """Abort if destination.md is missing or empty. The seed templates live in `<target>/autosprint/examples/` (placed there by `_ensure_examples_dir_seeded`), so the abort message points the user at the default seed (`destination_game.example.md`) for a quick start, or at `destination_full_template.md` if they'd rather write from scratch."""
     try:
         dest_path = config.TARGET_REPO_PATH / DESTINATION_FILENAME
         if dest_path.exists() and dest_path.read_text(encoding="utf-8").strip():
             return
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        example_path = dest_path.parent / "destination.example.md"
-        if not example_path.exists():
-            seed = _read_canonical_seed(DESTINATION_EXAMPLE_PATH, "destination")
-            example_path.write_text(seed, encoding="utf-8")
-        raise RuntimeError(f"Aborted: {dest_path} is missing or empty. A short demo destination has been placed at {example_path}. To try the demo, rename it to `destination.md`. To write your own, create `destination.md` (see `examples/destination_full_template.md` in the autosprint clone for a structured template). Then re-run.")
+        examples_rel = f"{AUTOSPRINT_DIR_NAME}/{EXAMPLES_SOURCE_DIR}"
+        raise RuntimeError(f"Aborted: {dest_path} is missing or empty. Quick start: `cp {examples_rel}/{DEFAULT_DESTINATION_SEED_FILENAME} {dest_path.as_posix()}` to use the bundled 3D-game demo, or `cp {examples_rel}/destination_research_ai_bubble.example.md {dest_path.as_posix()}` for a research-project demo. To write your own, copy `{examples_rel}/destination_full_template.md` and fill in the prompts. Then re-run.")
     except RuntimeError:
         raise
     except Exception as e:
-        raise add_context(e, f"Failed to check/seed destination.md in {config.TARGET_REPO_PATH}") from e
+        raise add_context(e, f"Failed to check destination.md in {config.TARGET_REPO_PATH}") from e
 
 
 def _ensure_adr_stub() -> None:
@@ -745,6 +759,7 @@ def _run_init(assume_defaults: bool = False) -> None:
         _verify_target_is_git_repo()
         printlev(f"[init] ✅ TARGET_REPO is a git repository: {config.TARGET_REPO_PATH}", level=100)
         _migrate_legacy_autosprint_files()
+        _ensure_examples_dir_seeded()
         try:
             _ensure_destination_or_abort()
             printlev("[init] autosprint/destination.md exists and has content.", level=100)
@@ -778,6 +793,57 @@ def _run_init(assume_defaults: bool = False) -> None:
 # Cheapest agent per backend — used only for the doctor connectivity probe.
 _DOCTOR_PROBE_AGENT_KEY: dict[str, str] = {"claude": "decider_haiku_claude", "copilot": "quick_a_gpt41_copilot"}
 
+# Runtime deps the dispatch layer imports. If any of these are missing, every
+# Plan/Implement dispatch will fail mid-sprint — exactly the trap a stale
+# `pip install -e .` from before pyproject's deps were declared puts you in.
+# (module_import_name, install_name_for_the_hint).
+_REQUIRED_RUNTIME_DEPS: tuple[tuple[str, str], ...] = (
+    ("claude_agent_sdk", "claude-agent-sdk"),
+    ("copilot", "github-copilot-sdk"),
+)
+
+
+def _check_install_health() -> tuple[bool, str]:
+    """Spot a stale autosprint install before any sprint touches it. Two specific traps this catches: (1) one or more of the runtime deps the dispatch layer needs (`claude_agent_sdk`, `copilot`) can't be imported — the symptom is "Copilot CLI not found" / similar errors several minutes into the first Plan phase; (2) `importlib.metadata.version("autosprint")` disagrees with the version declared in this checkout's `pyproject.toml`, which means the installed `autosprint.exe` is wired to an older metadata snapshot (typically a leftover `pip install -e .` from before the v0.2.0 dep list landed) — the editable hook still runs new code, but `pip` and pyproject don't agree on the dep list, so other pip activity can wipe out deps without warning. Returns (ok, message) so the caller can render it like any other doctor check."""
+    import importlib
+    import importlib.metadata
+    import tomllib
+
+    missing: list[tuple[str, str]] = []
+    for module_name, pkg_name in _REQUIRED_RUNTIME_DEPS:
+        try:
+            importlib.import_module(module_name)
+        except ImportError:
+            missing.append((module_name, pkg_name))
+
+    pyproject_version: str | None = None
+    try:
+        with (_project_root() / "pyproject.toml").open("rb") as f:
+            pyproject_version = tomllib.load(f).get("project", {}).get("version")
+    except (OSError, tomllib.TOMLDecodeError):
+        pyproject_version = None
+
+    installed_version: str | None = None
+    try:
+        installed_version = importlib.metadata.version("autosprint")
+    except importlib.metadata.PackageNotFoundError:
+        installed_version = None
+
+    version_skew = bool(pyproject_version and installed_version and pyproject_version != installed_version)
+    if not missing and not version_skew:
+        ver_label = f"v{installed_version}" if installed_version else "version unknown"
+        return True, f"Install health OK ({ver_label}; all runtime deps importable)"
+
+    problems: list[str] = []
+    if missing:
+        mods = ", ".join(f"`{m}` (from `{p}`)" for m, p in missing)
+        problems.append(f"missing runtime deps: {mods}")
+    if version_skew:
+        problems.append(f"version skew: installed autosprint=={installed_version} but this checkout's pyproject.toml is {pyproject_version} — the installed metadata is stale")
+    autosprint_dir = _project_root()
+    hint = f"Stale install detected — {'; '.join(problems)}.\n      Fix: `python -m pip uninstall -y autosprint` (if pip-installed), then `uv tool install --editable {autosprint_dir}`. This gives autosprint its own venv with pyproject.toml deps, so other pip activity can't silently break dispatch."
+    return False, hint
+
 
 async def _doctor_probe(assistant: str) -> tuple[bool, str]:
     """Dispatch one trivial prompt to `assistant`'s cheapest agent to confirm that
@@ -810,7 +876,12 @@ def run_doctor() -> None:
             results.append(ok)
             printlev(f"[doctor] {'✅' if ok else '❌'} {msg}", level=100)
 
-        # 1. Target repo.
+        # 1. Install health — runtime-dep importability + version-skew between installed metadata and this checkout's pyproject.
+        # Runs first so a stale install is the first thing the user sees, not the symptom (dispatch errors several minutes in).
+        install_ok, install_msg = _check_install_health()
+        check(install_ok, install_msg)
+
+        # 2. Target repo.
         target = config.TARGET_REPO_PATH
         if target.resolve() == _project_root().resolve():
             check(False, f"Target repo is the autosprint repo itself ({target}) — cd into your project, or pass --target PATH.")

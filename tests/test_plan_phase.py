@@ -21,6 +21,139 @@ VALID_PLAN_RESPONSE = '---RESULT---\n{"pending": [{"title": "Do thing", "descrip
 PLAN_RESPONSE_WITH_SUMMARY = '---RESULT---\n{"pending": [{"title": "Do thing", "description": "Do the first thing."}], "plan_summary": "Merged 8 proposals into 1 task."}\n---END---'
 
 
+# ---------------------------------------------------------------------------
+# Research teams + prompt-file selection — added with research_council.
+# Asserts: every research team key resolves; agents declare the research
+# prompt files; Web Researcher gets TOOLS_RESEARCH; the build/assemble helpers
+# route to the declared prompt files when set.
+# ---------------------------------------------------------------------------
+
+
+def test_research_council_teams_registered() -> None:
+    """All three research_council variants resolve in TEAMS and have a selector."""
+    from autosprint.teams import TEAMS
+
+    for key in ("research_council", "research_council_opus", "research_council_gpt55"):
+        team = TEAMS[key]
+        assert "agents" in team and len(team["agents"]) == 4, f"{key} should have 4 members"
+        assert "selector" in team, f"{key} needs a selector"
+
+
+def test_research_agents_declare_research_prompt_files() -> None:
+    """Every research-role agent points at the research-flavored plan-agent prompt; the research-lead agents point at the research team-lead prompt."""
+    from autosprint.agents import (
+        AGENT_EDITOR_GPT55,
+        AGENT_EDITOR_OPUS47,
+        AGENT_RESEARCH_LEAD_GPT55,
+        AGENT_RESEARCH_LEAD_OPUS47,
+        AGENT_STEELMANNER_GPT55,
+        AGENT_STEELMANNER_OPUS47,
+        AGENT_SYNTHESIZER_GPT55,
+        AGENT_SYNTHESIZER_OPUS47,
+        AGENT_WEB_RESEARCHER_GPT55,
+        AGENT_WEB_RESEARCHER_OPUS47,
+    )
+
+    members = [AGENT_WEB_RESEARCHER_OPUS47, AGENT_WEB_RESEARCHER_GPT55, AGENT_SYNTHESIZER_OPUS47, AGENT_SYNTHESIZER_GPT55, AGENT_STEELMANNER_OPUS47, AGENT_STEELMANNER_GPT55, AGENT_EDITOR_OPUS47, AGENT_EDITOR_GPT55]
+    for a in members:
+        assert a.get("plan_prompt_file") == ".claude/agents/plan-agent-research.md", f"{a['name']} should point at the research member prompt"
+    for lead in (AGENT_RESEARCH_LEAD_OPUS47, AGENT_RESEARCH_LEAD_GPT55):
+        assert lead.get("plan_lead_prompt_file") == ".claude/agents/plan-team-research.md", f"{lead['name']} should point at the research team-lead prompt"
+
+
+def test_web_researcher_has_research_tools_preset() -> None:
+    """Web Researcher needs web access — declares TOOLS_RESEARCH so its preset survives the Plan-phase TOOLS_READ_ONLY override."""
+    from autosprint.agents import AGENT_WEB_RESEARCHER_GPT55, AGENT_WEB_RESEARCHER_OPUS47, TOOLS_RESEARCH
+
+    assert AGENT_WEB_RESEARCHER_OPUS47["tools"] == TOOLS_RESEARCH
+    assert AGENT_WEB_RESEARCHER_GPT55["tools"] == TOOLS_RESEARCH
+
+
+def test_research_prompt_files_exist_on_disk() -> None:
+    """The two research prompt files referenced by the agents are checked into the repo so `read_agent_file` can load them at dispatch time."""
+    from autosprint.config import _project_root
+
+    member_prompt = _project_root() / ".claude" / "agents" / "plan-agent-research.md"
+    lead_prompt = _project_root() / ".claude" / "agents" / "plan-team-research.md"
+    assert member_prompt.exists(), f"missing research member prompt: {member_prompt}"
+    assert lead_prompt.exists(), f"missing research team-lead prompt: {lead_prompt}"
+
+
+def test_build_prompt_for_plan_phase_routes_to_research_prompt_when_declared(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An agent that declares `plan_prompt_file` makes build_prompt_for_plan_phase load that file instead of the default plan-agent.md."""
+    captured: dict[str, str] = {}
+
+    def fake_read(rel: str) -> str:
+        captured["loaded"] = rel
+        return "TEMPLATE {name} {system_prompt}"
+
+    monkeypatch.setattr(plan_phase_mod, "read_agent_file", fake_read)
+    monkeypatch.setattr(plan_phase_mod, "plan_phase_context", lambda: "")
+
+    research_agent = {"name": "Synth", "system_prompt": "be smart", "plan_prompt_file": ".claude/agents/plan-agent-research.md"}
+    plan_phase_mod.build_prompt_for_plan_phase(research_agent)
+    assert captured["loaded"] == ".claude/agents/plan-agent-research.md"
+
+    code_agent = {"name": "Bug", "system_prompt": "find bugs"}
+    plan_phase_mod.build_prompt_for_plan_phase(code_agent)
+    assert captured["loaded"] == ".claude/agents/plan-agent.md"
+
+
+def test_assemble_prompt_for_team_lead_routes_to_research_prompt_when_selector_declares_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the selector declares `plan_lead_prompt_file`, assemble_prompt_for_team_lead loads that file. When no selector or no declared file, it falls back to the default plan-team.md."""
+    captured: dict[str, str] = {}
+
+    def fake_read(rel: str) -> str:
+        captured["loaded"] = rel
+        return ""
+
+    monkeypatch.setattr(plan_phase_mod, "read_agent_file", fake_read)
+
+    # Minimal ctx — only `to_proposals_text` and the two summary fields are used.
+    class _FakeTaskLists:
+        def to_proposals_text(self) -> str:
+            return ""
+
+    ctx = plan_phase_mod.TeamLeadContext(proposed_task_lists=_FakeTaskLists(), preflight_summary="", last_test_output="")
+
+    research_selector = {"name": "Research Lead", "plan_lead_prompt_file": ".claude/agents/plan-team-research.md"}
+    plan_phase_mod.assemble_prompt_for_team_lead(ctx, selector=research_selector)
+    assert captured["loaded"] == ".claude/agents/plan-team-research.md"
+
+    code_selector = {"name": "Team Lead"}
+    plan_phase_mod.assemble_prompt_for_team_lead(ctx, selector=code_selector)
+    assert captured["loaded"] == ".claude/agents/plan-team.md"
+
+    # selector=None path — legacy callers / fixtures that don't pass the selector still get the default code prompt.
+    plan_phase_mod.assemble_prompt_for_team_lead(ctx)
+    assert captured["loaded"] == ".claude/agents/plan-team.md"
+
+
+def test_tools_research_preset_survives_read_only_override() -> None:
+    """A TOOLS_RESEARCH agent overridden to TOOLS_READ_ONLY keeps its preset — Plan phase passes TOOLS_READ_ONLY but we don't want to neuter Web Researcher's web access."""
+    from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH
+    from autosprint.dispatch import _effective_preset
+
+    research_agent = {"tools": TOOLS_RESEARCH}
+    assert _effective_preset(research_agent, TOOLS_READ_ONLY) == TOOLS_RESEARCH
+    assert _effective_preset(research_agent, None) == TOOLS_RESEARCH
+
+    # Sanity: normal agents still get the more-restrictive preset.
+    full_agent = {"tools": TOOLS_FULL}
+    assert _effective_preset(full_agent, TOOLS_READ_ONLY) == TOOLS_READ_ONLY
+    assert _effective_preset(full_agent, None) == TOOLS_FULL
+
+
+def test_claude_research_tool_preset_includes_web_and_write() -> None:
+    """Dispatch maps TOOLS_RESEARCH to a Claude allowlist that includes WebFetch/WebSearch (for fetching new sources) and Write/Edit (for landing them in `docs/sources.md`), but NOT Bash (research agents don't shell out)."""
+    from autosprint.agents import TOOLS_RESEARCH
+    from autosprint.dispatch import _CLAUDE_TOOLS
+
+    tools = set(_CLAUDE_TOOLS[TOOLS_RESEARCH])
+    assert {"WebFetch", "WebSearch", "Read", "Write", "Edit", "Glob", "Grep"}.issubset(tools)
+    assert "Bash" not in tools
+
+
 def test_plan_depth_section_empty_in_loop_mode() -> None:
     """Loop mode (plan_only_mode=False) gets no depth section — the plan-team.md 5–10 default stands."""
     assert plan_phase_mod.plan_depth_section(False) == ""

@@ -11,8 +11,8 @@ import pytest
 
 import autosprint.init as init_mod
 from autosprint.config import config
-from autosprint.init import _copy_claude_assets_to_target, _ensure_adr_stub, _ensure_destination_or_abort, _ensure_gitignore_entries
-from autosprint.paths import ADR_FILENAME, DESTINATION_FILENAME
+from autosprint.init import _copy_claude_assets_to_target, _ensure_adr_stub, _ensure_destination_or_abort, _ensure_examples_dir_seeded, _ensure_gitignore_entries
+from autosprint.paths import ADR_FILENAME, AUTOSPRINT_DIR_NAME, DESTINATION_FILENAME
 
 # ---------------------------------------------------------------------------
 # _ensure_adr_stub
@@ -43,17 +43,13 @@ def test_ensure_adr_stub_does_not_overwrite_existing(monkeypatch: pytest.MonkeyP
 # ---------------------------------------------------------------------------
 
 
-def test_ensure_destination_creates_seed_and_aborts_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """When destination.md is missing, init seeds `destination.example.md` (NOT destination.md) and aborts, telling the user to rename or write their own."""
+def test_ensure_destination_aborts_with_examples_hint_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """When destination.md is missing, init aborts with a message pointing the user at the bundled seeds in `autosprint/examples/` (placed there by `_ensure_examples_dir_seeded` earlier in the init flow). destination.md is NOT auto-created — the user picks a seed or writes from scratch."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    with pytest.raises(RuntimeError, match="destination"):
+    with pytest.raises(RuntimeError, match="examples/destination_game.example.md"):
         _ensure_destination_or_abort()
-    # destination.md itself is NOT created — the user must decide whether to rename or start fresh.
+    # destination.md itself is NOT created — the user must decide whether to copy a seed or start fresh.
     assert not (tmp_path / DESTINATION_FILENAME).exists()
-    # The demo example was placed next to it for the user to rename if they want.
-    example_path = (tmp_path / DESTINATION_FILENAME).parent / "destination.example.md"
-    assert example_path.exists()
-    assert example_path.read_text(encoding="utf-8").strip()  # non-empty seed
 
 
 def test_ensure_destination_passes_when_file_has_content(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -71,6 +67,60 @@ def test_ensure_destination_aborts_when_file_is_empty(monkeypatch: pytest.Monkey
     path.write_text("   \n\n   \n", encoding="utf-8")  # whitespace only
     with pytest.raises(RuntimeError, match="destination"):
         _ensure_destination_or_abort()
+
+
+# ---------------------------------------------------------------------------
+# _ensure_examples_dir_seeded
+# ---------------------------------------------------------------------------
+
+
+def test_ensure_examples_dir_seeded_copies_all_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Seeds the target's `autosprint/examples/` with every file from autosprint's source `examples/` folder. Idempotent: a re-run leaves existing files alone."""
+    src_root = tmp_path / "autosprint_src"
+    (src_root / "examples").mkdir(parents=True)
+    (src_root / "examples" / "destination_game.example.md").write_text("# game seed\n", encoding="utf-8")
+    (src_root / "examples" / "destination_full_template.md").write_text("# full template\n", encoding="utf-8")
+    (src_root / "examples" / "waypoint.example.md").write_text("# waypoint\n", encoding="utf-8")
+    target = tmp_path / "target"
+    monkeypatch.setattr(config, "TARGET_REPO", str(target))
+    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+
+    copied = _ensure_examples_dir_seeded()
+    examples_dir = target / AUTOSPRINT_DIR_NAME / "examples"
+    assert sorted(copied) == ["destination_full_template.md", "destination_game.example.md", "waypoint.example.md"]
+    assert (examples_dir / "destination_game.example.md").read_text(encoding="utf-8") == "# game seed\n"
+    assert (examples_dir / "destination_full_template.md").read_text(encoding="utf-8") == "# full template\n"
+    assert (examples_dir / "waypoint.example.md").read_text(encoding="utf-8") == "# waypoint\n"
+
+
+def test_ensure_examples_dir_seeded_preserves_user_edits(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A re-run does NOT overwrite an example the user has edited locally."""
+    src_root = tmp_path / "autosprint_src"
+    (src_root / "examples").mkdir(parents=True)
+    (src_root / "examples" / "destination_game.example.md").write_text("# fresh seed\n", encoding="utf-8")
+    target = tmp_path / "target"
+    examples_dir = target / AUTOSPRINT_DIR_NAME / "examples"
+    examples_dir.mkdir(parents=True)
+    (examples_dir / "destination_game.example.md").write_text("# my hand-edited version\n", encoding="utf-8")
+    monkeypatch.setattr(config, "TARGET_REPO", str(target))
+    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+
+    copied = _ensure_examples_dir_seeded()
+    assert copied == []  # nothing newly copied — the existing user-edited file was respected
+    assert (examples_dir / "destination_game.example.md").read_text(encoding="utf-8") == "# my hand-edited version\n"
+
+
+def test_ensure_examples_dir_seeded_silent_when_source_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A defensive guard — if autosprint's examples/ folder is missing (broken install), don't crash, just no-op."""
+    src_root = tmp_path / "autosprint_src"  # no examples/ subdir created
+    src_root.mkdir()
+    target = tmp_path / "target"
+    monkeypatch.setattr(config, "TARGET_REPO", str(target))
+    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+
+    copied = _ensure_examples_dir_seeded()
+    assert copied == []
+    assert not (target / AUTOSPRINT_DIR_NAME / "examples").exists()
 
 
 # ---------------------------------------------------------------------------

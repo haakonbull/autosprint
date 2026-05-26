@@ -152,8 +152,8 @@ async def run_implement_llm(task_group: list[dict], sprint_number: int, agent_ov
             task_lines = "\n\n".join(f"### Task {i}: {t['title']}\n\n{t['description']}" for i, t in enumerate(task_group, 1))
             task_section = f"\n\n## Current task group ({len(task_group)} tasks)\n\nYou are implementing this group of {len(task_group)} tasks together in a single sprint. Work through them in order. The scope-discipline rules apply **per task** — each task should touch only what that task needs; don't let task-1 bleed into task-2's files unless a concrete dependency requires it. Your RESULT summary at the end should cover the whole group in one `summary` string (e.g. 'Task 1: X → Y. Task 2: A → B.').\n\n{task_lines}\n"
             plan_context_note = f"You are executing the FIRST {len(task_group)} pending tasks together as a group."
-        prompt = read_agent_file(".claude/agents/implement.md") + lock_destination_section() + f"\n\n## Plan context\n\nHere is the current autosprint/plan.md. {plan_context_note}\n\n{plan_text}{adr_block}{history}{task_section}"
         agent_to_use = agent_override if agent_override is not None else config.IMPLEMENT_AGENT_CONFIG
+        prompt = read_agent_file(".claude/agents/implement.md") + lock_destination_section() + f"\n\n## Plan context\n\nHere is the current autosprint/plan.md. {plan_context_note}\n\n{plan_text}{adr_block}{history}{task_section}"
         # Structured-result capture: both backends register `submit_implement_success`
         # / `submit_implement_failure` tools when this dict is passed; the agent's
         # typed args land here directly, no text parsing required.

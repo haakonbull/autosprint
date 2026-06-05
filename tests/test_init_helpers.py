@@ -93,6 +93,24 @@ def test_ensure_examples_dir_seeded_copies_all_files(monkeypatch: pytest.MonkeyP
     assert (examples_dir / "waypoint.example.md").read_text(encoding="utf-8") == "# waypoint\n"
 
 
+def test_ensure_examples_dir_seeded_copies_subfolders(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Asset folders inside examples/ (e.g. research_paper_assets/ with the LaTeX template) are seeded recursively, preserving their relative layout."""
+    src_root = tmp_path / "autosprint_src"
+    assets = src_root / "examples" / "research_paper_assets" / "LaTeXTemplates_journal-article_v2.0"
+    assets.mkdir(parents=True)
+    (assets / "LTJournalArticle.cls").write_text("% cls\n", encoding="utf-8")
+    (src_root / "examples" / "research_paper_assets" / "build_pdf.py").write_text("# build\n", encoding="utf-8")
+    target = tmp_path / "target"
+    monkeypatch.setattr(config, "TARGET_REPO", str(target))
+    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+
+    copied = _ensure_examples_dir_seeded()
+    examples_dir = target / AUTOSPRINT_DIR_NAME / "examples"
+    assert sorted(copied) == ["research_paper_assets/LaTeXTemplates_journal-article_v2.0/LTJournalArticle.cls", "research_paper_assets/build_pdf.py"]
+    assert (examples_dir / "research_paper_assets" / "LaTeXTemplates_journal-article_v2.0" / "LTJournalArticle.cls").read_text(encoding="utf-8") == "% cls\n"
+    assert (examples_dir / "research_paper_assets" / "build_pdf.py").read_text(encoding="utf-8") == "# build\n"
+
+
 def test_ensure_examples_dir_seeded_preserves_user_edits(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A re-run does NOT overwrite an example the user has edited locally."""
     src_root = tmp_path / "autosprint_src"

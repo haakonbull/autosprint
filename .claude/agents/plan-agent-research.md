@@ -4,7 +4,7 @@ Your job in the **Plan phase** is to propose an updated `autosprint/plan.md` for
 The plan is a sequenced list of tasks that close the gap between the current
 state of the **research artifacts** in this repo and the target state described in `autosprint/destination.md`.
 
-This is a **research project**, not a software project. The deliverables are documents (typically `docs/sources.md`, `docs/paper.md`, and one-or-more deep-dive files), not running code. Tasks should produce new sources, new written sections, refined arguments, sharpened scenarios, or fixed defects in the artifacts — not new functions or test cases (except for the small verification scripts under `tests/` that gate research-artifact quality).
+This is a **research project**, not a software project. The deliverables are documents (typically `results/sources.md`, `results/paper.md`, and one-or-more claim and deep-dive files), not running code. Tasks should produce new sources, new written sections, refined arguments, sharpened scenarios, or fixed defects in the artifacts — not new functions or test cases (except for the small verification scripts under `tests/` that gate research-artifact quality).
 
 ## What to read
 
@@ -16,8 +16,8 @@ All autosprint working documents live under the `autosprint/` directory at the r
    - **Recent completed** items (under `## Recent completed`) — what just happened
    - **Pending** items (under `## Pending`) — the current trajectory
 4. `autosprint/adr.md` — research-decision records: stable choices already made about scope, scenario structure, source-quality bar, layout (one deep-dive file vs many), etc. Respect these. Do not propose tasks that undo or contradict an ADR without a very strong reason; if you must propose such a task, the description should explicitly call out which decision it supersedes and why.
-5. `docs/` — the research output itself. Read it. `sources.md` (source ledger), `paper.md` (synthesis), and any deep-dive files are the artifacts you are improving.
-6. `autosprint/inputs/` — raw material the user dumped in (saved PDFs, transcripts, screenshots). **Consulted on demand.** Promote relevant content from here into `docs/sources.md` with proper citations as part of a research task.
+5. `results/` — the research output itself. Read it. `sources.md` (source ledger), `paper.md` (synthesis), and any claim or deep-dive files are the artifacts you are improving.
+6. `autosprint/inputs/` — raw material the user dumped in (saved PDFs, transcripts, screenshots). **Consulted on demand.** Promote relevant content from here into `results/sources.md` with proper citations as part of a research task.
 
 **Authority hierarchy:** waypoint.md (when active) > destination.md > inputs/. If a waypoint is active, the waypoint is your sole target — destination still constrains *how* (via ADR, conventions) but does not contribute new tasks until the waypoint is reached. If anything in `inputs/` contradicts destination.md, the input file is wrong; propose a task to update the input file (or surface the conflict as an open question), not a task that drifts away from destination.md. **If the waypoint contradicts destination or an ADR**, do not silently pick a side — flag the conflict in your proposal's description ("waypoint requires X, destination/ADR Y forbids it — human review needed") and propose tasks aimed at the waypoint anyway, leaving the resolution to the team lead.
 
@@ -38,7 +38,7 @@ A task description is an instruction the implementer acts on without re-checking
 
 So: **every factual claim you put in a task description must be verified against the actual repo state first.** You have read access — use it.
 
-- *"`docs/sources.md` has no entries on capex"* — grep `sources.md` and confirm before asserting it.
+- *"`results/sources.md` has no entries on capex"* — grep `sources.md` and confirm before asserting it.
 - *"The Soft Landing scenario in `paper.md` is missing a probability tag"* — open the file and check.
 - *"The `circular_deals` deep-dive has only the pro side"* — read the file and see.
 

@@ -53,7 +53,7 @@ class Config(BaseSettings):
     MAX_CONSECUTIVE_FAILURES: int = Field(default=5, description="Stop the PIT loop if this many sprints fail in a row.")
     TEAM: str = Field(
         default="council",
-        description="Which team configuration to use. See agents.TEAMS for available options. Default `council` is a 6-planner team — North Star + Bug Hunter + Pragmatist on Opus 4.7, Tester + Minimalist + Architect on GPT-5.5 — merged by an Opus 4.7 team lead. Six deliberately orthogonal lenses for broad coverage. Heavier than the smaller teams (6 LLM dispatches per plan); in the reviewed-plan workflow it runs once via `autosprint plan`, so the weight is paid once. Claude-only users: set TEAM=solo_opus. Copilot-only users: set TEAM=solo_gpt55. Lighter teams for the in-loop auto-plan cadence: `builder` (4 voices) or `duo` (2).",
+        description="Which team configuration to use. See agents.TEAMS for available options. Default `council` is a 6-planner team — North Star + Bug Hunter + Pragmatist on Opus 4.8, Tester + Minimalist + Architect on GPT-5.5 — merged by an Opus 4.8 team lead. Six deliberately orthogonal lenses for broad coverage. Heavier than the smaller teams (6 LLM dispatches per plan); in the reviewed-plan workflow it runs once via `autosprint plan`, so the weight is paid once. Claude-only users: set TEAM=solo_opus. Copilot-only users: set TEAM=solo_gpt55. Lighter teams for the in-loop auto-plan cadence: `builder` (4 voices) or `duo` (2).",
     )
     SPRINT_STORY_POINT_MIN: int = Field(
         default=2,
@@ -73,16 +73,16 @@ class Config(BaseSettings):
     # `config.IMPLEMENT_AGENT_CONFIG`; callers wanting "which key is configured" use
     # `config.IMPLEMENT_AGENT`. Same pattern for TEAM and HOWFAR_AGENT.
     IMPLEMENT_AGENT: str = Field(
-        default="implementor_opus47",
-        description="Agent key (into agents.AGENTS) for the Implement phase. Default `implementor_opus47` (Claude Opus 4.7) is the strong production pick. Copilot-only users: set IMPLEMENT_AGENT=implementor_gpt55. Debug/quick iteration: set IMPLEMENT_AGENT=quick_a_gpt41_copilot. The resolved agent dict is at `config.IMPLEMENT_AGENT_CONFIG`.",
+        default="implementor_opus48",
+        description="Agent key (into agents.AGENTS) for the Implement phase. Default `implementor_opus48` (Claude Opus 4.8) is the strong production pick. Copilot-only users: set IMPLEMENT_AGENT=implementor_gpt55. Debug/quick iteration: set IMPLEMENT_AGENT=quick_a_gpt41_copilot. The resolved agent dict is at `config.IMPLEMENT_AGENT_CONFIG`.",
     )
     IMPLEMENT_FALLBACK_AGENT: str = Field(
         default="implementor_gpt55",
-        description="Refusal-fallback agent. When the primary `IMPLEMENT_AGENT` returns a refusal-pattern failure (the Opus 4.7 read-tool malware-reminder misread), the orchestrator reverts the primary's partial edits and re-dispatches the same task group to this fallback agent. Default `implementor_gpt55` (Copilot) sidesteps the failure mode entirely because the Copilot SDK doesn't carry the offending reminder. Set to empty string to disable the fallback (legacy behaviour: refusal → revert + raise). Only fires on refusal patterns; non-refusal failures (test failures, malformed responses, real bugs) revert as before so problems aren't masked.",
+        description="Refusal-fallback agent. When the primary `IMPLEMENT_AGENT` returns a refusal-pattern failure (the Opus 4.8 read-tool malware-reminder misread), the orchestrator reverts the primary's partial edits and re-dispatches the same task group to this fallback agent. Default `implementor_gpt55` (Copilot) sidesteps the failure mode entirely because the Copilot SDK doesn't carry the offending reminder. Set to empty string to disable the fallback (legacy behaviour: refusal → revert + raise). Only fires on refusal patterns; non-refusal failures (test failures, malformed responses, real bugs) revert as before so problems aren't masked.",
     )
     HOWFAR_AGENT: str = Field(
-        default="howfar_opus47",
-        description="Agent that runs `autosprint how-far` — the read-only distance-to-destination measurement. Must be a key in agents.AGENTS. Default `howfar_opus47` (Claude Opus 4.7). On a Copilot-only setup, or when Claude tokens are exhausted, set HOWFAR_AGENT=howfar_gpt55 (Copilot GPT-5.5) — or pass `autosprint how-far --agent howfar_gpt55` for a one-off. The agent runs with the read-only tool preset regardless, so how-far can never modify the repo.",
+        default="howfar_opus48",
+        description="Agent that runs `autosprint how-far` — the read-only distance-to-destination measurement. Must be a key in agents.AGENTS. Default `howfar_opus48` (Claude Opus 4.8). On a Copilot-only setup, or when Claude tokens are exhausted, set HOWFAR_AGENT=howfar_gpt55 (Copilot GPT-5.5) — or pass `autosprint how-far --agent howfar_gpt55` for a one-off. The agent runs with the read-only tool preset regardless, so how-far can never modify the repo.",
     )
     HOWFAR_HEARTBEAT_EVERY_N_SPRINTS: int = Field(
         default=10,

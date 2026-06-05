@@ -27,7 +27,7 @@ The destination document will describe the state we want to come to. It will not
 
 ## Purpose
 
-A genuinely fun 3D action game with fantastic graphics — the kind of game that gives a player a real moment of happiness the first time they play it. Serves as an autosprint demo on a moderately ambitious 3D project with both gameplay logic and rendering polish on the line.
+A genuinely fun 3D shooter with amazing graphics — the kind of game that gives a player a real moment of happiness the first time they play it. The player fights back living, moving enemies, not a shooting gallery. Serves as an autosprint demo on a moderately ambitious 3D project with both gameplay logic and rendering polish on the line.
 
 ## Users
 
@@ -44,8 +44,8 @@ In priority order:
 5. **Right mouse button** triggers the secondary action — either aim-down-sights for the primary weapon, or a block / parry stance when the melee weapon is equipped.
 6. **C** swings the melee weapon (a sword) in a short arc in front of the character. Targets in the arc get hit.
 7. **V** cycles between weapon loadouts (primary ranged ↔ melee). The currently-equipped weapon is visible on the character.
-8. Targets exist in the scene. Hitting a target with a projectile triggers an explosion (~0.6 s lifecycle: impact flash → expanding sphere → fading particles → done). Hitting a target with the sword triggers a slash effect and destroys the target without an explosion.
-9. The scene looks polished: lighting that casts shadows, a textured ground, a skybox or far-distance backdrop, and weapons / characters that read as solid 3D objects (not flat sprites in a 3D scene).
+8. Enemies exist in the scene and are a real threat: they move toward the player rather than standing still. Some enemies carry swords and press in for close-quarters attacks; some carry ranged weapons and shoot back at the player with projectiles that can be dodged. Hitting an enemy with a projectile triggers an explosion (~0.6 s lifecycle: impact flash → expanding sphere → fading particles → done). Hitting an enemy with the sword triggers a slash effect and destroys the enemy without an explosion.
+9. The scene looks amazing: lighting that casts shadows, a textured ground, a skybox or far-distance backdrop, and weapons / characters that read as solid 3D objects (not flat sprites in a 3D scene). The player character and the enemies have deliberate, appealing designs — recognizable figures with faces, weapons and personality, never placeholder primitives left as-is.
 
 ## Out of scope
 
@@ -66,7 +66,7 @@ In priority order:
 
 ## Test strategy
 
-Unit tests for: player movement on each of `W` / `A` / `S` / `D` (relative to camera direction), jump arc (rising → peak → falling → grounded), weapon-switch state (`V` cycles, `C` swings melee, `LMB` fires ranged, `RMB` aims/blocks), projectile motion and despawn, projectile-target collision, melee hit detection (which targets are inside the swing arc), explosion state transitions, and any score / lives bookkeeping the game ends up tracking. A single smoke test that constructs an initial game state with a few targets is enough for the rendering layer.
+Unit tests for: player movement on each of `W` / `A` / `S` / `D` (relative to camera direction), jump arc (rising → peak → falling → grounded), weapon-switch state (`V` cycles, `C` swings melee, `LMB` fires ranged, `RMB` aims/blocks), projectile motion and despawn, projectile-enemy collision, enemy movement toward the player, enemy fire and its effect on the player, melee hit detection (which enemies are inside the swing arc), explosion state transitions, and any score / lives bookkeeping the game ends up tracking. A single smoke test that constructs an initial game state with a few targets is enough for the rendering layer.
 
 ## AI-resolved questions
 

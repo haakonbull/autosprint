@@ -23,6 +23,8 @@ Design rules:
 from __future__ import annotations
 
 import sqlite3
+import subprocess
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -95,8 +97,35 @@ def _ensure_gitignore_excludes_runs_db() -> None:
         printlev(f"[db] _ensure_gitignore_excludes_runs_db failed (non-fatal): {e}", level=50)
 
 
+def _untrack_runs_db_if_tracked() -> None:
+    """If ``runs.db`` is tracked in the target repo (residual from a run that predates the gitignore entry), untrack it from the git index without removing the working-tree file. Gitignore only prevents tracking of NEW files; an already-tracked ``runs.db`` keeps being tracked, lands in commits, and — worse on Windows — gets touched by ``git restore .`` during sprint revert, where SQLite's file lock makes the restore fail with exit 255 (real bug observed 2026-05-29). Self-heals on next ``_connect()``. Failure is silently swallowed — never break a sprint over housekeeping."""
+    try:
+        # ls-files --error-unmatch returns non-zero when the path is not tracked
+        # — exactly what we want to gate on. capture_output suppresses git's
+        # error text on the not-tracked case so it doesn't pollute console.
+        check = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", _DB_FILENAME],
+            capture_output=True,
+            text=True,
+            cwd=config.TARGET_REPO_PATH,
+        )
+        if check.returncode != 0:
+            return  # not tracked, nothing to do
+        subprocess.run(
+            ["git", "rm", "--cached", "--quiet", _DB_FILENAME],
+            capture_output=True,
+            text=True,
+            cwd=config.TARGET_REPO_PATH,
+            check=True,
+        )
+        printlev(f"[db] Untracked {_DB_FILENAME} from git index (local scratch only — gets recreated automatically). Next commit will drop it from history.", level=50)
+    except Exception as e:
+        printlev(f"[db] _untrack_runs_db_if_tracked failed (non-fatal): {e}", level=50)
+
+
 def _connect() -> sqlite3.Connection:
     _ensure_gitignore_excludes_runs_db()
+    _untrack_runs_db_if_tracked()
     path = _db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, isolation_level=None, timeout=5.0)
@@ -119,7 +148,14 @@ def record_run_start(target_repo: str, team: str, implement_agent: str) -> None:
     if config.FAKE_IMPLEMENT:
         return
     try:
-        with _connect() as conn:
+        # `closing()` is required because sqlite3.Connection's own context manager
+        # only commits/rolls back the transaction — it does NOT close the
+        # connection. On Windows, an un-closed connection holds the file lock on
+        # runs.db until GC; if a leaked connection is still alive when
+        # `git_restore()` fires during sprint revert, `git restore .` returns
+        # exit 255 because the file is locked. Wrapping in `closing()` guarantees
+        # a real `conn.close()` and releases the lock immediately.
+        with closing(_connect()) as conn:
             cur = conn.execute(
                 "INSERT INTO runs (started_at, target_repo, team, implement_agent) VALUES (?, ?, ?, ?)",
                 (_now(), target_repo, team, implement_agent),
@@ -137,7 +173,7 @@ def record_run_end(end_reason: str) -> None:
     if _CURRENT_RUN_ID is None:
         return
     try:
-        with _connect() as conn:
+        with closing(_connect()) as conn:
             conn.execute(
                 "UPDATE runs SET ended_at = ?, end_reason = ? WHERE id = ?",
                 (_now(), end_reason, _CURRENT_RUN_ID),
@@ -164,7 +200,7 @@ def record_task_attempt(
     if _CURRENT_RUN_ID is None:
         return
     try:
-        with _connect() as conn:
+        with closing(_connect()) as conn:
             conn.execute(
                 """
                 INSERT INTO task_attempts

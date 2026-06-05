@@ -27,7 +27,7 @@ def test_claude_only_flag_expands_to_council_opus(monkeypatch: pytest.MonkeyPatc
 
     parse_cli_args()
     assert config.TEAM == "council_opus"
-    assert config.IMPLEMENT_AGENT == "implementor_opus47"
+    assert config.IMPLEMENT_AGENT == "implementor_opus48"
 
 
 def test_copilot_only_flag_expands_to_council_gpt55(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -110,7 +110,7 @@ def test_council_family_has_same_six_lenses() -> None:
     from autosprint.teams import TEAMS
 
     def lens(name: str) -> str:
-        # Strip a trailing backend-tag like " (Opus 4.7)" / " (GPT-5.5)".
+        # Strip a trailing backend-tag like " (Opus 4.8)" / " (GPT-5.5)".
         return name.split("(")[0].strip()
 
     expected_lenses = {"The North Star", "The Bug Hunter", "The Pragmatist", "The Tester", "The Minimalist", "The Architect"}

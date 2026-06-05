@@ -127,7 +127,7 @@ autosprint run --auto-replan
 Several destination templates ship in `autosprint/examples/` after init:
 
 - **`destination_game.example.md`** — small 3D action game with mouse-aim, LMB/RMB, WASD, jump, weapon switch, and explosions. **Default seed.** Worked example for a code project.
-- **`destination_research_ai_bubble.example.md`** — long-form, source-backed research paper on the AI investment cycle. Worked example for a non-code (markdown-deliverable) project.
+- **`destination_research_ai_bubble.example.md`** — long-form, source-backed research paper: weighted scenarios for AI stocks through end-2026, rendered as a journal-style PDF. Worked example for a non-code (markdown-deliverable) project.
 - **`destination_full_template.md`** — every section of the spec with prompts inline. Use when you want to write your own destination from scratch.
 - **`destination_concerns_checklist.md`** — a walkthrough for deciding *which* sections your destination should include.
 
@@ -257,7 +257,7 @@ flowchart LR
     M4[Tester]
     M5[Minimalist]
     M6[Architect]
-    L["Team lead<br/>(Opus 4.7)"]
+    L["Team lead<br/>(Opus 4.8)"]
     LOG["Misc log data:<br/>- Pre-flight pytest, after revert<br/>- Last test output, every replan"]
     P[("plan.md")]
 
@@ -347,12 +347,12 @@ has all 10 power-team planners):
 ```python
 TEAM_POWER = {
     "agents": [
-        AGENT_STRATEGIST_OPUS47,
+        AGENT_STRATEGIST_OPUS48,
         AGENT_ARCHITECT_GPT55,
-        AGENT_BUG_HUNTER_OPUS47,
-        # ... 7 more — 10 planners total (5 Opus 4.7 + 5 GPT-5.5)
+        AGENT_BUG_HUNTER_OPUS48,
+        # ... 7 more — 10 planners total (5 Opus 4.8 + 5 GPT-5.5)
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,     # omit for single-agent teams
+    "selector": AGENT_TEAMLEAD_OPUS48,     # omit for single-agent teams
 }
 ```
 
@@ -362,24 +362,24 @@ The implementor is a separate internal concept from the planning team — you ca
 
 | Team | Composition | Cost | Best for |
 |---|---|---:|---|
-| `builder` | 4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.7) + Opus 4.7 lead | medium-high | lighter balanced team — quality/coverage from GPT-5.5, quick-wins + gap-closing from Opus 4.7; good for the in-loop auto-plan cadence |
-| `hunter` | 4 planners (Bug Hunter Opus 4.7 + Bug Hunter/Guardian/Tester GPT-5.5) + Opus 4.7 lead | medium-high | stabilise-before-next-feature phases — all four voices hunt concrete failure modes |
-| `refiner` | 4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.7) + Opus 4.7 lead | medium-high | cleanup phases — structural cleanliness, naming, subtraction, test consolidation, ADR drift |
-| `quartet` | 5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.7) + Opus 4.7 lead (3 × Opus + 2 × GPT-5.5) | high | mature codebases — adds a Bug Hunter voice with North Star goal-progress bias |
-| `council` *(default)* | 6 planners (North Star + Bug Hunter + Pragmatist Opus 4.7, Tester + Minimalist + Architect GPT-5.5) + Opus 4.7 lead | high | six orthogonal lenses; built for a one-off `autosprint plan` you then hand-curate |
+| `builder` | 4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.8) + Opus 4.8 lead | medium-high | lighter balanced team — quality/coverage from GPT-5.5, quick-wins + gap-closing from Opus 4.8; good for the in-loop auto-plan cadence |
+| `hunter` | 4 planners (Bug Hunter Opus 4.8 + Bug Hunter/Guardian/Tester GPT-5.5) + Opus 4.8 lead | medium-high | stabilise-before-next-feature phases — all four voices hunt concrete failure modes |
+| `refiner` | 4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.8) + Opus 4.8 lead | medium-high | cleanup phases — structural cleanliness, naming, subtraction, test consolidation, ADR drift |
+| `quartet` | 5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.8) + Opus 4.8 lead (3 × Opus + 2 × GPT-5.5) | high | mature codebases — adds a Bug Hunter voice with North Star goal-progress bias |
+| `council` *(default)* | 6 planners (North Star + Bug Hunter + Pragmatist Opus 4.8, Tester + Minimalist + Architect GPT-5.5) + Opus 4.8 lead | high | six orthogonal lenses; built for a one-off `autosprint plan` you then hand-curate |
 | `council_gpt55` | 6 planners (North Star + Hunter + Pragmatist + Tester + Minimalist + Architect, all GPT-5.5) + GPT-5.5 lead | medium | all-Copilot mirror of `council` — same six lenses, zero Claude. Pair with `--implement-agent implementor_gpt55` or use `--preset copilot-only` |
-| `council_opus` | 6 planners (North Star + Bug Hunter + Pragmatist + Tester + Minimalist + Architect, all Opus 4.7) + Opus 4.7 lead | high | all-Claude mirror of `council` — same six lenses, zero Copilot. Pair with `--implement-agent implementor_opus47` or use `--preset claude-only` |
-| `power` | 10 planners (5 × Opus 4.7 + 5 × GPT-5.5) + Opus 4.7 lead | high | serious work; deepest, most diverse planning |
-| `mixed` | 5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.7 lead | high | broad perspective diversity |
-| `duo` | 2 planners (Thinker Opus 4.7 + Bug Hunter GPT-5.5) + Opus 4.7 lead | medium-high | lightweight real-work runs |
+| `council_opus` | 6 planners (North Star + Bug Hunter + Pragmatist + Tester + Minimalist + Architect, all Opus 4.8) + Opus 4.8 lead | high | all-Claude mirror of `council` — same six lenses, zero Copilot. Pair with `--implement-agent implementor_opus48` or use `--preset claude-only` |
+| `power` | 10 planners (5 × Opus 4.8 + 5 × GPT-5.5) + Opus 4.8 lead | high | serious work; deepest, most diverse planning |
+| `mixed` | 5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.8 lead | high | broad perspective diversity |
+| `duo` | 2 planners (Thinker Opus 4.8 + Bug Hunter GPT-5.5) + Opus 4.8 lead | medium-high | lightweight real-work runs |
 | `trio_gpt55` | 3 planners (Innovator + Visionary + Tester GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot GPT-5.5 team; pair with `implementor_gpt55` |
-| `research_council` | 4 planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.7, Editor GPT-5.5) + Research Lead Opus 4.7 | medium-high | **research projects** whose deliverables are markdown documents (sources / paper / deep-dives); four lenses on source coverage, synthesis, argument balance, format discipline |
-| `research_council_opus` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all Opus 4.7) + Opus 4.7 lead | high | all-Claude mirror of `research_council` |
+| `research_council` | 4 planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.8, Editor GPT-5.5) + Research Lead Opus 4.8 | medium-high | **research projects** whose deliverables are markdown documents (sources / paper / deep-dives); four lenses on source coverage, synthesis, argument balance, format discipline |
+| `research_council_opus` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all Opus 4.8) + Opus 4.8 lead | high | all-Claude mirror of `research_council` |
 | `research_council_gpt55` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot mirror of `research_council` |
-| `solo` / `solo_opus` | 1 × Opus 4.7 | medium | single-agent production runs |
+| `solo` / `solo_opus` | 1 × Opus 4.8 | medium | single-agent production runs |
 | `solo_sonnet` | 1 × Sonnet 4.6 | medium | cheaper single-agent alternative |
 | `solo_gpt52` | 1 × GPT-5.2 Copilot | low-medium | single-agent Copilot alternative |
-| `solo_gpt55` | 1 × GPT-5.5 Copilot | low-medium | cheap-plan; pair with `implementor_opus47` or use `--preset solo-gpt55` |
+| `solo_gpt55` | 1 × GPT-5.5 Copilot | low-medium | cheap-plan; pair with `implementor_opus48` or use `--preset solo-gpt55` |
 | `solo_haiku_test` | 1 × Haiku 4.5 | low | A/B experiments with Haiku |
 | `solo_lite` | 1 × GPT-4.1 Copilot | very low | cheap/fast debug team |
 | `quick` | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Speed-runner GPT-4.1 lead | low | cheapest/fastest full multi-agent team |
@@ -393,12 +393,12 @@ Override per run via `--team` and `--implement-agent`, or use `--preset` for bun
 
 | Preset | Expands to |
 |---|---|
-| `claude-only` | `--team council_opus --implement-agent implementor_opus47` (all-Claude six-lens team + Opus implementor) |
+| `claude-only` | `--team council_opus --implement-agent implementor_opus48` (all-Claude six-lens team + Opus implementor) |
 | `copilot-only` | `--team council_gpt55 --implement-agent implementor_gpt55` (all-Copilot six-lens team + GPT-5.5 implementor) |
 | `solo-gpt55` | `--team solo_gpt55 --implement-agent implementor_gpt55` (single GPT-5.5 planner — cheap-plan variant of `copilot-only`) |
 | `quick-debug` | `--team quick --implement-agent implementor_gpt41 --initial-tests none --sp-target 3 --sp-max 3` (fast debug iteration) |
 
-Explicit `--team` / `--implement-agent` win over the preset values, so `--preset solo-gpt55 --implement-agent implementor_opus47` uses GPT-5.5 for planning and Opus 4.7 for implementing.
+Explicit `--team` / `--implement-agent` win over the preset values, so `--preset solo-gpt55 --implement-agent implementor_opus48` uses GPT-5.5 for planning and Opus 4.8 for implementing.
 
 ## Backends
 
@@ -461,7 +461,7 @@ Configured via environment variables or `.env` (pydantic-settings, loaded eagerl
 |---|---|---|
 | `TARGET_REPO` | *(cwd)* | Debug/dev fallback for the target-repo path. Normally unset — autosprint operates on the current directory, or the path given to `--target` / `autosprint init <path>`. Only consulted when cwd is not a git repo. |
 | `TEAM` | `council` | Team key from `teams.TEAMS` |
-| `IMPLEMENT_AGENT` | `implementor_opus47` | Agent key from `agents.AGENTS` |
+| `IMPLEMENT_AGENT` | `implementor_opus48` | Agent key from `agents.AGENTS` |
 | `MAX_SPRINTS` | `100` | Hard sprint cap per run. In reviewed-plan mode (`autosprint run` without `--auto-replan`), if left unset it auto-sizes to 2× the pending tasks in `plan.md` (floored at 10) so a short plan doesn't spin all the way to 100 unnecessarily; an explicit value (env or `--max-sprints`) always wins. |
 | `MAX_CONSECUTIVE_FAILURES` | `5` | Stop after N reverts in a row |
 | `REPLAN_EVERY_N_SPRINTS` | `5` | Force a re-plan at least this often |
@@ -551,8 +551,8 @@ autosprint run --claude-only --commit-on-start
 autosprint run --copilot-only --commit-on-start
 # Bundled preset: all-Copilot GPT-5.5 single planner — cheapest real run
 autosprint run --preset solo-gpt55 --commit-on-start --max-sprints 10
-# 10-agent power team + Opus 4.7 implementor — serious work
-autosprint run --team power --implement-agent implementor_opus47 --commit-on-start --max-sprints 10
+# 10-agent power team + Opus 4.8 implementor — serious work
+autosprint run --team power --implement-agent implementor_opus48 --commit-on-start --max-sprints 10
 # Refresh the plan without implementing anything
 autosprint plan
 
@@ -731,14 +731,14 @@ See [`CLAUDE.md`](CLAUDE.md) for architectural notes, and [`src/autosprint/`](sr
    │     ├── Team members (5) — propose tasks in parallel:
    │     │     ├── The Tester (GPT-5.5) [copilot/gpt-5.5]
    │     │     ├── The Minimalist (GPT-5.5) [copilot/gpt-5.5]
-   │     │     ├── The Visionary (Opus 4.7) [claude/claude-opus-4-7]
-   │     │     ├── The Bug Hunter (Opus 4.7) [claude/claude-opus-4-7]
-   │     │     └── The North Star (Opus 4.7) [claude/claude-opus-4-7]
+   │     │     ├── The Visionary (Opus 4.8) [claude/claude-opus-4-8]
+   │     │     ├── The Bug Hunter (Opus 4.8) [claude/claude-opus-4-8]
+   │     │     └── The North Star (Opus 4.8) [claude/claude-opus-4-8]
    │     ├── Pre-flight pytest — summary fed to team lead only
-   │     └── Team lead: Team Lead (Opus 4.7) [claude/claude-opus-4-7]
+   │     └── Team lead: Team Lead (Opus 4.8) [claude/claude-opus-4-8]
    │
    ├── [I] Implement — top task(s) from plan.md (aim ~8 SP/group):
-   │     └── Implementor (Opus 4.7) [claude/claude-opus-4-7]
+   │     └── Implementor (Opus 4.8) [claude/claude-opus-4-8]
    │
    ├── [T] Test — pytest (quick subset: -m "not slow")
    ├── [C] Commit — if tests pass, commit the sprint to the branch
@@ -798,7 +798,7 @@ autosprint reconfigures stdout/stderr to UTF-8 on import (with `errors="replace"
 That's the stagnation signal. After 3 plan-phase survivals the team lead is told (via `plan-team.md`) to split or demote it. If the repetitions continue, the 3×-REVERTED-same-task escalation will halt the loop with a clear message.
 
 **Implement keeps failing with text like "refuse to improve" / "system directive".**
-That's Opus 4.7 misreading a Read-tool safety reminder as a refusal directive. autosprint detects this pattern and prints a targeted warning pointing at `autosprint/logs/implement-failures.log`. Counter-language in `.claude/agents/implement.md` is meant to suppress it — if the pattern keeps firing, switch the Implement agent (e.g. to `implementor_gpt55` or a Sonnet-based one).
+That's Opus 4.8 misreading a Read-tool safety reminder as a refusal directive. autosprint detects this pattern and prints a targeted warning pointing at `autosprint/logs/implement-failures.log`. Counter-language in `.claude/agents/implement.md` is meant to suppress it — if the pattern keeps firing, switch the Implement agent (e.g. to `implementor_gpt55` or a Sonnet-based one).
 
 **`autosprint self-test` fails.**
 Self-test runs `black --check` and `pytest -m "not live and not slow"`. If formatting is the issue: `uv run black --line-length 1000 src tests`. If tests fail, run `uv sync` then `uv run pytest` directly to see the raw error.

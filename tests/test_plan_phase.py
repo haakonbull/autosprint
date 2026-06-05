@@ -43,29 +43,29 @@ def test_research_agents_declare_research_prompt_files() -> None:
     """Every research-role agent points at the research-flavored plan-agent prompt; the research-lead agents point at the research team-lead prompt."""
     from autosprint.agents import (
         AGENT_EDITOR_GPT55,
-        AGENT_EDITOR_OPUS47,
+        AGENT_EDITOR_OPUS48,
         AGENT_RESEARCH_LEAD_GPT55,
-        AGENT_RESEARCH_LEAD_OPUS47,
+        AGENT_RESEARCH_LEAD_OPUS48,
         AGENT_STEELMANNER_GPT55,
-        AGENT_STEELMANNER_OPUS47,
+        AGENT_STEELMANNER_OPUS48,
         AGENT_SYNTHESIZER_GPT55,
-        AGENT_SYNTHESIZER_OPUS47,
+        AGENT_SYNTHESIZER_OPUS48,
         AGENT_WEB_RESEARCHER_GPT55,
-        AGENT_WEB_RESEARCHER_OPUS47,
+        AGENT_WEB_RESEARCHER_OPUS48,
     )
 
-    members = [AGENT_WEB_RESEARCHER_OPUS47, AGENT_WEB_RESEARCHER_GPT55, AGENT_SYNTHESIZER_OPUS47, AGENT_SYNTHESIZER_GPT55, AGENT_STEELMANNER_OPUS47, AGENT_STEELMANNER_GPT55, AGENT_EDITOR_OPUS47, AGENT_EDITOR_GPT55]
+    members = [AGENT_WEB_RESEARCHER_OPUS48, AGENT_WEB_RESEARCHER_GPT55, AGENT_SYNTHESIZER_OPUS48, AGENT_SYNTHESIZER_GPT55, AGENT_STEELMANNER_OPUS48, AGENT_STEELMANNER_GPT55, AGENT_EDITOR_OPUS48, AGENT_EDITOR_GPT55]
     for a in members:
         assert a.get("plan_prompt_file") == ".claude/agents/plan-agent-research.md", f"{a['name']} should point at the research member prompt"
-    for lead in (AGENT_RESEARCH_LEAD_OPUS47, AGENT_RESEARCH_LEAD_GPT55):
+    for lead in (AGENT_RESEARCH_LEAD_OPUS48, AGENT_RESEARCH_LEAD_GPT55):
         assert lead.get("plan_lead_prompt_file") == ".claude/agents/plan-team-research.md", f"{lead['name']} should point at the research team-lead prompt"
 
 
 def test_web_researcher_has_research_tools_preset() -> None:
     """Web Researcher needs web access — declares TOOLS_RESEARCH so its preset survives the Plan-phase TOOLS_READ_ONLY override."""
-    from autosprint.agents import AGENT_WEB_RESEARCHER_GPT55, AGENT_WEB_RESEARCHER_OPUS47, TOOLS_RESEARCH
+    from autosprint.agents import AGENT_WEB_RESEARCHER_GPT55, AGENT_WEB_RESEARCHER_OPUS48, TOOLS_RESEARCH
 
-    assert AGENT_WEB_RESEARCHER_OPUS47["tools"] == TOOLS_RESEARCH
+    assert AGENT_WEB_RESEARCHER_OPUS48["tools"] == TOOLS_RESEARCH
     assert AGENT_WEB_RESEARCHER_GPT55["tools"] == TOOLS_RESEARCH
 
 
@@ -145,7 +145,7 @@ def test_tools_research_preset_survives_read_only_override() -> None:
 
 
 def test_claude_research_tool_preset_includes_web_and_write() -> None:
-    """Dispatch maps TOOLS_RESEARCH to a Claude allowlist that includes WebFetch/WebSearch (for fetching new sources) and Write/Edit (for landing them in `docs/sources.md`), but NOT Bash (research agents don't shell out)."""
+    """Dispatch maps TOOLS_RESEARCH to a Claude allowlist that includes WebFetch/WebSearch (for fetching new sources) and Write/Edit (for landing them in `results/sources.md`), but NOT Bash (research agents don't shell out)."""
     from autosprint.agents import TOOLS_RESEARCH
     from autosprint.dispatch import _CLAUDE_TOOLS
 

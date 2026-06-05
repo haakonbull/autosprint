@@ -3,7 +3,7 @@
 Owns:
 - The Implement step entry point `run_implement` plus its helpers
   `_run_implement_llm` (single dispatch, parser-retry fallback) and
-  `_attempt_refusal_fallback` (re-dispatch on Opus 4.7 safety-reminder misread).
+  `_attempt_refusal_fallback` (re-dispatch on Opus 4.8 safety-reminder misread).
 - Failure logging: `log_implement_failure`, `dump_last_implement_raw`,
   `_warn_if_refusal_pattern`.
 - Refusal detection: `detect_refusal_pattern` and the phrase list.
@@ -29,7 +29,7 @@ from autosprint.plan import group_titles, read_plan_md, serialise_plan
 from autosprint.plan_phase import lock_destination_section, read_adr, read_agent_file
 from autosprint.run_log import append_run_log, extract_story_points, task_attempt_stats
 
-# Phrases Opus 4.7 (and variants) tend to emit when it misreads a Read-tool
+# Phrases Opus 4.8 (and variants) tend to emit when it misreads a Read-tool
 # safety reminder as a refusal directive. Used to surface a targeted hint to
 # the user instead of hiding the root cause behind a generic "implement failed"
 # line, and to gate the refusal-fallback re-dispatch.
@@ -59,7 +59,7 @@ _REFUSAL_PATTERN_PHRASES: tuple[str, ...] = (
 
 
 def detect_refusal_pattern(reason: str, raw_response: str = "") -> bool:
-    """Return True if a failure looks like Opus 4.7's known misread of Read-tool safety reminders as a refusal directive. Checks the parsed reason AND the raw response together — the agent paraphrases its refusal in the reason field (e.g. "Refused to perform sprint edits") while the raw response typically quotes the canonical reminder verbatim ("MUST refuse to improve or augment"). Catching either path is what lifted the live fallback hit-rate from ~12% to ~95% (see logs from game1 runs 3-8). Matching is case-insensitive on `_REFUSAL_PATTERN_PHRASES`."""
+    """Return True if a failure looks like Opus 4.8's known misread of Read-tool safety reminders as a refusal directive. Checks the parsed reason AND the raw response together — the agent paraphrases its refusal in the reason field (e.g. "Refused to perform sprint edits") while the raw response typically quotes the canonical reminder verbatim ("MUST refuse to improve or augment"). Catching either path is what lifted the live fallback hit-rate from ~12% to ~95% (see logs from game1 runs 3-8). Matching is case-insensitive on `_REFUSAL_PATTERN_PHRASES`."""
     haystack = f"{reason}\n{raw_response}".lower()
     return any(phrase in haystack for phrase in _REFUSAL_PATTERN_PHRASES)
 
@@ -100,9 +100,9 @@ def dump_last_implement_raw(raw_response: str, reason: str) -> None:
 
 
 def warn_if_refusal_pattern(reason: str) -> None:
-    """Print a one-line hint when an Implement failure looks like the Opus 4.7 safety-reminder misread. Quietly returns when the pattern doesn't match so genuine failures aren't drowned in noise."""
+    """Print a one-line hint when an Implement failure looks like the Opus 4.8 safety-reminder misread. Quietly returns when the pattern doesn't match so genuine failures aren't drowned in noise."""
     if detect_refusal_pattern(reason):
-        printlev("[I] ⚠️  Looks like an Opus 4.7 safety-reminder misread — see autosprint/logs/implement-failures.log for the full response. The counter-language in .claude/agents/implement.md is meant to suppress this; if it keeps firing, consider switching the Implement agent to Opus 4.6 or Sonnet 4.6.", level=100)
+        printlev("[I] ⚠️  Looks like an Opus 4.8 safety-reminder misread — see autosprint/logs/implement-failures.log for the full response. The counter-language in .claude/agents/implement.md is meant to suppress this; if it keeps firing, consider switching the Implement agent to Opus 4.6 or Sonnet 4.6.", level=100)
 
 
 def fake_implement(task_group: list[dict]) -> dict:

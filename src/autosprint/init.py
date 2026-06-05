@@ -58,7 +58,7 @@ DEFAULT_DESTINATION_SEED_FILENAME = "destination_game.example.md"
 
 
 def _ensure_examples_dir_seeded() -> list[str]:
-    """Mirror autosprint's `examples/` folder into `<target>/autosprint/examples/` so users see all available destination templates (game, flight-shooter, full template, blank template, concerns checklist) and the waypoint example alongside their own `destination.md`. Idempotent: per-file copy, existing files are left alone so user edits survive re-init. Returns the list of filenames newly copied (empty when nothing changed) so callers can log. Silent (returns []) when autosprint's own examples/ folder is missing — defensive, shouldn't happen in a normal install."""
+    """Mirror autosprint's `examples/` folder into `<target>/autosprint/examples/` so users see all available destination templates (game, flight-shooter, full template, blank template, concerns checklist), the waypoint example, and asset folders (e.g. `research_paper_assets/` with the journal LaTeX template + reference PDF build script) alongside their own `destination.md`. Idempotent: per-file copy (recursing into subfolders), existing files are left alone so user edits survive re-init. Returns the list of relative paths newly copied (empty when nothing changed) so callers can log. Silent (returns []) when autosprint's own examples/ folder is missing — defensive, shouldn't happen in a normal install."""
     try:
         src_root = _project_root() / EXAMPLES_SOURCE_DIR
         if not src_root.is_dir():
@@ -66,14 +66,16 @@ def _ensure_examples_dir_seeded() -> list[str]:
         dst_root = config.TARGET_REPO_PATH / AUTOSPRINT_DIR_NAME / EXAMPLES_SOURCE_DIR
         dst_root.mkdir(parents=True, exist_ok=True)
         copied: list[str] = []
-        for entry in sorted(src_root.iterdir()):
+        for entry in sorted(src_root.rglob("*")):
             if not entry.is_file():
                 continue
-            dst = dst_root / entry.name
+            rel = entry.relative_to(src_root)
+            dst = dst_root / rel
             if dst.exists():
                 continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(entry, dst)
-            copied.append(entry.name)
+            copied.append(rel.as_posix())
         if copied:
             printlev(f"[init] Seeded {AUTOSPRINT_DIR_NAME}/{EXAMPLES_SOURCE_DIR}/: {', '.join(copied)}", level=100)
         return copied
@@ -218,10 +220,10 @@ def _wizard_assistants(active: dict[str, str]) -> None:
         return
     if choice == "claude":
         active["team"] = "council_opus"
-        active["implement_agent"] = "implementor_opus47"  # explicit so a future change to the default doesn't leak Copilot into a Claude-only setup
+        active["implement_agent"] = "implementor_opus48"  # explicit so a future change to the default doesn't leak Copilot into a Claude-only setup
         active["implement_fallback_agent"] = ""  # default fallback is Copilot — disable it for a Claude-only setup
-        active["howfar_agent"] = "howfar_opus47"
-        printlev("[init] → team = council_opus (6-agent Claude), implementor + how-far on Opus 4.7, refusal-fallback disabled (Claude-only).", level=100)
+        active["howfar_agent"] = "howfar_opus48"
+        printlev("[init] → team = council_opus (6-agent Claude), implementor + how-far on Opus 4.8, refusal-fallback disabled (Claude-only).", level=100)
     elif choice == "copilot":
         active["team"] = "council_gpt55"
         active["implement_agent"] = "implementor_gpt55"
@@ -777,6 +779,7 @@ def _run_init(assume_defaults: bool = False) -> None:
         _bootstrap_target_env_and_warn()
         _check_dockerignore_and_warn()
         _scan_for_sensitive_content_and_warn()
+        probe_backends(warn_only=True)
         _print_init_config_summary()
         printlev("\n[init] ✅ TARGET_REPO is ready.", level=100)
         printlev(f"[init] 👉 Next: open Claude Code in {config.TARGET_REPO_PATH} and run `/grill-destination` to flesh out autosprint/destination.md (the spec autosprint descends toward). When the file feels complete, run `autosprint` normally.", level=100)
@@ -859,6 +862,30 @@ async def _doctor_probe(assistant: str) -> tuple[bool, str]:
         return False, f"{assistant} dispatch returned an empty response"
     except Exception as e:
         return False, f"{assistant} dispatch failed — {type(e).__name__}: {e}"
+
+
+def probe_backends(warn_only: bool = False) -> bool:
+    """Live round-trip probe of every AI backend the configured team dispatches to — one cheap call per backend, the same probe `autosprint doctor` uses. Catches breakage that static PATH checks can't see (a Copilot SDK that lost its bundled CLI binary, an expired Claude login, a hit usage cap) *before* a multi-hour run starts limping with half its council dead. `warn_only=True` (init's mode) prints a warning on failure and returns False — init's job is seeding files, and auth may legitimately not be set up yet; the run path raises RuntimeError with a pointer to `autosprint doctor`. Skipped entirely (returns True) in debug/cache modes (LOG_LEVEL <= 15) so dev loops and tests never make live calls."""
+    if config.LOG_LEVEL <= 15:
+        printlev("[probe] Skipping backend round-trip probe (LOG_LEVEL <= 15 debug/cache mode).", level=20)
+        return True
+    label = "init" if warn_only else "prepare"
+    printlev(f"[{label}] Probing AI backends (one cheap call per backend)...", level=100)
+    failures: list[str] = []
+    for assistant in sorted(_required_assistants_for_run()):
+        if assistant not in _DOCTOR_PROBE_AGENT_KEY:
+            continue
+        ok, detail = asyncio.run(_doctor_probe(assistant))
+        printlev(f"[{label}] {'✅' if ok else '❌'} {detail}", level=100)
+        if not ok:
+            failures.append(detail)
+    if not failures:
+        return True
+    msg = "Backend probe failed:\n  " + "\n  ".join(failures) + "\n  Fix auth/install before starting a run — `autosprint doctor` prints the full checklist."
+    if warn_only:
+        printlev(f"[{label}] ⚠ {msg}", level=100)
+        return False
+    raise RuntimeError(msg)
 
 
 def run_doctor() -> None:

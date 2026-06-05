@@ -40,6 +40,7 @@ from autosprint.init import (
     _migrate_legacy_autosprint_files,
     _run_init,
     _verify_target_is_initialised,
+    probe_backends,
     run_doctor,
 )
 from autosprint.output import printlev
@@ -54,7 +55,7 @@ from autosprint.test_phase import check_initial_tests, run_self_test
 # paired with any implement agent). The preset is a UX shortcut, not a merge.
 _CLI_PRESETS: dict[str, dict[str, Any]] = {
     "solo-gpt55": {"team": "solo_gpt55", "implement_agent": "implementor_gpt55"},
-    "claude-only": {"team": "council_opus", "implement_agent": "implementor_opus47"},
+    "claude-only": {"team": "council_opus", "implement_agent": "implementor_opus48"},
     "copilot-only": {"team": "council_gpt55", "implement_agent": "implementor_gpt55"},
     "quick-debug": {
         "team": "quick",
@@ -142,7 +143,7 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--branch", default=None, metavar="NAME", help="Branch name for the PIT run (default: autosprint/<timestamp>).")
     parser.add_argument("--max-sprints", type=int, default=None, metavar="N", help="Override MAX_SPRINTS (default 100).")
     parser.add_argument("--team", type=str, default=None, metavar="NAME", help="Override TEAM — the planning team (key in agents.TEAMS, e.g. council, power, duo). Implementor is set separately via --implement-agent.")
-    parser.add_argument("--implement-agent", type=str, default=None, metavar="KEY", help="Override IMPLEMENT_AGENT — the Implement-phase agent (key in agents.AGENTS, e.g. implementor_opus47).")
+    parser.add_argument("--implement-agent", type=str, default=None, metavar="KEY", help="Override IMPLEMENT_AGENT — the Implement-phase agent (key in agents.AGENTS, e.g. implementor_opus48).")
     parser.add_argument("--preset", type=str, default=None, metavar="NAME", choices=sorted(_CLI_PRESETS), help=f"Bundled preset that sets several flags at once. Choices: {', '.join(sorted(_CLI_PRESETS))}. Explicit flags override preset values.")
     parser.add_argument("--claude-only", action="store_true", help="Shortcut: use the all-Claude council_opus team + Opus implementor. Equivalent to `--preset claude-only`.")
     parser.add_argument("--copilot-only", action="store_true", help="Shortcut: use the all-Copilot council_gpt55 team + GPT-5.5 implementor. Equivalent to `--preset copilot-only`.")
@@ -430,6 +431,10 @@ def run_prepare_steps(args: argparse.Namespace) -> None:
         _ensure_adr_stub()
         _ensure_gitignore_entries()
         if not is_plan_only:
+            # Live backend probe before any state mutation (commit prompt, branch
+            # creation): a backend that broke since init — lost Copilot wheel,
+            # expired login, hit usage cap — should stop the run here, not hours in.
+            probe_backends()
             prompt_commit_or_abort()
             if config.CREATE_BRANCH:
                 git("checkout", "-b", args.branch)

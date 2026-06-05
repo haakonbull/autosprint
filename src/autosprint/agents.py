@@ -99,7 +99,7 @@ AGENT_ANALYST_GPT52_COPILOT: dict[str, Any] = {
 AGENT_ANALYST_OPUS_CLAUDE: dict[str, Any] = {
     "name": "The Analyst (Claude)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": "Analytical and thorough. Examine the full codebase and destination before deciding.",
     "tools": TOOLS_FULL,
 }
@@ -115,7 +115,7 @@ AGENT_ARCHITECT_COPILOT: dict[str, Any] = {
 AGENT_BUG_HUNTER_CLAUDE: dict[str, Any] = {
     "name": "The Bug Hunter (Claude)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": "Look for hidden bugs, missing edge cases, and fragile assumptions. Off-by-one errors, unhandled None, race conditions, silent failures, and code paths that would crash on unexpected input. Prefer fixing latent bugs over adding features.",
     "tools": TOOLS_FULL,
 }
@@ -123,7 +123,7 @@ AGENT_BUG_HUNTER_CLAUDE: dict[str, Any] = {
 AGENT_CLARIFIER_CLAUDE: dict[str, Any] = {
     "name": "The Clarifier (Claude)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": "Obsessed with code clarity, naming, and readability. Prefer renaming and restructuring over adding features.",
     "tools": TOOLS_FULL,
 }
@@ -139,7 +139,7 @@ AGENT_DECIDER_HAIKU_CLAUDE: dict[str, Any] = {
 AGENT_DELIBERATOR_OPUS_CLAUDE: dict[str, Any] = {
     "name": "The Deliberator (Opus)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": "Thorough and deliberate. Take your time, analyze deeply, consider all angles, and produce the most well-reasoned response possible.",
     "tools": TOOLS_FULL,
 }
@@ -195,20 +195,20 @@ AGENT_TESTER_COPILOT: dict[str, Any] = {
 AGENT_VISIONARY_CLAUDE: dict[str, Any] = {
     "name": "The Visionary (Claude)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": "Think long-term. Willing to suggest bold structural changes that move the project significantly forward.",
     "tools": TOOLS_FULL,
 }
 
 # -----------------------------------------------------------------------------
-# 3b. Power-team specialists — ten planners (5 Opus 4.7 + 5 GPT-5.5) with the
+# 3b. Power-team specialists — ten planners (5 Opus 4.8 + 5 GPT-5.5) with the
 # `_THINK_CAREFULLY` preamble. Deep-thinking production roster.
 # -----------------------------------------------------------------------------
 
-AGENT_STRATEGIST_OPUS47: dict[str, Any] = {
-    "name": "The Strategist (Opus 4.7)",
+AGENT_STRATEGIST_OPUS48: dict[str, Any] = {
+    "name": "The Strategist (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: map the gap between the current codebase and destination.md, then pick the single change that closes that gap most. Favor tasks that move the project meaningfully forward over incremental polish.",
     "tools": TOOLS_FULL,
 }
@@ -221,10 +221,10 @@ AGENT_ARCHITECT_GPT55: dict[str, Any] = {
     "tools": TOOLS_FULL,
 }
 
-AGENT_BUG_HUNTER_OPUS47: dict[str, Any] = {
-    "name": "The Bug Hunter (Opus 4.7)",
+AGENT_BUG_HUNTER_OPUS48: dict[str, Any] = {
+    "name": "The Bug Hunter (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_BUG_HUNTER,
     "tools": TOOLS_FULL,
 }
@@ -237,10 +237,10 @@ AGENT_BUG_HUNTER_GPT55: dict[str, Any] = {
     "tools": TOOLS_FULL,
 }
 
-AGENT_MINIMALIST_OPUS47: dict[str, Any] = {
-    "name": "The Minimalist (Opus 4.7)",
+AGENT_MINIMALIST_OPUS48: dict[str, Any] = {
+    "name": "The Minimalist (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_MINIMALIST,
     "tools": TOOLS_FULL,
 }
@@ -261,10 +261,10 @@ AGENT_TESTER_GPT55: dict[str, Any] = {
     "tools": TOOLS_FULL,
 }
 
-AGENT_CLARIFIER_OPUS47: dict[str, Any] = {
-    "name": "The Clarifier (Opus 4.7)",
+AGENT_CLARIFIER_OPUS48: dict[str, Any] = {
+    "name": "The Clarifier (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: code clarity, naming, and API ergonomics. Hunt for names that no longer match what the code does, misleading docstrings, confusing control flow, and unclear return types. Prefer renaming and restructuring over adding features.",
     "tools": TOOLS_FULL,
 }
@@ -277,26 +277,26 @@ AGENT_GUARDIAN_GPT55: dict[str, Any] = {
     "tools": TOOLS_FULL,
 }
 
-AGENT_VISIONARY_OPUS47: dict[str, Any] = {
-    "name": "The Visionary (Opus 4.7)",
+AGENT_VISIONARY_OPUS48: dict[str, Any] = {
+    "name": "The Visionary (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: the 2-3 sprints-out horizon. While the rest of the team focuses on the next obvious step, you think about the bigger gap between current state and destination.md. Propose tasks that *set up* a later high-value sprint — one task that isn't great alone but unlocks a sequence of great ones. Be explicit about the sequence you're enabling.",
     "tools": TOOLS_FULL,
 }
 
-AGENT_NORTH_STAR_OPUS47: dict[str, Any] = {
-    "name": "The North Star (Opus 4.7)",
+AGENT_NORTH_STAR_OPUS48: dict[str, Any] = {
+    "name": "The North Star (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_NORTH_STAR,
     "tools": TOOLS_FULL,
 }
 
-AGENT_PRAGMATIST_OPUS47: dict[str, Any] = {
-    "name": "The Pragmatist (Opus 4.7)",
+AGENT_PRAGMATIST_OPUS48: dict[str, Any] = {
+    "name": "The Pragmatist (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_PRAGMATIST,
     "tools": TOOLS_FULL,
 }
@@ -354,25 +354,25 @@ AGENT_PRAGMATIST_GPT55: dict[str, Any] = {
     "tools": TOOLS_FULL,
 }
 
-AGENT_TESTER_OPUS47: dict[str, Any] = {
-    "name": "The Tester (Opus 4.7)",
+AGENT_TESTER_OPUS48: dict[str, Any] = {
+    "name": "The Tester (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_TESTER,
     "tools": TOOLS_FULL,
 }
 
-AGENT_ARCHITECT_OPUS47: dict[str, Any] = {
-    "name": "The Architect (Opus 4.7)",
+AGENT_ARCHITECT_OPUS48: dict[str, Any] = {
+    "name": "The Architect (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_ARCHITECT,
     "tools": TOOLS_FULL,
 }
 
 # -----------------------------------------------------------------------------
 # 3b-iii. Research-team specialists — four complementary lenses for research
-# projects (sources / paper / deep-dives output), in both Opus 4.7 and GPT-5.5
+# projects (sources / paper / deep-dives output), in both Opus 4.8 and GPT-5.5
 # variants. Council's code-flavored lenses (Bug Hunter, Architect, Tester, ...)
 # don't fit a research deliverable; these four are designed for it instead.
 #
@@ -387,19 +387,19 @@ AGENT_ARCHITECT_OPUS47: dict[str, Any] = {
 # the repo).
 # -----------------------------------------------------------------------------
 
-_PROMPT_WEB_RESEARCHER = f"{_THINK_CAREFULLY}\n\nYour specialty: bringing fresh sources into the research. You hunt for high-quality external material that closes gaps the existing `docs/sources.md` has — primary papers, financial filings, earnings transcripts, investigative pieces, datasets. You name candidates (with stable URLs — DOI / arXiv / SEC.gov / archive.org snapshots preferred), tag them with the topic they support and a quality rating (primary data / secondary analysis / opinion). You also flag entries already in `sources.md` whose links may have rotted or whose quality is below the destination's bar. You do NOT draft narrative or argument content — your job is the inputs, not the synthesis. Web access (WebFetch / WebSearch) is available for assessing what's fetchable; the actual fetch happens in Implement, the propose-the-fetch task is what you produce here."
+_PROMPT_WEB_RESEARCHER = f"{_THINK_CAREFULLY}\n\nYour specialty: bringing fresh sources into the research. You hunt for high-quality external material that closes gaps the existing `results/sources.md` has — primary papers, financial filings, earnings transcripts, investigative pieces, datasets. You name candidates (with stable URLs — DOI / arXiv / SEC.gov / archive.org snapshots preferred), tag them with the topic they support and a quality rating (primary data / secondary analysis / opinion). You also flag entries already in `sources.md` whose links may have rotted or whose quality is below the destination's bar. You do NOT draft narrative or argument content — your job is the inputs, not the synthesis. Web access (WebFetch / WebSearch) is available for assessing what's fetchable; the actual fetch happens in Implement, the propose-the-fetch task is what you produce here."
 
-_PROMPT_SYNTHESIZER = f"{_THINK_CAREFULLY}\n\nYour specialty: patterns across existing material. You read `docs/sources.md` and the in-progress `docs/paper.md` / deep-dives, then surface convergences, contradictions, and gaps that the current synthesis doesn't yet capture. You see when two sources say opposite things and the paper hasn't acknowledged the disagreement. You see when a scenario's trigger conditions don't actually match its 2–3-year market shape. You see when an obvious sub-question is undiscussed. Propose tasks that integrate, reconcile, or expand — never fetch (Web Researcher does that). Bias toward the smallest synthesis task that closes a real gap."
+_PROMPT_SYNTHESIZER = f"{_THINK_CAREFULLY}\n\nYour specialty: patterns across existing material. You read `results/sources.md` and the in-progress `results/paper.md` / deep-dives, then surface convergences, contradictions, and gaps that the current synthesis doesn't yet capture. You see when two sources say opposite things and the paper hasn't acknowledged the disagreement. You see when a scenario's trigger conditions don't actually match its stated market shape. You see when an obvious sub-question is undiscussed. Propose tasks that integrate, reconcile, or expand — never fetch (Web Researcher does that). Bias toward the smallest synthesis task that closes a real gap."
 
 _PROMPT_STEELMANNER = f"{_THINK_CAREFULLY}\n\nYour specialty: argument balance. Every deep-dive needs the strongest version of each side, not strawmen. You hunt for places where one side has been argued well and the other has been left thin — or where the author's apparent preference has shaped which arguments got real treatment. Propose tasks that expand the under-treated side with its genuinely best case (data, expert voices, scenarios where it's right). You are deliberately willing to argue for positions you find unconvincing — the goal is honest balance, not advocacy. Flag a deep-dive that reads like a one-sided essay even when the prose is good."
 
 _PROMPT_EDITOR = f"{_THINK_CAREFULLY}\n\nYour specialty: rule-enforcement on the artifacts. You audit `paper.md` and deep-dives against destination.md's invariants: every scenario has a probability % with rationale, every paragraph above ~80 words has a source link, citation style is consistent, freshness markers are present and recent, anchor links resolve, the structure matches what destination.md declared. You also enforce scope: a section drifting into adjacent topics (e.g. AI bubble → history of AI) gets a 'trim back' task. You do NOT add new content yourself — your proposals are fix-the-defect or trim-the-drift tasks, surgical and specific. Cite the exact file:section that has the defect."
 
 
-AGENT_WEB_RESEARCHER_OPUS47: dict[str, Any] = {
-    "name": "The Web Researcher (Opus 4.7)",
+AGENT_WEB_RESEARCHER_OPUS48: dict[str, Any] = {
+    "name": "The Web Researcher (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_WEB_RESEARCHER,
     "tools": TOOLS_RESEARCH,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -414,10 +414,10 @@ AGENT_WEB_RESEARCHER_GPT55: dict[str, Any] = {
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
 }
 
-AGENT_SYNTHESIZER_OPUS47: dict[str, Any] = {
-    "name": "The Synthesizer (Opus 4.7)",
+AGENT_SYNTHESIZER_OPUS48: dict[str, Any] = {
+    "name": "The Synthesizer (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_SYNTHESIZER,
     "tools": TOOLS_FULL,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -432,10 +432,10 @@ AGENT_SYNTHESIZER_GPT55: dict[str, Any] = {
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
 }
 
-AGENT_STEELMANNER_OPUS47: dict[str, Any] = {
-    "name": "The Steelmanner (Opus 4.7)",
+AGENT_STEELMANNER_OPUS48: dict[str, Any] = {
+    "name": "The Steelmanner (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_STEELMANNER,
     "tools": TOOLS_FULL,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -450,10 +450,10 @@ AGENT_STEELMANNER_GPT55: dict[str, Any] = {
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
 }
 
-AGENT_EDITOR_OPUS47: dict[str, Any] = {
-    "name": "The Editor (Opus 4.7)",
+AGENT_EDITOR_OPUS48: dict[str, Any] = {
+    "name": "The Editor (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _PROMPT_EDITOR,
     "tools": TOOLS_FULL,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -473,10 +473,10 @@ AGENT_EDITOR_GPT55: dict[str, Any] = {
 # (cite quality, scenario completeness, layout-decision detection — not story
 # points on test tasks and ADR-for-library-choice).
 
-AGENT_RESEARCH_LEAD_OPUS47: dict[str, Any] = {
-    "name": "Research Lead (Opus 4.7)",
+AGENT_RESEARCH_LEAD_OPUS48: dict[str, Any] = {
+    "name": "Research Lead (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYou are the research team lead. Read each team member's proposal, weigh them against destination.md and adr.md, and produce the single merged plan. Resolve disagreements with reasoning, drop duplicates, and order tasks by strategic value toward the research destination — cite quality, source coverage, scenario completeness, argument balance, format discipline.",
     "tools": TOOLS_FULL,
     "plan_lead_prompt_file": ".claude/agents/plan-team-research.md",
@@ -497,10 +497,10 @@ AGENT_RESEARCH_LEAD_GPT55: dict[str, Any] = {
 # that together cover strategy + rigor without the cost of the full power roster.
 # -----------------------------------------------------------------------------
 
-AGENT_THINKER_OPUS47: dict[str, Any] = {
-    "name": "The Thinker (Opus 4.7)",
+AGENT_THINKER_OPUS48: dict[str, Any] = {
+    "name": "The Thinker (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: high-level reasoning about the *shape* of the project. Read destination.md, plan.md, and adr.md, then propose the single task that most moves the codebase toward its destination — whether that's a structural change, a missing capability, or a decision to record. Think about what a smart colleague would say after 5 minutes reading the repo cold.",
     "tools": TOOLS_FULL,
 }
@@ -509,10 +509,10 @@ AGENT_THINKER_OPUS47: dict[str, Any] = {
 # 3d. Team lead — merges team proposals into a single plan.md.
 # -----------------------------------------------------------------------------
 
-AGENT_TEAMLEAD_OPUS47: dict[str, Any] = {
-    "name": "Team Lead (Opus 4.7)",
+AGENT_TEAMLEAD_OPUS48: dict[str, Any] = {
+    "name": "Team Lead (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYou are the team lead. Read each team member's proposal, weigh them against destination.md and adr.md, and produce the single merged plan. Resolve disagreements with reasoning, drop duplicates, and order tasks by strategic value.",
     "tools": TOOLS_FULL,
 }
@@ -522,10 +522,10 @@ AGENT_TEAMLEAD_OPUS47: dict[str, Any] = {
 # concept from team roster so any team can be paired with any implementor.
 # -----------------------------------------------------------------------------
 
-AGENT_IMPLEMENTOR_OPUS47: dict[str, Any] = {
-    "name": "Implementor (Opus 4.7)",
+AGENT_IMPLEMENTOR_OPUS48: dict[str, Any] = {
+    "name": "Implementor (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _IMPLEMENTOR_PERSONA,
     "tools": TOOLS_FULL,
 }
@@ -576,10 +576,10 @@ AGENT_QUICK_B_GPT41_COPILOT: dict[str, Any] = {
 
 _HOWFAR_PERSONA = "You measure how far a codebase has progressed toward its destination spec (autosprint/destination.md). You are strictly READ-ONLY: you never edit, create, delete, plan, or change anything — you only read code and report. Follow the measurement instructions you are given exactly. Every status you assign must be verified against real source and tests, never guessed. Print only the report the instructions ask for."
 
-AGENT_HOWFAR_OPUS47: dict[str, Any] = {
-    "name": "How-far (Opus 4.7)",
+AGENT_HOWFAR_OPUS48: dict[str, Any] = {
+    "name": "How-far (Opus 4.8)",
     "assistant": "claude",
-    "model": "claude-opus-4-7",
+    "model": "claude-opus-4-8",
     "system_prompt": _HOWFAR_PERSONA,
     "tools": TOOLS_READ_ONLY,
 }
@@ -598,53 +598,58 @@ AGENTS: dict[str, dict[str, Any]] = {
     "analyst_opus_claude": AGENT_ANALYST_OPUS_CLAUDE,
     "architect_copilot": AGENT_ARCHITECT_COPILOT,
     "architect_gpt55": AGENT_ARCHITECT_GPT55,
-    "architect_opus47": AGENT_ARCHITECT_OPUS47,
+    "architect_opus48": AGENT_ARCHITECT_OPUS48,
     "bug_hunter_claude": AGENT_BUG_HUNTER_CLAUDE,
     "bug_hunter_gpt55": AGENT_BUG_HUNTER_GPT55,
-    "bug_hunter_opus47": AGENT_BUG_HUNTER_OPUS47,
+    "bug_hunter_opus48": AGENT_BUG_HUNTER_OPUS48,
     "clarifier_claude": AGENT_CLARIFIER_CLAUDE,
-    "clarifier_opus47": AGENT_CLARIFIER_OPUS47,
+    "clarifier_opus48": AGENT_CLARIFIER_OPUS48,
     "decider_haiku_claude": AGENT_DECIDER_HAIKU_CLAUDE,
     "deliberator_opus_claude": AGENT_DELIBERATOR_OPUS_CLAUDE,
     "deliberator_sonnet_claude": AGENT_DELIBERATOR_SONNET_CLAUDE,
     "editor_gpt55": AGENT_EDITOR_GPT55,
-    "editor_opus47": AGENT_EDITOR_OPUS47,
+    "editor_opus48": AGENT_EDITOR_OPUS48,
     "guardian_copilot": AGENT_GUARDIAN_COPILOT,
     "guardian_gpt55": AGENT_GUARDIAN_GPT55,
     "howfar_gpt55": AGENT_HOWFAR_GPT55,
-    "howfar_opus47": AGENT_HOWFAR_OPUS47,
+    "howfar_opus48": AGENT_HOWFAR_OPUS48,
     "implementor_gpt41": AGENT_IMPLEMENTOR_GPT41,
     "implementor_gpt55": AGENT_IMPLEMENTOR_GPT55,
-    "implementor_opus47": AGENT_IMPLEMENTOR_OPUS47,
+    "implementor_opus48": AGENT_IMPLEMENTOR_OPUS48,
     "innovator_gpt55": AGENT_INNOVATOR_GPT55,
     "minimalist_gpt55": AGENT_MINIMALIST_GPT55,
-    "minimalist_opus47": AGENT_MINIMALIST_OPUS47,
+    "minimalist_opus48": AGENT_MINIMALIST_OPUS48,
     "north_star_gpt55": AGENT_NORTH_STAR_GPT55,
-    "north_star_opus47": AGENT_NORTH_STAR_OPUS47,
+    "north_star_opus48": AGENT_NORTH_STAR_OPUS48,
     "pragmatist_claude": AGENT_PRAGMATIST_CLAUDE,
     "pragmatist_gpt55": AGENT_PRAGMATIST_GPT55,
-    "pragmatist_opus47": AGENT_PRAGMATIST_OPUS47,
+    "pragmatist_opus48": AGENT_PRAGMATIST_OPUS48,
     "quick_a_gpt41_copilot": AGENT_QUICK_A_GPT41_COPILOT,
     "quick_b_gpt41_copilot": AGENT_QUICK_B_GPT41_COPILOT,
     "refactorer_claude": AGENT_REFACTORER_CLAUDE,
     "refactorer_gpt55": AGENT_REFACTORER_GPT55,
     "research_lead_gpt55": AGENT_RESEARCH_LEAD_GPT55,
-    "research_lead_opus47": AGENT_RESEARCH_LEAD_OPUS47,
+    "research_lead_opus48": AGENT_RESEARCH_LEAD_OPUS48,
     "speed_runner_copilot": AGENT_SPEED_RUNNER_COPILOT,
     "steelmanner_gpt55": AGENT_STEELMANNER_GPT55,
-    "steelmanner_opus47": AGENT_STEELMANNER_OPUS47,
-    "strategist_opus47": AGENT_STRATEGIST_OPUS47,
+    "steelmanner_opus48": AGENT_STEELMANNER_OPUS48,
+    "strategist_opus48": AGENT_STRATEGIST_OPUS48,
     "synthesizer_gpt55": AGENT_SYNTHESIZER_GPT55,
-    "synthesizer_opus47": AGENT_SYNTHESIZER_OPUS47,
+    "synthesizer_opus48": AGENT_SYNTHESIZER_OPUS48,
     "teamlead_gpt55": AGENT_TEAMLEAD_GPT55,
-    "teamlead_opus47": AGENT_TEAMLEAD_OPUS47,
+    "teamlead_opus48": AGENT_TEAMLEAD_OPUS48,
     "tester_copilot": AGENT_TESTER_COPILOT,
     "tester_gpt55": AGENT_TESTER_GPT55,
-    "tester_opus47": AGENT_TESTER_OPUS47,
-    "thinker_opus47": AGENT_THINKER_OPUS47,
+    "tester_opus48": AGENT_TESTER_OPUS48,
+    "thinker_opus48": AGENT_THINKER_OPUS48,
     "visionary_claude": AGENT_VISIONARY_CLAUDE,
     "visionary_gpt55": AGENT_VISIONARY_GPT55,
-    "visionary_opus47": AGENT_VISIONARY_OPUS47,
+    "visionary_opus48": AGENT_VISIONARY_OPUS48,
     "web_researcher_gpt55": AGENT_WEB_RESEARCHER_GPT55,
-    "web_researcher_opus47": AGENT_WEB_RESEARCHER_OPUS47,
+    "web_researcher_opus48": AGENT_WEB_RESEARCHER_OPUS48,
 }
+
+# Legacy aliases: target-repo config.toml files written before the Opus
+# 4.7 → 4.8 bump may still reference `*_opus47` keys. They resolve to the
+# same (now 4.8) agents so existing setups keep running unchanged.
+AGENTS.update({key.replace("_opus48", "_opus47"): agent for key, agent in list(AGENTS.items()) if key.endswith("_opus48")})

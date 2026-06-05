@@ -76,7 +76,7 @@ def test_apply_config_toml_overlays_values(monkeypatch: pytest.MonkeyPatch, tmp_
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SPRINT_STORY_POINT_TARGET", 8)
-    monkeypatch.setattr(config, "IMPLEMENT_AGENT", "implementor_opus47")
+    monkeypatch.setattr(config, "IMPLEMENT_AGENT", "implementor_opus48")
     monkeypatch.setattr("autosprint.cli.ENV_SET_FIELDS", frozenset())
     _write_config_toml(tmp_path, 'sp_target = 15\nimplement_agent = "implementor_gpt55"\n')
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
@@ -198,12 +198,12 @@ def test_wizard_assistants_both_records_nothing(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_wizard_assistants_claude_only_disables_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Claude-only resolves to council_opus (6-agent Claude mirror of council), pins implementor + how-far to Opus 4.7, and disables the (Copilot) refusal-fallback."""
+    """Claude-only resolves to council_opus (6-agent Claude mirror of council), pins implementor + how-far to Opus 4.8, and disables the (Copilot) refusal-fallback."""
     monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (True, False))
     _feed_input(monkeypatch, "2")
     active: dict[str, str] = {}
     init_mod._wizard_assistants(active)
-    assert active == {"team": "council_opus", "implement_agent": "implementor_opus47", "implement_fallback_agent": "", "howfar_agent": "howfar_opus47"}
+    assert active == {"team": "council_opus", "implement_agent": "implementor_opus48", "implement_fallback_agent": "", "howfar_agent": "howfar_opus48"}
 
 
 def test_wizard_assistants_copilot_only_sets_gpt_agents(monkeypatch: pytest.MonkeyPatch) -> None:

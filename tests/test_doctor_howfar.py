@@ -52,6 +52,61 @@ def test_run_doctor_exits_nonzero_on_failed_dispatch(monkeypatch: pytest.MonkeyP
 
 
 # ---------------------------------------------------------------------------
+# probe_backends — the live round-trip gate run at the start of `autosprint run`
+# (abort mode) and at the end of `autosprint init` (warn-only mode).
+# ---------------------------------------------------------------------------
+
+
+def test_probe_backends_passes_on_working_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import probe_backends
+
+    monkeypatch.setattr(config, "LOG_LEVEL", 100)
+    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"claude", "copilot"})
+    monkeypatch.setattr("autosprint.dispatch.query_agent", AsyncMock(return_value="OK"))
+    assert probe_backends() is True
+
+
+def test_probe_backends_raises_on_failed_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run mode: a dead backend aborts before any state mutation, pointing at doctor."""
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import probe_backends
+
+    monkeypatch.setattr(config, "LOG_LEVEL", 100)
+    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr("autosprint.dispatch.query_agent", AsyncMock(side_effect=RuntimeError("Copilot CLI not found")))
+    with pytest.raises(RuntimeError, match="autosprint doctor"):
+        probe_backends()
+
+
+def test_probe_backends_warn_only_returns_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Init mode: a dead backend warns and returns False — init still completes (auth may simply not be set up yet)."""
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import probe_backends
+
+    monkeypatch.setattr(config, "LOG_LEVEL", 100)
+    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr("autosprint.dispatch.query_agent", AsyncMock(side_effect=RuntimeError("no auth")))
+    assert probe_backends(warn_only=True) is False
+
+
+def test_probe_backends_skipped_in_debug_and_cache_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LOG_LEVEL <= 15 (debug / cache dev loops) must never make live calls."""
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import probe_backends
+
+    monkeypatch.setattr(config, "LOG_LEVEL", 15)
+    dispatch_mock = AsyncMock(side_effect=AssertionError("probe must not dispatch in debug/cache mode"))
+    monkeypatch.setattr("autosprint.dispatch.query_agent", dispatch_mock)
+    assert probe_backends() is True
+    dispatch_mock.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # _check_install_health — spots stale `pip install -e .` installs whose
 # metadata doesn't list the new runtime deps. Direct unit tests so we don't
 # have to fight `run_doctor`'s full setup.

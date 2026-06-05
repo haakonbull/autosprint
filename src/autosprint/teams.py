@@ -18,63 +18,63 @@ from autosprint.agents import (
     AGENT_ANALYST_GPT52_COPILOT,
     AGENT_ANALYST_OPUS_CLAUDE,
     AGENT_ARCHITECT_GPT55,
-    AGENT_ARCHITECT_OPUS47,
+    AGENT_ARCHITECT_OPUS48,
     AGENT_BUG_HUNTER_GPT55,
-    AGENT_BUG_HUNTER_OPUS47,
+    AGENT_BUG_HUNTER_OPUS48,
     AGENT_CLARIFIER_CLAUDE,
-    AGENT_CLARIFIER_OPUS47,
+    AGENT_CLARIFIER_OPUS48,
     AGENT_DECIDER_HAIKU_CLAUDE,
     AGENT_DELIBERATOR_OPUS_CLAUDE,
     AGENT_DELIBERATOR_SONNET_CLAUDE,
     AGENT_EDITOR_GPT55,
-    AGENT_EDITOR_OPUS47,
+    AGENT_EDITOR_OPUS48,
     AGENT_GUARDIAN_COPILOT,
     AGENT_GUARDIAN_GPT55,
     AGENT_INNOVATOR_GPT55,
     AGENT_MINIMALIST_GPT55,
-    AGENT_MINIMALIST_OPUS47,
+    AGENT_MINIMALIST_OPUS48,
     AGENT_NORTH_STAR_GPT55,
-    AGENT_NORTH_STAR_OPUS47,
+    AGENT_NORTH_STAR_OPUS48,
     AGENT_PRAGMATIST_CLAUDE,
     AGENT_PRAGMATIST_GPT55,
-    AGENT_PRAGMATIST_OPUS47,
+    AGENT_PRAGMATIST_OPUS48,
     AGENT_QUICK_A_GPT41_COPILOT,
     AGENT_QUICK_B_GPT41_COPILOT,
     AGENT_REFACTORER_GPT55,
     AGENT_RESEARCH_LEAD_GPT55,
-    AGENT_RESEARCH_LEAD_OPUS47,
+    AGENT_RESEARCH_LEAD_OPUS48,
     AGENT_SPEED_RUNNER_COPILOT,
     AGENT_STEELMANNER_GPT55,
-    AGENT_STEELMANNER_OPUS47,
-    AGENT_STRATEGIST_OPUS47,
+    AGENT_STEELMANNER_OPUS48,
+    AGENT_STRATEGIST_OPUS48,
     AGENT_SYNTHESIZER_GPT55,
-    AGENT_SYNTHESIZER_OPUS47,
+    AGENT_SYNTHESIZER_OPUS48,
     AGENT_TEAMLEAD_GPT55,
-    AGENT_TEAMLEAD_OPUS47,
+    AGENT_TEAMLEAD_OPUS48,
     AGENT_TESTER_COPILOT,
     AGENT_TESTER_GPT55,
-    AGENT_TESTER_OPUS47,
-    AGENT_THINKER_OPUS47,
+    AGENT_TESTER_OPUS48,
+    AGENT_THINKER_OPUS48,
     AGENT_VISIONARY_CLAUDE,
     AGENT_VISIONARY_GPT55,
-    AGENT_VISIONARY_OPUS47,
+    AGENT_VISIONARY_OPUS48,
     AGENT_WEB_RESEARCHER_GPT55,
-    AGENT_WEB_RESEARCHER_OPUS47,
+    AGENT_WEB_RESEARCHER_OPUS48,
 )
 
 # -----------------------------------------------------------------------------
 # Solo teams — one planner, no selector needed. Alphabetised.
 # -----------------------------------------------------------------------------
 
-TEAM_SOLO: dict[str, Any] = {"agents": [AGENT_ANALYST_OPUS_CLAUDE], "description": "1 agent (Analyst Opus 4.7) as planner + shared lead"}
+TEAM_SOLO: dict[str, Any] = {"agents": [AGENT_ANALYST_OPUS_CLAUDE], "description": "1 agent (Analyst Opus 4.8) as planner + shared lead"}
 TEAM_SOLO_LITE: dict[str, Any] = {"agents": [AGENT_SPEED_RUNNER_COPILOT], "description": "1 agent (Speed-runner GPT-4.1 Copilot) — cheap/fast debug team"}
 TEAM_SOLO_GPT52: dict[str, Any] = {"agents": [AGENT_ANALYST_GPT52_COPILOT], "description": "1 agent (Analyst GPT-5.2 Copilot) as planner + shared lead"}
 # solo_gpt55 — single GPT-5.5 planner. Pair with implementor_gpt55 via
 # `--preset solo-gpt55` for an all-Copilot GPT-5.5 run, or with
-# implementor_opus47 for a cheap-plan / strong-implement combo.
+# implementor_opus48 for a cheap-plan / strong-implement combo.
 TEAM_SOLO_GPT55: dict[str, Any] = {"agents": [AGENT_BUG_HUNTER_GPT55], "description": "1 agent (Bug Hunter GPT-5.5 Copilot) as planner + shared lead"}
 TEAM_SOLO_HAIKU_TEST: dict[str, Any] = {"agents": [AGENT_DECIDER_HAIKU_CLAUDE], "description": "1 agent (Decider Haiku 4.5) as planner — Claude-side smoke/debug"}
-TEAM_SOLO_OPUS: dict[str, Any] = {"agents": [AGENT_DELIBERATOR_OPUS_CLAUDE], "description": "1 agent (Deliberator Opus 4.7) as planner + shared lead"}
+TEAM_SOLO_OPUS: dict[str, Any] = {"agents": [AGENT_DELIBERATOR_OPUS_CLAUDE], "description": "1 agent (Deliberator Opus 4.8) as planner + shared lead"}
 TEAM_SOLO_SONNET: dict[str, Any] = {"agents": [AGENT_DELIBERATOR_SONNET_CLAUDE], "description": "1 agent (Deliberator Sonnet 4.6) as planner + shared lead"}
 
 # -----------------------------------------------------------------------------
@@ -93,12 +93,12 @@ TEAM_DEBUG_DUAL_GPT41: dict[str, Any] = {
     "description": "2 identical GPT-4.1 Copilot planners + team lead — exercises multi-agent machinery without burning Claude tokens",
 }
 
-# Duo team — 2 planners + Opus 4.7 team lead. Lighter than `power` for
+# Duo team — 2 planners + Opus 4.8 team lead. Lighter than `power` for
 # everyday iteration on smaller projects where 10 parallel planners is overkill.
 TEAM_DUO: dict[str, Any] = {
-    "agents": [AGENT_THINKER_OPUS47, AGENT_BUG_HUNTER_GPT55],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "2 planners (Thinker Opus 4.7 + Bug Hunter GPT-5.5) + Team Lead Opus 4.7 — default everyday team",
+    "agents": [AGENT_THINKER_OPUS48, AGENT_BUG_HUNTER_GPT55],
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "2 planners (Thinker Opus 4.8 + Bug Hunter GPT-5.5) + Team Lead Opus 4.8 — default everyday team",
 }
 
 TEAM_MIXED: dict[str, Any] = {
@@ -110,62 +110,62 @@ TEAM_MIXED: dict[str, Any] = {
         AGENT_VISIONARY_CLAUDE,
     ],
     "selector": AGENT_DELIBERATOR_OPUS_CLAUDE,
-    "description": "5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.7 as lead",
+    "description": "5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.8 as lead",
 }
 
-# Power team — ten-agent production roster (5 Opus 4.7 + 5 GPT-5.5)
-# + Opus 4.7 team lead. The heavyweight option for deep planning.
+# Power team — ten-agent production roster (5 Opus 4.8 + 5 GPT-5.5)
+# + Opus 4.8 team lead. The heavyweight option for deep planning.
 TEAM_POWER: dict[str, Any] = {
     "agents": [
-        AGENT_STRATEGIST_OPUS47,
+        AGENT_STRATEGIST_OPUS48,
         AGENT_ARCHITECT_GPT55,
-        AGENT_BUG_HUNTER_OPUS47,
+        AGENT_BUG_HUNTER_OPUS48,
         AGENT_MINIMALIST_GPT55,
         AGENT_TESTER_GPT55,
-        AGENT_CLARIFIER_OPUS47,
+        AGENT_CLARIFIER_OPUS48,
         AGENT_GUARDIAN_GPT55,
-        AGENT_VISIONARY_OPUS47,
-        AGENT_PRAGMATIST_OPUS47,
+        AGENT_VISIONARY_OPUS48,
+        AGENT_PRAGMATIST_OPUS48,
         AGENT_REFACTORER_GPT55,
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "10 planners (5 Opus 4.7 + 5 GPT-5.5) + Team Lead Opus 4.7 — heavyweight for deep planning",
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "10 planners (5 Opus 4.8 + 5 GPT-5.5) + Team Lead Opus 4.8 — heavyweight for deep planning",
 }
 
 TEAM_QUARTET: dict[str, Any] = {
     "agents": [
         AGENT_TESTER_GPT55,
         AGENT_MINIMALIST_GPT55,
-        AGENT_VISIONARY_OPUS47,
-        AGENT_BUG_HUNTER_OPUS47,
-        AGENT_NORTH_STAR_OPUS47,
+        AGENT_VISIONARY_OPUS48,
+        AGENT_BUG_HUNTER_OPUS48,
+        AGENT_NORTH_STAR_OPUS48,
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.7) + Team Lead Opus 4.7 — North Star enforces goal-progress bias against test-pin drift",
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.8) + Team Lead Opus 4.8 — North Star enforces goal-progress bias against test-pin drift",
 }
 
 TEAM_BUILDER: dict[str, Any] = {
     "agents": [
         AGENT_TESTER_GPT55,
         AGENT_MINIMALIST_GPT55,
-        AGENT_PRAGMATIST_OPUS47,
-        AGENT_NORTH_STAR_OPUS47,
+        AGENT_PRAGMATIST_OPUS48,
+        AGENT_NORTH_STAR_OPUS48,
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.7) + Team Lead Opus 4.7 — balanced quartet: quality/coverage from GPT-5.5, low-hanging-fruit hunting + destination gap closing from Opus 4.7; avoids the Visionary/NorthStar overlap where both voices chased goal-progress tasks",
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.8) + Team Lead Opus 4.8 — balanced quartet: quality/coverage from GPT-5.5, low-hanging-fruit hunting + destination gap closing from Opus 4.8; avoids the Visionary/NorthStar overlap where both voices chased goal-progress tasks",
 }
 
 TEAM_COUNCIL: dict[str, Any] = {
     "agents": [
-        AGENT_NORTH_STAR_OPUS47,
-        AGENT_BUG_HUNTER_OPUS47,
-        AGENT_PRAGMATIST_OPUS47,
+        AGENT_NORTH_STAR_OPUS48,
+        AGENT_BUG_HUNTER_OPUS48,
+        AGENT_PRAGMATIST_OPUS48,
         AGENT_TESTER_GPT55,
         AGENT_MINIMALIST_GPT55,
         AGENT_ARCHITECT_GPT55,
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "6 planners (North Star + Bug Hunter + Pragmatist Opus 4.7, Tester + Minimalist + Architect GPT-5.5) + Team Lead Opus 4.7 — six deliberately orthogonal lenses: goal progress, correctness, quick wins, test quality, subtraction, structure. No two voices overlap, so the merged proposal list spans the codebase widely. Built for a one-off `autosprint plan` call you will hand-curate: wide net from the six voices, the lead dedupes, prunes, and ranks. Heavier than `builder` — use it for a thorough candidate list, not for every replan inside a loop.",
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "6 planners (North Star + Bug Hunter + Pragmatist Opus 4.8, Tester + Minimalist + Architect GPT-5.5) + Team Lead Opus 4.8 — six deliberately orthogonal lenses: goal progress, correctness, quick wins, test quality, subtraction, structure. No two voices overlap, so the merged proposal list spans the codebase widely. Built for a one-off `autosprint plan` call you will hand-curate: wide net from the six voices, the lead dedupes, prunes, and ranks. Heavier than `builder` — use it for a thorough candidate list, not for every replan inside a loop.",
 }
 
 TEAM_COUNCIL_GPT55: dict[str, Any] = {
@@ -183,37 +183,37 @@ TEAM_COUNCIL_GPT55: dict[str, Any] = {
 
 TEAM_COUNCIL_OPUS: dict[str, Any] = {
     "agents": [
-        AGENT_NORTH_STAR_OPUS47,
-        AGENT_BUG_HUNTER_OPUS47,
-        AGENT_PRAGMATIST_OPUS47,
-        AGENT_TESTER_OPUS47,
-        AGENT_MINIMALIST_OPUS47,
-        AGENT_ARCHITECT_OPUS47,
+        AGENT_NORTH_STAR_OPUS48,
+        AGENT_BUG_HUNTER_OPUS48,
+        AGENT_PRAGMATIST_OPUS48,
+        AGENT_TESTER_OPUS48,
+        AGENT_MINIMALIST_OPUS48,
+        AGENT_ARCHITECT_OPUS48,
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "All-Opus 4.7 mirror of `council` — six orthogonal lenses (goal progress, correctness, quick wins, test quality, subtraction, structure) + Opus 4.7 lead. Same role shape as `council`, every seat filled by a Claude agent. Use when you want a Claude-only run with the full six-lens depth. More expensive per planning round than `council` (no GPT-5.5 cost-sharing); cheaper than running `power`.",
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "All-Opus 4.8 mirror of `council` — six orthogonal lenses (goal progress, correctness, quick wins, test quality, subtraction, structure) + Opus 4.8 lead. Same role shape as `council`, every seat filled by a Claude agent. Use when you want a Claude-only run with the full six-lens depth. More expensive per planning round than `council` (no GPT-5.5 cost-sharing); cheaper than running `power`.",
 }
 
 TEAM_HUNTER: dict[str, Any] = {
     "agents": [
-        AGENT_BUG_HUNTER_OPUS47,
+        AGENT_BUG_HUNTER_OPUS48,
         AGENT_BUG_HUNTER_GPT55,
         AGENT_GUARDIAN_GPT55,
         AGENT_TESTER_GPT55,
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "4 planners (Bug Hunter Opus 4.7 + Bug Hunter/Guardian/Tester GPT-5.5) + Team Lead Opus 4.7 — all four voices specialised in finding concrete failure modes (off-by-ones, unhandled None, risky changes, coverage gaps). For stabilise-before-next-feature phases where the codebase has accumulated risk and `builder`'s forward-pull would paper over real problems",
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "4 planners (Bug Hunter Opus 4.8 + Bug Hunter/Guardian/Tester GPT-5.5) + Team Lead Opus 4.8 — all four voices specialised in finding concrete failure modes (off-by-ones, unhandled None, risky changes, coverage gaps). For stabilise-before-next-feature phases where the codebase has accumulated risk and `builder`'s forward-pull would paper over real problems",
 }
 
 TEAM_REFINER: dict[str, Any] = {
     "agents": [
         AGENT_REFACTORER_GPT55,
         AGENT_MINIMALIST_GPT55,
-        AGENT_CLARIFIER_OPUS47,
+        AGENT_CLARIFIER_OPUS48,
         AGENT_TESTER_GPT55,
     ],
-    "selector": AGENT_TEAMLEAD_OPUS47,
-    "description": "4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.7) + Team Lead Opus 4.7 — focused on structural cleanliness, naming, subtraction, and test consolidation. For cleanup phases after feature surface stabilises; use sparingly and not as a default — running a full repo through a refiner team when there's unfinished feature work wastes sprint budget on polish",
+    "selector": AGENT_TEAMLEAD_OPUS48,
+    "description": "4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.8) + Team Lead Opus 4.8 — focused on structural cleanliness, naming, subtraction, and test consolidation. For cleanup phases after feature surface stabilises; use sparingly and not as a default — running a full repo through a refiner team when there's unfinished feature work wastes sprint budget on polish",
 }
 
 # -----------------------------------------------------------------------------
@@ -227,23 +227,23 @@ TEAM_REFINER: dict[str, Any] = {
 TEAM_RESEARCH_COUNCIL: dict[str, Any] = {
     "agents": [
         AGENT_WEB_RESEARCHER_GPT55,
-        AGENT_SYNTHESIZER_OPUS47,
-        AGENT_STEELMANNER_OPUS47,
+        AGENT_SYNTHESIZER_OPUS48,
+        AGENT_STEELMANNER_OPUS48,
         AGENT_EDITOR_GPT55,
     ],
-    "selector": AGENT_RESEARCH_LEAD_OPUS47,
-    "description": "4 research planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.7, Editor GPT-5.5) + Research Lead Opus 4.7 — four research lenses (source coverage, synthesis across material, argument balance, format discipline) for projects whose deliverables are markdown documents (sources / paper / deep-dives). Mixed Opus + GPT to spread cost; the thinking-heavy roles (Synthesizer, Steelmanner) get Opus, the rule-checking and external-fetching roles (Editor, Web Researcher) get GPT-5.5.",
+    "selector": AGENT_RESEARCH_LEAD_OPUS48,
+    "description": "4 research planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.8, Editor GPT-5.5) + Research Lead Opus 4.8 — four research lenses (source coverage, synthesis across material, argument balance, format discipline) for projects whose deliverables are markdown documents (sources / paper / deep-dives). Mixed Opus + GPT to spread cost; the thinking-heavy roles (Synthesizer, Steelmanner) get Opus, the rule-checking and external-fetching roles (Editor, Web Researcher) get GPT-5.5.",
 }
 
 TEAM_RESEARCH_COUNCIL_OPUS: dict[str, Any] = {
     "agents": [
-        AGENT_WEB_RESEARCHER_OPUS47,
-        AGENT_SYNTHESIZER_OPUS47,
-        AGENT_STEELMANNER_OPUS47,
-        AGENT_EDITOR_OPUS47,
+        AGENT_WEB_RESEARCHER_OPUS48,
+        AGENT_SYNTHESIZER_OPUS48,
+        AGENT_STEELMANNER_OPUS48,
+        AGENT_EDITOR_OPUS48,
     ],
-    "selector": AGENT_RESEARCH_LEAD_OPUS47,
-    "description": "All-Opus 4.7 mirror of `research_council` — same four research lenses, every seat filled by a Claude agent. Use when you want a Claude-only research run, or when GPT-5.5 quota is the binding constraint.",
+    "selector": AGENT_RESEARCH_LEAD_OPUS48,
+    "description": "All-Opus 4.8 mirror of `research_council` — same four research lenses, every seat filled by a Claude agent. Use when you want a Claude-only research run, or when GPT-5.5 quota is the binding constraint.",
 }
 
 TEAM_RESEARCH_COUNCIL_GPT55: dict[str, Any] = {

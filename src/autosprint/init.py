@@ -793,8 +793,11 @@ def _run_init(assume_defaults: bool = False) -> None:
 # ---------------------------------------------------------------------------
 
 
-# Cheapest agent per backend — used only for the doctor connectivity probe.
-_DOCTOR_PROBE_AGENT_KEY: dict[str, str] = {"claude": "decider_haiku_claude", "copilot": "quick_a_gpt41_copilot"}
+# Probe agent per backend — used only for the doctor connectivity probe. Claude probes
+# Haiku (cheapest). Copilot probes gpt-5.5, the model production teams actually dispatch
+# to — gpt-4.1 was retired from Copilot's lineup and probing it blocked runs whose own
+# models were fine.
+_DOCTOR_PROBE_AGENT_KEY: dict[str, str] = {"claude": "decider_haiku_claude", "copilot": "editor_gpt55"}
 
 # Runtime deps the dispatch layer imports. If any of these are missing, every
 # Plan/Implement dispatch will fail mid-sprint — exactly the trap a stale

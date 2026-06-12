@@ -50,28 +50,22 @@ Plus **one or both** of the AI backends below, depending on which team you'll ru
 
 ```bash
 git clone https://github.com/haakonbull/autosprint.git
-cd autosprint
-uv sync
+uv tool install --editable ./autosprint
 ```
 
-autosprint runs from this clone but operates on *your* project — the repo you are standing in. Wrap the command in a shell alias so it works from any directory:
+This puts an `autosprint` command on your PATH that always runs the current state of the clone (the install is editable, so `git pull` takes effect immediately). autosprint runs from the clone but operates on *your* project — the repo you are standing in. Every example below assumes `autosprint` is on PATH.
 
-```bash
-# bash / zsh
-alias autosprint='uv run --project /path/to/autosprint autosprint'
-```
-
-(or a small PowerShell function on Windows). Every example below assumes that alias; without it, prefix each command with `uv run --project /path/to/autosprint`.
+> **Avoid the alias alternative** (`alias autosprint='uv run --project /path/to/autosprint autosprint'`): it re-syncs autosprint's own venv on every invocation, which is slower and fails with a file-lock error when a loop is already running — e.g. `autosprint stop` from a second terminal dies with *Access is denied* instead of stopping the run.
 
 ### Updating autosprint
 
-When you pull a newer version of autosprint, re-run `uv sync` to pick up dependency changes, then refresh the bundled skills in any target repo you've already initialised:
+When you pull a newer version of autosprint, code changes take effect immediately (the tool install is editable). If `pyproject.toml` dependencies changed, reinstall; then refresh the bundled skills in any target repo you've already initialised:
 
 ```bash
 # In the autosprint clone:
 cd /path/to/autosprint
 git pull
-uv sync
+uv tool install --reinstall --editable .   # only needed when dependencies changed
 
 # Then in each target repo where you want the new skills/agents:
 cd /path/to/your-target-repo
@@ -82,7 +76,7 @@ autosprint init --update-skills
 
 # First run
 
-**Prerequisite:** finish [Installing autosprint](#installing-autosprint) above first — clone the repo, `uv sync`, and set up `autosprint` so it's callable from any directory (shell alias, or `uv tool install --editable <path>`).
+**Prerequisite:** finish [Installing autosprint](#installing-autosprint) above first — clone the repo and `uv tool install --editable` it so `autosprint` is callable from any directory.
 
 Two paths below: a **quick start** that runs autosprint against a built-in demo destination (a small 3D action game) so you can see the loop work in ~2 minutes, and a **real project** path where you write your own destination.
 

@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.app.init module."""
 
-from __future__ import annotations
-
 import shutil
 import sys
 

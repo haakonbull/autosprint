@@ -12,8 +12,6 @@ on a Copilot-only setup. The dispatched agent always runs with the read-only
 tool preset, so how-far can never modify the repo.
 """
 
-from __future__ import annotations
-
 import asyncio
 import time
 

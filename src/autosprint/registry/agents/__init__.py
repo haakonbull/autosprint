@@ -20,7 +20,6 @@ File layout:
   4. AGENTS registry     — string-key lookup table for config resolution."""
 
 # Re-export the full public surface so existing import paths keep working.
-from __future__ import annotations
 
 from typing import Any
 

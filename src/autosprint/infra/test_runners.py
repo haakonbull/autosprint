@@ -12,8 +12,6 @@ a runner's raw output format.
 — with no change to `run_test_phase` or any other phase.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import re

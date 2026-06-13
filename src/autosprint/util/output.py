@@ -1,7 +1,5 @@
 """Output helpers for runtime verbosity control."""
 
-from __future__ import annotations
-
 import contextlib
 import sys
 import textwrap

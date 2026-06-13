@@ -6,8 +6,6 @@ raise or catch them without depending on orchestrator. Mirrors the role of
 `io` in the stdlib — a small leaf module of types everyone shares.
 """
 
-from __future__ import annotations
-
 from enum import StrEnum
 
 

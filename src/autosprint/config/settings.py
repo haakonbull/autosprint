@@ -5,10 +5,8 @@ concerned with environment-driven settings and helpers that resolve
 string keys back to the agent/team dicts.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -352,7 +350,7 @@ class Config(BaseSettings):
         return AGENTS[self.HOWFAR_AGENT]
 
     @model_validator(mode="after")
-    def _warn_if_failure_cap_defeats_replan_escape_valve(self) -> Config:
+    def _warn_if_failure_cap_defeats_replan_escape_valve(self) -> Self:
         """If `MAX_CONSECUTIVE_FAILURES <= REPLAN_EVERY_N_SPRINTS`, the loop aborts before the planner gets a chance to replan after failures — defeating the "let the planner rescue us" escape valve. Only meaningful in auto-replan mode: reviewed-plan mode (the default) never does a periodic replan, so there is no escape valve to defeat and the comparison is moot — gate the warning on `AUTO_REPLAN` so a default-config run stays silent. Emit to stderr (not a hard error; some short-run auto-replan configs legitimately want this) so the user sees the misconfiguration before a real failure exposes it."""
         if self.AUTO_REPLAN and self.MAX_CONSECUTIVE_FAILURES <= self.REPLAN_EVERY_N_SPRINTS:
             import sys as _sys

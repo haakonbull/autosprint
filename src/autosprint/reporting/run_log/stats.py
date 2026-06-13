@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.reporting.run_log module."""
 
-from __future__ import annotations
-
 import re
 
 from autosprint.config import config

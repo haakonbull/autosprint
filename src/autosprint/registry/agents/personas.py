@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.registry.agents module."""
 
-from __future__ import annotations
-
 TOOLS_READ_ONLY = "read_only"
 TOOLS_FULL = "full"
 TOOLS_RESEARCH = "research"

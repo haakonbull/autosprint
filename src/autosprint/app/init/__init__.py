@@ -6,8 +6,6 @@ to keep loop logic separate from one-shot setup concerns. Functions here are
 re-exported from orchestrator.py so existing
 `from autosprint.app.orchestrator import _foo` paths still resolve."""
 
-from __future__ import annotations
-
 # Re-export the full public surface so existing import paths keep working.
 from autosprint.app.init.assets import _PYTHON_SPECIFIC_SKILLS, _copy_claude_assets_to_target, _copy_claude_subdir, _migrate_legacy_autosprint_files, _target_is_python_repo  # noqa: F401
 from autosprint.app.init.checks import _CLAUDE_MD_BLOATED_BYTES, _CLAUDE_MD_BLOATED_LINES, _CLAUDE_MD_MIN_USEFUL_CHARS, _CLI_BINARY_FOR_ASSISTANT, _CLI_INSTALL_HINT_FOR_ASSISTANT, _CREDENTIAL_PATTERNS, _DOCKERIGNORE_HIGH_PRIORITY, _PYTHON_PROJECT_MARKERS, _README_MIN_USEFUL_CHARS, _SENSITIVE_SCAN_MAX_FILE_BYTES, _SENSITIVE_SCAN_MAX_FINDINGS, CLAUDE_MD_FILENAME, README_FILENAME, _bootstrap_target_env_and_warn, _check_claude_md_and_warn, _check_cli_deps_or_abort, _check_dockerignore_and_warn, _check_readme_and_warn, _check_target_python_setup_and_warn, _print_init_config_summary, _required_assistants_for_run, _scan_for_sensitive_content_and_warn, _verify_target_is_git_repo, _verify_target_is_initialised  # noqa: F401

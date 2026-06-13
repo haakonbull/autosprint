@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.app.init module."""
 
-from __future__ import annotations
-
 import shutil
 
 from autosprint.config import _project_root, config

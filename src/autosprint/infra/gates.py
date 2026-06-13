@@ -6,8 +6,6 @@ both the `autosprint gates` command and the startup banner render the same
 truth without either reaching up into the CLI.
 """
 
-from __future__ import annotations
-
 import shutil
 
 from autosprint.config import config

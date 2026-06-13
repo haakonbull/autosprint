@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.registry.agents module."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from autosprint.registry.agents.personas import _HOWFAR_PERSONA, _IMPLEMENTOR_PERSONA, _PROMPT_ARCHITECT, _PROMPT_BUG_HUNTER, _PROMPT_EDITOR, _PROMPT_MINIMALIST, _PROMPT_NORTH_STAR, _PROMPT_PRAGMATIST, _PROMPT_STEELMANNER, _PROMPT_SYNTHESIZER, _PROMPT_TESTER, _PROMPT_WEB_RESEARCHER, _THINK_CAREFULLY, TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH

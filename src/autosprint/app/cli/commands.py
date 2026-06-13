@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.app.cli module."""
 
-from __future__ import annotations
-
 import re
 import shutil
 from datetime import datetime

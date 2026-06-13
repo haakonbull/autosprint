@@ -40,8 +40,6 @@ error and retries within the same dispatch. ``result_capture`` stays empty
 until the agent supplies a valid call.
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import hashlib

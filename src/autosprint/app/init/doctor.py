@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.app.init module."""
 
-from __future__ import annotations
-
 import asyncio
 
 from autosprint.app.init.checks import _check_cli_deps_or_abort, _print_init_config_summary, _required_assistants_for_run

@@ -13,8 +13,6 @@ implements a one-shot subcommand instead of running it):
   `prompt_commit_or_abort`.
 - The bundled `_CLI_PRESETS` dict."""
 
-from __future__ import annotations
-
 import argparse
 
 # Re-export the full public surface so existing import paths keep working.

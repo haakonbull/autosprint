@@ -11,8 +11,6 @@ known field is rendered commented-out at its code default so the user has a
 reference to uncomment by hand.
 """
 
-from __future__ import annotations
-
 _CONFIG_TOML_HEADER = """\
 # autosprint/config.toml — per-repo autosprint settings (committed).
 #

@@ -5,8 +5,6 @@ section banner, the box-drawing PIT-loop tree, and the show-config dump all
 live here so orchestrator.py doesn't have to carry the visual layout.
 """
 
-from __future__ import annotations
-
 from autosprint.config import config
 from autosprint.infra.gates import describe_gates
 from autosprint.util.errors import add_context

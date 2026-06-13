@@ -5,8 +5,6 @@ Pure-data leaf module imported by orchestrator.py and init.py. Lives here
 pulling orchestrator and creating a circular import.
 """
 
-from __future__ import annotations
-
 AUTOSPRINT_DIR_NAME = "autosprint"
 LOGS_SUBDIR = f"{AUTOSPRINT_DIR_NAME}/logs"
 INPUTS_SUBDIR = f"{AUTOSPRINT_DIR_NAME}/inputs"

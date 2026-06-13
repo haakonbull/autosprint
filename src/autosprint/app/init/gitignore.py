@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.app.init module."""
 
-from __future__ import annotations
-
 from autosprint.config import config
 from autosprint.util.errors import add_context
 from autosprint.util.output import printlev

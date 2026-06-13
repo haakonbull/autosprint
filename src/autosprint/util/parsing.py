@@ -8,8 +8,6 @@ the plan phase and the implement phase, which is why this lives in its own
 leaf module.
 """
 
-from __future__ import annotations
-
 import json
 
 from autosprint.util.output import printlev

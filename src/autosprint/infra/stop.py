@@ -6,8 +6,6 @@ here (below the phases and app layers) lets the Plan phase poll for an
 immediate stop without reaching up into the CLI.
 """
 
-from __future__ import annotations
-
 from datetime import UTC, datetime
 
 from autosprint.config import config

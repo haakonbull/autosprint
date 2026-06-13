@@ -20,8 +20,6 @@ Design rules:
   ``_INITIAL_TESTS_SUMMARY`` is kept in ``orchestrator.py``).
 """
 
-from __future__ import annotations
-
 import sqlite3
 import subprocess
 from contextlib import closing, suppress

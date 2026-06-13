@@ -10,8 +10,6 @@ individual agents and their AGENTS registry; this module composes those into
 teams and exposes the TEAMS registry the CLI / config / wizard look up.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from autosprint.registry.agents import (

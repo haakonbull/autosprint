@@ -3,13 +3,11 @@
 Pure functions, no LLM calls. Tests against tmp_path file system.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
 
-from autosprint.domain.plan import (
+from autosprint.core.plan import (
     CompletedTask,
     PendingTask,
     Plan,

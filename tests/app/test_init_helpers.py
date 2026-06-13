@@ -3,8 +3,6 @@
 All fast — no LLM calls, no pit_loop.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
@@ -19,19 +17,17 @@ from autosprint.util.paths import ADR_FILENAME, AUTOSPRINT_DIR_NAME, DESTINATION
 # ---------------------------------------------------------------------------
 
 
-def test_ensure_adr_stub_creates_file_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_ensure_adr_stub_creates_file_when_missing(target_repo: Path) -> None:
     _ensure_adr_stub()
-    adr = tmp_path / ADR_FILENAME
+    adr = target_repo / ADR_FILENAME
     assert adr.exists()
     text = adr.read_text(encoding="utf-8")
     assert "Architecture Decision Records" in text
     assert "Supersedes" in text
 
 
-def test_ensure_adr_stub_does_not_overwrite_existing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    adr = tmp_path / ADR_FILENAME
+def test_ensure_adr_stub_does_not_overwrite_existing(target_repo: Path) -> None:
+    adr = target_repo / ADR_FILENAME
     adr.parent.mkdir(parents=True, exist_ok=True)
     adr.write_text("my custom adr\n", encoding="utf-8")
     _ensure_adr_stub()
@@ -43,26 +39,23 @@ def test_ensure_adr_stub_does_not_overwrite_existing(monkeypatch: pytest.MonkeyP
 # ---------------------------------------------------------------------------
 
 
-def test_ensure_destination_aborts_with_examples_hint_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_ensure_destination_aborts_with_examples_hint_when_missing(target_repo: Path) -> None:
     """When destination.md is missing, init aborts with a message pointing the user at the bundled seeds in `autosprint/examples/` (placed there by `_ensure_examples_dir_seeded` earlier in the init flow). destination.md is NOT auto-created — the user picks a seed or writes from scratch."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     with pytest.raises(RuntimeError, match=r"examples/destination_game\.example\.md"):
         _ensure_destination_or_abort()
     # destination.md itself is NOT created — the user must decide whether to copy a seed or start fresh.
-    assert not (tmp_path / DESTINATION_FILENAME).exists()
+    assert not (target_repo / DESTINATION_FILENAME).exists()
 
 
-def test_ensure_destination_passes_when_file_has_content(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    path = tmp_path / DESTINATION_FILENAME
+def test_ensure_destination_passes_when_file_has_content(target_repo: Path) -> None:
+    path = target_repo / DESTINATION_FILENAME
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# My project\n\nReal content here.\n", encoding="utf-8")
     _ensure_destination_or_abort()  # must not raise
 
 
-def test_ensure_destination_aborts_when_file_is_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    path = tmp_path / DESTINATION_FILENAME
+def test_ensure_destination_aborts_when_file_is_empty(target_repo: Path) -> None:
+    path = target_repo / DESTINATION_FILENAME
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("   \n\n   \n", encoding="utf-8")  # whitespace only
     with pytest.raises(RuntimeError, match="destination"):
@@ -146,10 +139,9 @@ def test_ensure_examples_dir_seeded_silent_when_source_missing(monkeypatch: pyte
 # ---------------------------------------------------------------------------
 
 
-def test_ensure_gitignore_creates_file_with_required_entries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_ensure_gitignore_creates_file_with_required_entries(target_repo: Path) -> None:
     _ensure_gitignore_entries()
-    text = (tmp_path / ".gitignore").read_text(encoding="utf-8")
+    text = (target_repo / ".gitignore").read_text(encoding="utf-8")
     assert "autosprint/logs/*" in text
     assert "!autosprint/logs/sprint-outcomes.log" in text
     assert "!autosprint/logs/plan-decisions.md" in text
@@ -158,10 +150,9 @@ def test_ensure_gitignore_creates_file_with_required_entries(monkeypatch: pytest
     assert "autosprint/stop" in text
 
 
-def test_ensure_gitignore_seeds_python_defaults_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_ensure_gitignore_seeds_python_defaults_when_missing(target_repo: Path) -> None:
     _ensure_gitignore_entries()
-    text = (tmp_path / ".gitignore").read_text(encoding="utf-8")
+    text = (target_repo / ".gitignore").read_text(encoding="utf-8")
     # Python defaults seeded alongside the autosprint block.
     assert "__pycache__/" in text
     assert ".venv/" in text
@@ -172,9 +163,8 @@ def test_ensure_gitignore_seeds_python_defaults_when_missing(monkeypatch: pytest
     assert "autosprint/logs/*" in text
 
 
-def test_ensure_gitignore_does_not_seed_defaults_when_file_exists(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    gi = tmp_path / ".gitignore"
+def test_ensure_gitignore_does_not_seed_defaults_when_file_exists(target_repo: Path) -> None:
+    gi = target_repo / ".gitignore"
     gi.write_text("# user content\nfoo/\n", encoding="utf-8")
     _ensure_gitignore_entries()
     text = gi.read_text(encoding="utf-8")
@@ -187,9 +177,8 @@ def test_ensure_gitignore_does_not_seed_defaults_when_file_exists(monkeypatch: p
     assert ".pytest_cache/" not in text
 
 
-def test_ensure_gitignore_does_not_duplicate_existing_entries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    gi = tmp_path / ".gitignore"
+def test_ensure_gitignore_does_not_duplicate_existing_entries(target_repo: Path) -> None:
+    gi = target_repo / ".gitignore"
     gi.write_text("autosprint/logs/*\n!autosprint/logs/sprint-outcomes.log\n", encoding="utf-8")
     _ensure_gitignore_entries()
     _ensure_gitignore_entries()  # call twice to confirm idempotence
@@ -199,9 +188,8 @@ def test_ensure_gitignore_does_not_duplicate_existing_entries(monkeypatch: pytes
     assert "autosprint/cache/" in text
 
 
-def test_ensure_gitignore_preserves_user_entries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    gi = tmp_path / ".gitignore"
+def test_ensure_gitignore_preserves_user_entries(target_repo: Path) -> None:
+    gi = target_repo / ".gitignore"
     gi.write_text("# user content\n*.log\nnode_modules/\n", encoding="utf-8")
     _ensure_gitignore_entries()
     text = gi.read_text(encoding="utf-8")
@@ -210,10 +198,9 @@ def test_ensure_gitignore_preserves_user_entries(monkeypatch: pytest.MonkeyPatch
     assert "autosprint/cache/" in text
 
 
-def test_ensure_gitignore_migrates_legacy_logs_dir_entry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_ensure_gitignore_migrates_legacy_logs_dir_entry(target_repo: Path) -> None:
     """Existing target with the legacy `autosprint/logs/` line (no wildcard, ignores everything) should be migrated to the wildcard-plus-unignore pattern so the three history files start being tracked."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    gi = tmp_path / ".gitignore"
+    gi = target_repo / ".gitignore"
     gi.write_text("# user content\nautosprint/logs/\nautosprint/cache/\nautosprint/stop\nautosprint/stop-now\n", encoding="utf-8")
     _ensure_gitignore_entries()
     text = gi.read_text(encoding="utf-8")

@@ -4,8 +4,6 @@ All fast — no LLM calls, no pit_loop invocation. They target the logging/migra
 helpers added in recent changes that weren't previously covered.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
@@ -41,22 +39,25 @@ from autosprint.reporting.run_log import (
 from autosprint.reporting.run_log import (
     write_runtime_stats as _write_runtime_stats,
 )
-from autosprint.util.output import wrap_message
+from autosprint.util.output import CONSOLE_LOG_FILENAME, wrap_message
 from autosprint.util.parsing import parse_implement_result
-from autosprint.util.paths import LAST_TEST_OUTPUT_FILENAME, RUNTIME_STATS_FILENAME, SPRINT_LOG_FILENAME
+from autosprint.util.paths import (
+    LAST_TEST_OUTPUT_FILENAME,
+    PLAN_DECISIONS_FILENAME,
+    RUNTIME_STATS_FILENAME,
+    SPRINT_LOG_FILENAME,
+)
 
 # ---------------------------------------------------------------------------
 # append_run_log — header once, sprint column populated
 # ---------------------------------------------------------------------------
 
 
-def test_ai_run_log_writes_header_once_on_creation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-
+def test_ai_run_log_writes_header_once_on_creation(target_repo: Path) -> None:
     append_run_log(1, "first task", "OK", "OK", "abc1234")
     append_run_log(1, "second task", "OK", "OK", "def5678")
 
-    log_path = tmp_path / SPRINT_LOG_FILENAME
+    log_path = target_repo / SPRINT_LOG_FILENAME
     lines = log_path.read_text(encoding="utf-8").splitlines()
     # Exactly one header line, and it starts with '#'
     header_lines = [line for line in lines if line.startswith("#")]
@@ -70,23 +71,20 @@ def test_ai_run_log_writes_header_once_on_creation(monkeypatch: pytest.MonkeyPat
     assert "second task" in data_lines[1]
 
 
-def test_ai_run_log_data_row_starts_with_sprint_number(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-
+def test_ai_run_log_data_row_starts_with_sprint_number(target_repo: Path) -> None:
     append_run_log(7, "the task", "OK", "OK", "hash1")
 
-    log_path = tmp_path / SPRINT_LOG_FILENAME
+    log_path = target_repo / SPRINT_LOG_FILENAME
     data_line = next(line for line in log_path.read_text(encoding="utf-8").splitlines() if not line.startswith("#"))
     assert data_line.split("|")[0].strip() == "7"
 
 
-def test_ai_run_log_fake_implement_does_not_write(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_ai_run_log_fake_implement_does_not_write(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """FAKE_IMPLEMENT mode must keep sprint-outcomes.log clean so escalation/history aren't polluted."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
 
     append_run_log(1, "fake task", "OK", "OK", "deadbeef")
-    assert not (tmp_path / SPRINT_LOG_FILENAME).exists()
+    assert not (target_repo / SPRINT_LOG_FILENAME).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -94,9 +92,8 @@ def test_ai_run_log_fake_implement_does_not_write(monkeypatch: pytest.MonkeyPatc
 # ---------------------------------------------------------------------------
 
 
-def test_recent_sprint_history_skips_comment_lines(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    log_path = tmp_path / SPRINT_LOG_FILENAME
+def test_recent_sprint_history_skips_comment_lines(target_repo: Path) -> None:
+    log_path = target_repo / SPRINT_LOG_FILENAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text("# header\n1 | ts1 | task A | OK | OK | hash1\n# === run started ... ===\n2 | ts2 | task B | OK | OK | hash2\n", encoding="utf-8")
 
@@ -107,8 +104,7 @@ def test_recent_sprint_history_skips_comment_lines(monkeypatch: pytest.MonkeyPat
     assert "task B" in history
 
 
-def test_recent_sprint_history_empty_file_returns_empty_string(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_recent_sprint_history_empty_file_returns_empty_string(target_repo: Path) -> None:
     assert recent_sprint_history() == ""
 
 
@@ -123,73 +119,65 @@ def _write_log(tmp_path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def test_check_escalation_raises_on_three_reverts_of_same_task(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_check_escalation_raises_on_three_reverts_of_same_task(target_repo: Path) -> None:
     body = "# header\n" + "\n".join(f"{i} | 2026-04-20T00:00:0{i}Z |  3 | flaky task | FAILED | n/a | REVERTED" for i in range(1, 4))
-    _write_log(tmp_path, body + "\n")
+    _write_log(target_repo, body + "\n")
     with pytest.raises(RuntimeError, match="flaky task"):
         check_escalation()
 
 
-def test_check_escalation_does_not_raise_on_two_reverts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_check_escalation_does_not_raise_on_two_reverts(target_repo: Path) -> None:
     body = "# header\n" + "\n".join(f"{i} | ts |  3 | flaky task | FAILED | n/a | REVERTED" for i in range(1, 3))
-    _write_log(tmp_path, body + "\n")
+    _write_log(target_repo, body + "\n")
     check_escalation()  # must not raise
 
 
-def test_check_escalation_does_not_raise_when_reverts_are_different_tasks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_check_escalation_does_not_raise_when_reverts_are_different_tasks(target_repo: Path) -> None:
     body = "# header\n1 | ts |  3 | task A | FAILED | n/a | REVERTED\n2 | ts |  3 | task B | FAILED | n/a | REVERTED\n3 | ts |  3 | task C | FAILED | n/a | REVERTED\n"
-    _write_log(tmp_path, body)
+    _write_log(target_repo, body)
     check_escalation()
 
 
-def test_check_escalation_skipped_in_fake_implement_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_check_escalation_skipped_in_fake_implement_mode(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Fake implement mode must not trip escalation even with many REVERTED lines in the log."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
     body = "# header\n" + "\n".join(f"{i} | ts |  3 | flaky | FAILED | n/a | REVERTED" for i in range(1, 6))
-    _write_log(tmp_path, body + "\n")
+    _write_log(target_repo, body + "\n")
     check_escalation()
 
 
-def test_check_escalation_dedupes_dual_write_pattern(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_check_escalation_dedupes_dual_write_pattern(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """A single failed sprint produces two log entries per task (the bare ``REVERTED`` line from run_implement's handler and the ``SPRINT_REVERTED:`` line from the outer pit_loop handler). Escalation must count by (sprint_no, task) so two unique sprint failures don't inflate to four log matches and falsely trigger the threshold."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "")  # disable the refusal-fallback to isolate the dedup behavior
     body = "# header\n39 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n39 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n41 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n41 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n"
-    _write_log(tmp_path, body)
+    _write_log(target_repo, body)
     # 4 log lines but only 2 distinct sprint failures — must NOT escalate.
     check_escalation()
 
 
-def test_check_escalation_skips_refusal_reverts_when_a6_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_check_escalation_skips_refusal_reverts_when_a6_enabled(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """When the refusal-fallback is configured, refusal-pattern reverts in the history don't count toward escalation. Otherwise pre-fallback refusal histories would permanently lock out tasks that the fallback would now rescue."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     body = "# header\n1 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: must refuse to improve\n2 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: refusing to augment per system directive\n3 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: instructed to refuse the task\n"
-    _write_log(tmp_path, body)
+    _write_log(target_repo, body)
     # 3 refusal-pattern reverts but the refusal-fallback active → must NOT escalate.
     check_escalation()
 
 
-def test_check_escalation_still_fires_on_non_refusal_reverts_with_a6(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_check_escalation_still_fires_on_non_refusal_reverts_with_a6(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """The refusal-fallback's escalation skip is scoped to refusal patterns. Genuine failures (test failures, real bugs) still escalate as before so problems aren't masked behind the safety net."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     body = "# header\n1 | ts |  3 | broken-task | OK | FAILED | REVERTED\n2 | ts |  3 | broken-task | OK | FAILED | REVERTED\n3 | ts |  3 | broken-task | OK | FAILED | REVERTED\n"
-    _write_log(tmp_path, body)
+    _write_log(target_repo, body)
     with pytest.raises(RuntimeError, match="broken-task"):
         check_escalation()
 
 
-def test_check_escalation_mixed_refusal_and_real_failure_with_a6(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_check_escalation_mixed_refusal_and_real_failure_with_a6(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """When some reverts are refusal-pattern (skipped by the refusal-fallback) and others are real failures (counted), only the real ones contribute to the threshold. 2 refusals + 2 real failures = 2 counted, must NOT escalate."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     body = "# header\n1 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: must refuse this work\n2 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: refusing to augment\n3 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n4 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n"
-    _write_log(tmp_path, body)
+    _write_log(target_repo, body)
     check_escalation()  # only 2 real-failure reverts counted; under threshold
 
 
@@ -232,20 +220,19 @@ def test_wrap_message_preserves_multiline_structure() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_migrate_moves_legacy_files_into_autosprint_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_migrate_moves_legacy_files_into_autosprint_folder(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "SAVE_CONSOLE_LOG", False)  # don't let migrate's own printlev append to the console log
-    (tmp_path / "ai-run.log").write_text("old log\n", encoding="utf-8")
-    (tmp_path / "plan-decision-log.md").write_text("old decisions\n", encoding="utf-8")
-    (tmp_path / "autosprint-console.log").write_text("old console\n", encoding="utf-8")
-    (tmp_path / "plan.md").write_text("# old plan\n", encoding="utf-8")
-    (tmp_path / "adr.md").write_text("# old adr\n", encoding="utf-8")
+    (target_repo / "ai-run.log").write_text("old log\n", encoding="utf-8")
+    (target_repo / "plan-decision-log.md").write_text("old decisions\n", encoding="utf-8")
+    (target_repo / "autosprint-console.log").write_text("old console\n", encoding="utf-8")
+    (target_repo / "plan.md").write_text("# old plan\n", encoding="utf-8")
+    (target_repo / "adr.md").write_text("# old adr\n", encoding="utf-8")
     # Pre-rename layout: root-level ideal_state.md from before the rename to destination.md.
-    (tmp_path / "ideal_state.md").write_text("# old destination content\n", encoding="utf-8")
+    (target_repo / "ideal_state.md").write_text("# old destination content\n", encoding="utf-8")
 
     _migrate_legacy_autosprint_files()
 
-    autosprint_dir = tmp_path / "autosprint"
+    autosprint_dir = target_repo / "autosprint"
     logs_dir = autosprint_dir / "logs"
     # Root-level legacy files move AND adopt the role-descriptive names AND land under logs/ in the new layout.
     assert (logs_dir / "sprint-outcomes.log").read_text(encoding="utf-8") == "old log\n"
@@ -256,18 +243,17 @@ def test_migrate_moves_legacy_files_into_autosprint_folder(monkeypatch: pytest.M
     assert (autosprint_dir / "adr.md").read_text(encoding="utf-8") == "# old adr\n"
     assert (autosprint_dir / "destination.md").read_text(encoding="utf-8") == "# old destination content\n"
     # Originals at root are gone.
-    assert not (tmp_path / "ai-run.log").exists()
-    assert not (tmp_path / "plan.md").exists()
+    assert not (target_repo / "ai-run.log").exists()
+    assert not (target_repo / "plan.md").exists()
     # Logs are NOT at autosprint/ root anymore (they moved into logs/).
     assert not (autosprint_dir / "sprint-outcomes.log").exists()
     assert not (autosprint_dir / "console-verbose.log").exists()
 
 
-def test_migrate_renames_old_folder_filenames_in_place(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_migrate_renames_old_folder_filenames_in_place(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Repos that already ran post-folder-migration but before the log-rename see the files renamed in autosprint/."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SAVE_CONSOLE_LOG", False)
-    autosprint_dir = tmp_path / "autosprint"
+    autosprint_dir = target_repo / "autosprint"
     autosprint_dir.mkdir()
     (autosprint_dir / "ai-run.log").write_text("folder log\n", encoding="utf-8")
     (autosprint_dir / "console.log").write_text("folder console\n", encoding="utf-8")
@@ -289,11 +275,10 @@ def test_migrate_renames_old_folder_filenames_in_place(monkeypatch: pytest.Monke
     assert not (autosprint_dir / "plan-decisions.md").exists()
 
 
-def test_migrate_renames_orphan_when_target_already_exists(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_migrate_renames_orphan_when_target_already_exists(target_repo: Path) -> None:
     """If both root-level legacy and the new autosprint/ version exist, keep the autosprint/ one AND rename the orphan to a timestamped suffix so the legacy name is free for the next run (idempotent re-creation detection)."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    (tmp_path / "ai-run.log").write_text("old at root\n", encoding="utf-8")
-    autosprint_dir = tmp_path / "autosprint"
+    (target_repo / "ai-run.log").write_text("old at root\n", encoding="utf-8")
+    autosprint_dir = target_repo / "autosprint"
     autosprint_dir.mkdir()
     (autosprint_dir / "sprint-outcomes.log").write_text("new in folder\n", encoding="utf-8")
 
@@ -303,18 +288,17 @@ def test_migrate_renames_orphan_when_target_already_exists(monkeypatch: pytest.M
     logs_dir = autosprint_dir / "logs"
     assert (logs_dir / "sprint-outcomes.log").read_text(encoding="utf-8") == "new in folder\n"
     # The orphan is renamed (not deleted — preserves user data) with an `.orphan-<ts>` suffix.
-    assert not (tmp_path / "ai-run.log").exists()
-    orphans = list(tmp_path.glob("ai-run.log.orphan-*"))
+    assert not (target_repo / "ai-run.log").exists()
+    orphans = list(target_repo.glob("ai-run.log.orphan-*"))
     assert len(orphans) == 1
     assert orphans[0].read_text(encoding="utf-8") == "old at root\n"
 
 
-def test_migrate_noop_when_nothing_to_migrate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_migrate_noop_when_nothing_to_migrate(target_repo: Path) -> None:
     _migrate_legacy_autosprint_files()
     # Folder should be created but be empty of the migrated files.
-    assert (tmp_path / "autosprint").exists()
-    assert not any((tmp_path / "autosprint").iterdir())
+    assert (target_repo / "autosprint").exists()
+    assert not any((target_repo / "autosprint").iterdir())
 
 
 # ---------------------------------------------------------------------------
@@ -329,20 +313,18 @@ def _write_plan_decisions(autosprint_dir: Path, n_sprints: int) -> None:
     (logs_dir / "plan-decisions.md").write_text("".join(entries), encoding="utf-8")
 
 
-def test_trim_plan_decisions_noop_when_under_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_trim_plan_decisions_noop_when_under_cap(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "PLAN_DECISIONS_RECENT_COUNT", 30)
-    autosprint_dir = tmp_path / "autosprint"
+    autosprint_dir = target_repo / "autosprint"
     _write_plan_decisions(autosprint_dir, n_sprints=5)
     original = (autosprint_dir / "logs" / "plan-decisions.md").read_text(encoding="utf-8")
     _trim_plan_decisions_log()
     assert (autosprint_dir / "logs" / "plan-decisions.md").read_text(encoding="utf-8") == original
 
 
-def test_trim_plan_decisions_drops_oldest_when_over_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_trim_plan_decisions_drops_oldest_when_over_cap(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "PLAN_DECISIONS_RECENT_COUNT", 3)
-    autosprint_dir = tmp_path / "autosprint"
+    autosprint_dir = target_repo / "autosprint"
     _write_plan_decisions(autosprint_dir, n_sprints=10)
     _trim_plan_decisions_log()
     text = (autosprint_dir / "logs" / "plan-decisions.md").read_text(encoding="utf-8")
@@ -355,26 +337,23 @@ def test_trim_plan_decisions_drops_oldest_when_over_cap(monkeypatch: pytest.Monk
     assert "Task 6" not in text
 
 
-def test_trim_plan_decisions_disabled_when_cap_zero(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_trim_plan_decisions_disabled_when_cap_zero(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "PLAN_DECISIONS_RECENT_COUNT", 0)
-    autosprint_dir = tmp_path / "autosprint"
+    autosprint_dir = target_repo / "autosprint"
     _write_plan_decisions(autosprint_dir, n_sprints=50)
     original = (autosprint_dir / "logs" / "plan-decisions.md").read_text(encoding="utf-8")
     _trim_plan_decisions_log()
     assert (autosprint_dir / "logs" / "plan-decisions.md").read_text(encoding="utf-8") == original
 
 
-def test_trim_plan_decisions_silent_when_file_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_trim_plan_decisions_silent_when_file_missing(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "PLAN_DECISIONS_RECENT_COUNT", 30)
     _trim_plan_decisions_log()  # must not raise
 
 
-def test_trim_console_log_noop_when_under_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_trim_console_log_noop_when_under_cap(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "CONSOLE_LOG_MAX_BYTES", 10_000)
-    logs_dir = tmp_path / "autosprint" / "logs"
+    logs_dir = target_repo / "autosprint" / "logs"
     logs_dir.mkdir(parents=True)
     path = logs_dir / "console-verbose.log"
     path.write_text("# === run started 2026-04-01T00:00:00Z ===\nshort\n", encoding="utf-8")
@@ -383,9 +362,8 @@ def test_trim_console_log_noop_when_under_cap(monkeypatch: pytest.MonkeyPatch, t
     assert path.read_text(encoding="utf-8") == original
 
 
-def test_trim_console_log_drops_oldest_runs_over_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    logs_dir = tmp_path / "autosprint" / "logs"
+def test_trim_console_log_drops_oldest_runs_over_cap(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
+    logs_dir = target_repo / "autosprint" / "logs"
     logs_dir.mkdir(parents=True)
     path = logs_dir / "console-verbose.log"
     # Five run blocks with distinctive markers; each ~500 bytes.
@@ -402,10 +380,9 @@ def test_trim_console_log_drops_oldest_runs_over_cap(monkeypatch: pytest.MonkeyP
     assert len(text.encode("utf-8")) <= 1500 or text.count("# === run started ") == 1
 
 
-def test_trim_console_log_disabled_when_cap_zero(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_trim_console_log_disabled_when_cap_zero(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "CONSOLE_LOG_MAX_BYTES", 0)
-    logs_dir = tmp_path / "autosprint" / "logs"
+    logs_dir = target_repo / "autosprint" / "logs"
     logs_dir.mkdir(parents=True)
     path = logs_dir / "console-verbose.log"
     big = "# === run started 2026-04-01 ===\n" + ("x" * 10_000) + "\n"
@@ -414,10 +391,9 @@ def test_trim_console_log_disabled_when_cap_zero(monkeypatch: pytest.MonkeyPatch
     assert path.read_text(encoding="utf-8") == big
 
 
-def test_migrate_handles_recreated_console_log_inside_autosprint_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_migrate_handles_recreated_console_log_inside_autosprint_dir(target_repo: Path) -> None:
     """The real-world case. After a prior migration, `autosprint/console-verbose.log` is the live log. A bug or older code path re-creates `autosprint/console.log`. Next startup: keep the live log untouched, rename the orphan with a timestamp so it doesn't silently accumulate."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    autosprint_dir = tmp_path / "autosprint"
+    autosprint_dir = target_repo / "autosprint"
     autosprint_dir.mkdir()
     (autosprint_dir / "console-verbose.log").write_text("live log\n", encoding="utf-8")
     (autosprint_dir / "console.log").write_text("re-created orphan\n", encoding="utf-8")
@@ -440,25 +416,22 @@ def test_migrate_handles_recreated_console_log_inside_autosprint_dir(monkeypatch
 # ---------------------------------------------------------------------------
 
 
-def test_read_runtime_stats_missing_returns_zero(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_read_runtime_stats_missing_returns_zero(target_repo: Path) -> None:
     assert _read_runtime_stats() == (0.0, 0, 0)
 
 
-def test_write_then_read_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_write_then_read_roundtrip(target_repo: Path) -> None:
     _write_runtime_stats(123.45, 7, 42)
     assert _read_runtime_stats() == (123.45, 7, 42)
     # File is human-readable, not pickled.
-    body = (tmp_path / RUNTIME_STATS_FILENAME).read_text(encoding="utf-8")
+    body = (target_repo / RUNTIME_STATS_FILENAME).read_text(encoding="utf-8")
     assert "average_sprint_time_seconds" in body
     assert "sprint_count: 7" in body
     assert "total_story_points: 42" in body
 
 
-def test_update_runtime_stats_rolling_formula(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_update_runtime_stats_rolling_formula(target_repo: Path) -> None:
     """new_avg = ((old_avg * old_count) + latest) / (old_count + 1); total_sp accumulates."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     _write_runtime_stats(100.0, 4, 20)
     _update_runtime_stats(200.0, sprint_sp=8)
     avg, count, total_sp = _read_runtime_stats()
@@ -468,21 +441,18 @@ def test_update_runtime_stats_rolling_formula(monkeypatch: pytest.MonkeyPatch, t
     assert total_sp == 28
 
 
-def test_update_runtime_stats_skipped_in_fake_modes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_update_runtime_stats_skipped_in_fake_modes(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
     _update_runtime_stats(99.0)
-    assert not (tmp_path / RUNTIME_STATS_FILENAME).exists()
+    assert not (target_repo / RUNTIME_STATS_FILENAME).exists()
 
 
-def test_estimated_runtime_line_first_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_estimated_runtime_line_first_run(target_repo: Path) -> None:
     line = _estimated_runtime_line(planned_sprints=10)
     assert "no history" in line
 
 
-def test_estimated_runtime_line_uses_rolling_average(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_estimated_runtime_line_uses_rolling_average(target_repo: Path) -> None:
     _write_runtime_stats(average_seconds=120.0, count=3, total_sp=0)
     line = _estimated_runtime_line(planned_sprints=5)
     # 120s * 5 sprints = 600s = 10 minutes
@@ -490,8 +460,7 @@ def test_estimated_runtime_line_uses_rolling_average(monkeypatch: pytest.MonkeyP
     assert "5 sprints" in line
 
 
-def test_estimated_runtime_line_includes_sp_rate_when_available(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_estimated_runtime_line_includes_sp_rate_when_available(target_repo: Path) -> None:
     # 3 sprints at 120s each = 360s total; 18 SP total → 20s/SP
     _write_runtime_stats(average_seconds=120.0, count=3, total_sp=18)
     line = _estimated_runtime_line(planned_sprints=5)
@@ -511,10 +480,9 @@ def _reset_changelog_run_heading(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(run_log.changelog, "_CHANGELOG_RUN_HEADING_WRITTEN", False)
 
 
-def test_append_changelog_creates_file_with_header(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_append_changelog_creates_file_with_header(target_repo: Path) -> None:
     append_changelog_entry(1, [{"title": "Add feature X"}], "Did the thing.")
-    text = (tmp_path / "autosprint" / "changelog.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "changelog.md").read_text(encoding="utf-8")
     assert text.startswith("# Changelog")
     # First entry of a run emits a `## Run …` heading and a `### Sprint N` sub-heading.
     assert "## Run " in text
@@ -523,11 +491,10 @@ def test_append_changelog_creates_file_with_header(monkeypatch: pytest.MonkeyPat
     assert "Did the thing." in text
 
 
-def test_append_changelog_appends_without_duplicating_header(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_append_changelog_appends_without_duplicating_header(target_repo: Path) -> None:
     append_changelog_entry(1, [{"title": "First"}], "one")
     append_changelog_entry(2, [{"title": "Second"}], "two")
-    text = (tmp_path / "autosprint" / "changelog.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "changelog.md").read_text(encoding="utf-8")
     assert text.count("# Changelog") == 1  # file header written once
     # One `## Run` heading for the whole run — the second sprint reuses it.
     assert text.count("## Run ") == 1
@@ -535,29 +502,25 @@ def test_append_changelog_appends_without_duplicating_header(monkeypatch: pytest
     assert text.index("### Sprint 1 — ") < text.index("### Sprint 2 — ")
 
 
-def test_append_changelog_joins_grouped_task_titles(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_append_changelog_joins_grouped_task_titles(target_repo: Path) -> None:
     append_changelog_entry(3, [{"title": "Task A"}, {"title": "Task B"}], "Both shipped.")
-    text = (tmp_path / "autosprint" / "changelog.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "changelog.md").read_text(encoding="utf-8")
     assert "Task A; Task B" in text
 
 
-def test_append_changelog_noop_in_fake_implement(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_append_changelog_noop_in_fake_implement(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Fake runs must not pollute the real changelog — mirrors append_run_log's FAKE_IMPLEMENT guard."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
     append_changelog_entry(1, [{"title": "Fake"}], "fake summary")
-    assert not (tmp_path / "autosprint" / "changelog.md").exists()
+    assert not (target_repo / "autosprint" / "changelog.md").exists()
 
 
-def test_append_changelog_two_runs_do_not_collide(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_append_changelog_two_runs_do_not_collide(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """BUG 3 regression guard. `sprint_number` resets to 0 every `pit_loop`, so a flat
     `## Sprint N` heading collided across runs against the same repo. Run-scoped headings
     fix this: two separate run-sequences must produce two distinct `## Run` headings, and
     the per-run `### Sprint N` sub-headings reading "sprint N of this run" is now correct
     even though both runs reuse sprint numbers 1, 2."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-
     # --- Run 1: sprints 1, 2 ---
     append_changelog_entry(1, [{"title": "Run1 task A"}], "first run sprint 1")
     append_changelog_entry(2, [{"title": "Run1 task B"}], "first run sprint 2")
@@ -570,7 +533,7 @@ def test_append_changelog_two_runs_do_not_collide(monkeypatch: pytest.MonkeyPatc
     append_changelog_entry(1, [{"title": "Run2 task A"}], "second run sprint 1")
     append_changelog_entry(2, [{"title": "Run2 task B"}], "second run sprint 2")
 
-    text = (tmp_path / "autosprint" / "changelog.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "changelog.md").read_text(encoding="utf-8")
     # Two runs → two `## Run` headings, no collision.
     assert text.count("## Run ") == 2
     # Each run has its own Sprint 1 / Sprint 2 sub-headings — duplicate sprint numbers
@@ -623,16 +586,15 @@ def _write_destination(tmp_path: Path, text: str = _DESTINATION_FIXTURE) -> Path
     return path
 
 
-def test_writeback_appends_status_marker_at_section_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writeback_appends_status_marker_at_section_end(target_repo: Path) -> None:
     """Write #2: the status-marker blockquote lands at the END of the resolved section —
     after the human-authored '(Open — autosprint to decide.)' line (which is left intact)
     and before the next '## ' heading."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    _write_destination(tmp_path)
+    _write_destination(target_repo)
 
     apply_destination_resolutions([{"section": "Test strategy", "answer": "pytest, unit-heavy", "adr_ref": "2026-05-16 — Test strategy"}])
 
-    text = (tmp_path / "autosprint" / "destination.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "destination.md").read_text(encoding="utf-8")
     lines = text.split("\n")
     marker = "> **Status:** resolved"
     marker_idx = next(i for i, line in enumerate(lines) if line.startswith(marker))
@@ -647,43 +609,40 @@ def test_writeback_appends_status_marker_at_section_end(monkeypatch: pytest.Monk
     assert "`adr.md` 2026-05-16 — Test strategy" in lines[marker_idx]
 
 
-def test_writeback_appends_receipt_and_removes_placeholder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writeback_appends_receipt_and_removes_placeholder(target_repo: Path) -> None:
     """Write #3 (also BUG 2): a receipt bullet is appended to '## AI-resolved questions'
     and the seed '_No questions resolved yet._' placeholder is deleted on the first
     receipt."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    _write_destination(tmp_path)
+    _write_destination(target_repo)
 
     apply_destination_resolutions([{"section": "Test strategy", "answer": "pytest, unit-heavy", "adr_ref": "2026-05-16 — Test strategy"}])
 
-    text = (tmp_path / "autosprint" / "destination.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "destination.md").read_text(encoding="utf-8")
     assert "_No questions resolved yet._" not in text
     assert "- **Test strategy:** pytest, unit-heavy. See `adr.md` 2026-05-16 — Test strategy." in text
     # Receipt landed inside the AI-resolved-questions section, before the next heading.
     assert text.index("- **Test strategy:**") < text.index("## AI-generated subgoals")
 
 
-def test_writeback_missing_section_warns_and_does_not_raise(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writeback_missing_section_warns_and_does_not_raise(target_repo: Path) -> None:
     """A resolution naming a '## <section>' heading that doesn't exist must be logged
     loudly and skipped — it must NOT raise and must NOT corrupt the file. The code work
     behind the resolution is already correct, so a bad section name can't fail the sprint."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    _write_destination(tmp_path)
+    _write_destination(target_repo)
 
     # Must not raise.
     apply_destination_resolutions([{"section": "Nonexistent section", "answer": "x", "adr_ref": "y"}])
 
-    text = (tmp_path / "autosprint" / "destination.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "destination.md").read_text(encoding="utf-8")
     # No status marker written (the section was missing) and no receipt for it either.
     assert "> **Status:** resolved" not in text
     assert "- **Nonexistent section:**" not in text
 
 
-def test_writeback_handles_multiple_resolutions_in_one_call(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writeback_handles_multiple_resolutions_in_one_call(target_repo: Path) -> None:
     """A single call resolving two sections must write both markers and both receipts —
     and the line-index shift from the first marker insert must not corrupt the second."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    _write_destination(tmp_path)
+    _write_destination(target_repo)
 
     apply_destination_resolutions(
         [
@@ -692,7 +651,7 @@ def test_writeback_handles_multiple_resolutions_in_one_call(monkeypatch: pytest.
         ]
     )
 
-    text = (tmp_path / "autosprint" / "destination.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "destination.md").read_text(encoding="utf-8")
     assert text.count("> **Status:** resolved") == 2
     assert "pytest" in text
     assert "docstrings everywhere" in text
@@ -705,25 +664,23 @@ def test_writeback_handles_multiple_resolutions_in_one_call(monkeypatch: pytest.
     assert ts_marker < doc_heading
 
 
-def test_writeback_heading_match_tolerant_of_leading_hashes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writeback_heading_match_tolerant_of_leading_hashes(target_repo: Path) -> None:
     """The 'section' value may arrive with or without a leading '## ' — both must resolve
     to the same section heading."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    _write_destination(tmp_path)
+    _write_destination(target_repo)
 
     apply_destination_resolutions([{"section": "## Test strategy", "answer": "pytest", "adr_ref": "ADR-A"}])
 
-    text = (tmp_path / "autosprint" / "destination.md").read_text(encoding="utf-8")
+    text = (target_repo / "autosprint" / "destination.md").read_text(encoding="utf-8")
     assert "> **Status:** resolved" in text
     # Receipt tag drops the leading '## ' so the bullet reads naturally.
     assert "- **Test strategy:** pytest. See `adr.md` ADR-A." in text
 
 
-def test_writeback_empty_list_is_noop(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writeback_empty_list_is_noop(target_repo: Path) -> None:
     """The common case: a sprint resolves nothing. An empty list must leave destination.md
     byte-identical."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    path = _write_destination(tmp_path)
+    path = _write_destination(target_repo)
     original = path.read_text(encoding="utf-8")
 
     apply_destination_resolutions([])
@@ -731,11 +688,10 @@ def test_writeback_empty_list_is_noop(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert path.read_text(encoding="utf-8") == original
 
 
-def test_writeback_noop_in_fake_implement_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writeback_noop_in_fake_implement_mode(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """FAKE_IMPLEMENT runs must not touch destination.md — mirrors the other run_log guards."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
-    path = _write_destination(tmp_path)
+    path = _write_destination(target_repo)
     original = path.read_text(encoding="utf-8")
 
     apply_destination_resolutions([{"section": "Test strategy", "answer": "pytest", "adr_ref": "ADR-A"}])
@@ -783,8 +739,7 @@ def test_extract_test_output_highlights_no_warnings_returns_summary_only() -> No
     assert "warnings summary" not in out.lower()
 
 
-def test_read_last_test_output_returns_warnings_when_previous_sprint_passed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_read_last_test_output_returns_warnings_when_previous_sprint_passed(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
     stdout_with_warnings = "============== warnings summary ==============\ntests/test_foo.py::test_bar\n  /mod.py:42: DeprecationWarning: old thing\n\n-- Docs: https://docs.pytest.org\n============== 1 passed, 1 warning in 0.10s ==============\n"
     _write_last_test_output(1, "PASS", stdout_with_warnings)
@@ -795,8 +750,7 @@ def test_read_last_test_output_returns_warnings_when_previous_sprint_passed(monk
     assert "DeprecationWarning" in content
 
 
-def test_read_last_test_output_returns_empty_for_passing_run_with_no_warnings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_read_last_test_output_returns_empty_for_passing_run_with_no_warnings(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
     # For a passing run the summary line is surfaced so the team lead always
     # sees at least the pass count. Only truly empty output (no summary, no
@@ -808,8 +762,7 @@ def test_read_last_test_output_returns_empty_for_passing_run_with_no_warnings(mo
     assert "1 passed in 0.05s" in content
 
 
-def test_read_last_test_output_surfaces_failure_context(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_read_last_test_output_surfaces_failure_context(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
     # `_extract_test_output_highlights` keeps the final `=` summary line, so that's what ends up in the log.
     _write_last_test_output(2, "FAIL", "FAILED tests/test_foo.py::test_bar - AssertionError\n======= 1 failed in 0.08s =======\n")
@@ -818,15 +771,13 @@ def test_read_last_test_output_surfaces_failure_context(monkeypatch: pytest.Monk
     assert "1 failed in 0.08s" in content
 
 
-def test_write_last_test_output_is_noop_in_fake_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_write_last_test_output_is_noop_in_fake_mode(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
     _write_last_test_output(1, "PASS", "======= 1 passed in 0.05s =======\n")
-    assert not (tmp_path / LAST_TEST_OUTPUT_FILENAME).exists()
+    assert not (target_repo / LAST_TEST_OUTPUT_FILENAME).exists()
 
 
-def test_read_last_test_output_returns_empty_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_read_last_test_output_returns_empty_when_missing(target_repo: Path) -> None:
     assert _read_last_test_output() == ""
 
 
@@ -835,13 +786,10 @@ def test_read_last_test_output_returns_empty_when_missing(monkeypatch: pytest.Mo
 # ---------------------------------------------------------------------------
 
 
-def test_trim_console_verbose_log_stays_under_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_trim_console_verbose_log_stays_under_cap(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """After trimming, the file must fit within the cap. Previously an off-by-one
     advanced `kept` twice when the candidate fit, dropping one extra run block."""
-    from autosprint.util.output import CONSOLE_LOG_FILENAME
-
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    log_path = tmp_path / CONSOLE_LOG_FILENAME
+    log_path = target_repo / CONSOLE_LOG_FILENAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build a log with 5 run blocks, each ~200 bytes. Set cap to keep ~2 blocks.
@@ -862,14 +810,11 @@ def test_trim_console_verbose_log_stays_under_cap(monkeypatch: pytest.MonkeyPatc
     assert "2026-01-05" in result
 
 
-def test_trim_console_verbose_log_preserves_at_least_one_block(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_trim_console_verbose_log_preserves_at_least_one_block(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """When the cap is very small (smaller than a single run block), trim stops at
     2 segments (never cuts mid-run) and the file will exceed the cap rather than
     losing the only run block."""
-    from autosprint.util.output import CONSOLE_LOG_FILENAME
-
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    log_path = tmp_path / CONSOLE_LOG_FILENAME
+    log_path = target_repo / CONSOLE_LOG_FILENAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     text = "\n# === run started 2026-01-01T00:00:00Z ===\n" + "x" * 500
@@ -889,14 +834,11 @@ def test_trim_console_verbose_log_preserves_at_least_one_block(monkeypatch: pyte
 # ---------------------------------------------------------------------------
 
 
-def test_trim_plan_decisions_log_keeps_last_n_entries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_trim_plan_decisions_log_keeps_last_n_entries(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """After trimming, exactly `cap` sprint entries remain (plus the preamble)."""
-    from autosprint.util.paths import PLAN_DECISIONS_FILENAME
-
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "PLAN_DECISIONS_RECENT_COUNT", 2)
 
-    log_path = tmp_path / PLAN_DECISIONS_FILENAME
+    log_path = target_repo / PLAN_DECISIONS_FILENAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
     content = "# Plan decisions\n"
     for i in range(1, 6):
@@ -919,12 +861,11 @@ def test_trim_plan_decisions_log_keeps_last_n_entries(monkeypatch: pytest.Monkey
 # ---------------------------------------------------------------------------
 
 
-def test_recent_sprint_history_deduplicates_pending_and_commit_rows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_recent_sprint_history_deduplicates_pending_and_commit_rows(target_repo: Path) -> None:
     """A successful sprint writes two rows per task (OK|pending then OK|OK|<hash>).
     recent_sprint_history must return only one row per (sprint, task) pair,
     preferring the commit-hash row."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    log_path = tmp_path / SPRINT_LOG_FILENAME
+    log_path = target_repo / SPRINT_LOG_FILENAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Simulate two sprints, each writing intermediate + commit rows.

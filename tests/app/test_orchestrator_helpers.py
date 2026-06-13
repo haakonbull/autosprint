@@ -4,18 +4,19 @@ revert reason classifier, post-revert hint builder, config warning, write_run_se
 All fast — no LLM calls, no pit_loop.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
 
-from autosprint.config import config
-from autosprint.domain.plan import PendingTask, Plan
+from autosprint.config import Config, config
+from autosprint.core.plan import PendingTask, Plan
 from autosprint.phases.implement_phase import dump_last_implement_raw
-from autosprint.phases.plan_phase import select_sprint_task_group
+from autosprint.phases.plan_phase import SprintRevertRecord, select_sprint_task_group
+from autosprint.phases.plan_phase import build_post_revert_hint as _build_post_revert_hint
 from autosprint.reporting.run_log import extract_story_points as _extract_story_points
 from autosprint.reporting.run_log import write_run_separator
+from autosprint.util.errors import RevertReason
+from autosprint.util.errors import revert_reason_shrinks_cap as _revert_reason_shrinks_cap
 from autosprint.util.parsing import ImplementResponseMalformed, parse_implement_result
 from autosprint.util.paths import LAST_IMPLEMENT_FAILURE_FILENAME, SPRINT_LOG_FILENAME
 
@@ -24,31 +25,28 @@ from autosprint.util.paths import LAST_IMPLEMENT_FAILURE_FILENAME, SPRINT_LOG_FI
 # ---------------------------------------------------------------------------
 
 
-def test_dump_last_implement_raw_writes_sidecar_with_header_and_body(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_dump_last_implement_raw_writes_sidecar_with_header_and_body(target_repo: Path) -> None:
     raw = "agent response text with ---RESULT---\nno END marker here"
     dump_last_implement_raw(raw, "Malformed response: missing ---END---")
-    written = (tmp_path / LAST_IMPLEMENT_FAILURE_FILENAME).read_text(encoding="utf-8")
+    written = (target_repo / LAST_IMPLEMENT_FAILURE_FILENAME).read_text(encoding="utf-8")
     assert raw in written
     assert "missing ---END---" in written
     assert "# autosprint" in written
 
 
-def test_dump_last_implement_raw_overwrites_on_subsequent_failures(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_dump_last_implement_raw_overwrites_on_subsequent_failures(target_repo: Path) -> None:
     dump_last_implement_raw("first failure body", "reason 1")
     dump_last_implement_raw("second failure body", "reason 2")
-    written = (tmp_path / LAST_IMPLEMENT_FAILURE_FILENAME).read_text(encoding="utf-8")
+    written = (target_repo / LAST_IMPLEMENT_FAILURE_FILENAME).read_text(encoding="utf-8")
     assert "second failure body" in written
     assert "first failure body" not in written  # overwrite, not append
     assert "reason 2" in written
 
 
-def test_dump_last_implement_raw_noop_in_fake_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_dump_last_implement_raw_noop_in_fake_mode(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
     dump_last_implement_raw("should not be written", "fake")
-    assert not (tmp_path / LAST_IMPLEMENT_FAILURE_FILENAME).exists()
+    assert not (target_repo / LAST_IMPLEMENT_FAILURE_FILENAME).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -56,17 +54,15 @@ def test_dump_last_implement_raw_noop_in_fake_mode(monkeypatch: pytest.MonkeyPat
 # ---------------------------------------------------------------------------
 
 
-def test_write_run_separator_creates_file_with_header(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_write_run_separator_creates_file_with_header(target_repo: Path) -> None:
     write_run_separator()
-    lines = (tmp_path / SPRINT_LOG_FILENAME).read_text(encoding="utf-8").splitlines()
+    lines = (target_repo / SPRINT_LOG_FILENAME).read_text(encoding="utf-8").splitlines()
     assert lines[0].startswith("# sprint")  # header first
     assert any("run started" in line for line in lines)
 
 
-def test_write_run_separator_appends_to_existing_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    path = tmp_path / SPRINT_LOG_FILENAME
+def test_write_run_separator_appends_to_existing_file(target_repo: Path) -> None:
+    path = target_repo / SPRINT_LOG_FILENAME
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# existing header\n1 | ts | task | OK | OK | abc\n", encoding="utf-8")
     write_run_separator()
@@ -77,11 +73,10 @@ def test_write_run_separator_appends_to_existing_file(monkeypatch: pytest.Monkey
     assert text.count("# existing header") == 1
 
 
-def test_write_run_separator_skipped_in_fake_implement(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_write_run_separator_skipped_in_fake_implement(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
     write_run_separator()
-    assert not (tmp_path / SPRINT_LOG_FILENAME).exists()
+    assert not (target_repo / SPRINT_LOG_FILENAME).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -283,9 +278,6 @@ def test_select_sprint_task_group_count_cap_floor_at_1(monkeypatch: pytest.Monke
 
 
 def test_revert_reason_shrinks_cap_only_on_real_failures() -> None:
-    from autosprint.util.errors import RevertReason
-    from autosprint.util.errors import revert_reason_shrinks_cap as _revert_reason_shrinks_cap
-
     assert _revert_reason_shrinks_cap(RevertReason.TEST_FAILURE) is True
     assert _revert_reason_shrinks_cap(RevertReason.IMPLEMENT_REFUSED) is True
     assert _revert_reason_shrinks_cap(RevertReason.IMPLEMENT_MALFORMED) is False
@@ -299,16 +291,10 @@ def test_revert_reason_shrinks_cap_only_on_real_failures() -> None:
 
 
 def test_post_revert_hint_empty_when_no_records() -> None:
-    from autosprint.phases.plan_phase import build_post_revert_hint as _build_post_revert_hint
-
     assert _build_post_revert_hint([]) == ""
 
 
 def test_post_revert_hint_includes_real_failures_and_action_suggestions() -> None:
-    from autosprint.phases.plan_phase import SprintRevertRecord
-    from autosprint.phases.plan_phase import build_post_revert_hint as _build_post_revert_hint
-    from autosprint.util.errors import RevertReason
-
     records = [
         SprintRevertRecord(sprint_number=3, task_titles=["Task A (2)", "Task B (3)"], reason=RevertReason.TEST_FAILURE, reason_message="tests failed at assertion X"),
         SprintRevertRecord(sprint_number=4, task_titles=["Task A (2)"], reason=RevertReason.TEST_FAILURE, reason_message="still failing at Y"),
@@ -323,12 +309,8 @@ def test_post_revert_hint_includes_real_failures_and_action_suggestions() -> Non
     assert "deprioritise" in hint.lower() or "deprioritize" in hint.lower()
 
 
-def test_post_revert_hint_parser_only_window_gets_soft_note(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_post_revert_hint_parser_only_window_gets_soft_note() -> None:
     """When the only reverts in the window are parser-format hiccups, the planner gets a SHORT note explaining it's an autosprint bug, not a task problem — the task-splitting / deprioritise framing is suppressed."""
-    from autosprint.phases.plan_phase import SprintRevertRecord
-    from autosprint.phases.plan_phase import build_post_revert_hint as _build_post_revert_hint
-    from autosprint.util.errors import RevertReason
-
     records = [
         SprintRevertRecord(sprint_number=3, task_titles=["Task A (2)"], reason=RevertReason.IMPLEMENT_MALFORMED, reason_message="missing ---END---"),
     ]
@@ -340,10 +322,6 @@ def test_post_revert_hint_parser_only_window_gets_soft_note(monkeypatch: pytest.
 
 def test_post_revert_hint_mixes_real_and_parser_with_real_taking_priority() -> None:
     """If the window has BOTH real + parser reverts, the hint shows the real ones (which drive action) and ignores the parser ones (they don't mean a task needs splitting)."""
-    from autosprint.phases.plan_phase import SprintRevertRecord
-    from autosprint.phases.plan_phase import build_post_revert_hint as _build_post_revert_hint
-    from autosprint.util.errors import RevertReason
-
     records = [
         SprintRevertRecord(sprint_number=3, task_titles=["Parser-ghost (1)"], reason=RevertReason.IMPLEMENT_MALFORMED, reason_message="missing ---END---"),
         SprintRevertRecord(sprint_number=4, task_titles=["Real-issue (3)"], reason=RevertReason.TEST_FAILURE, reason_message="pytest fail"),
@@ -361,8 +339,6 @@ def test_post_revert_hint_mixes_real_and_parser_with_real_taking_priority() -> N
 
 def test_config_warning_fires_when_failure_cap_defeats_replan(capsys: pytest.CaptureFixture) -> None:
     """In auto-replan mode, Config with MAX_CONSECUTIVE_FAILURES <= REPLAN_EVERY_N_SPRINTS must write a warning to stderr (not raise)."""
-    from autosprint.config import Config
-
     Config(AUTO_REPLAN=True, MAX_CONSECUTIVE_FAILURES=2, REPLAN_EVERY_N_SPRINTS=3)  # must not raise
     captured = capsys.readouterr()
     assert "MAX_CONSECUTIVE_FAILURES" in captured.err
@@ -370,8 +346,6 @@ def test_config_warning_fires_when_failure_cap_defeats_replan(capsys: pytest.Cap
 
 
 def test_config_no_warning_when_relationship_is_sound(capsys: pytest.CaptureFixture) -> None:
-    from autosprint.config import Config
-
     Config(AUTO_REPLAN=True, MAX_CONSECUTIVE_FAILURES=5, REPLAN_EVERY_N_SPRINTS=2)
     captured = capsys.readouterr()
     assert "MAX_CONSECUTIVE_FAILURES" not in captured.err
@@ -379,8 +353,6 @@ def test_config_no_warning_when_relationship_is_sound(capsys: pytest.CaptureFixt
 
 def test_config_no_warning_in_reviewed_plan_mode(capsys: pytest.CaptureFixture) -> None:
     """Reviewed-plan mode (AUTO_REPLAN=False, the default) has no periodic replan, so the escape-valve warning must stay silent even when the cap relationship would otherwise trigger it."""
-    from autosprint.config import Config
-
     Config(MAX_CONSECUTIVE_FAILURES=2, REPLAN_EVERY_N_SPRINTS=3)
     captured = capsys.readouterr()
     assert "MAX_CONSECUTIVE_FAILURES" not in captured.err

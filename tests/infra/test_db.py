@@ -4,9 +4,8 @@ Each test points config.TARGET_REPO at a tmp_path so the runs.db lives
 inside the test's scratch directory and never touches a real repo.
 """
 
-from __future__ import annotations
-
 import sqlite3
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -213,8 +212,6 @@ def test_schema_migration_is_idempotent_on_already_migrated_db(tmp_repo: Path) -
 
 def test_connect_untracks_runs_db_if_already_tracked(tmp_repo: Path) -> None:
     """A target repo that committed ``autosprint/runs.db`` before the gitignore entry existed keeps tracking it (gitignore doesn't retroactively untrack). The next ``_connect()`` must self-heal by running ``git rm --cached`` so subsequent commits don't keep dragging the SQLite blob into history — and so ``git restore .`` during sprint revert doesn't fail with exit 255 on Windows (the file-lock interaction that surfaced 2026-05-29). Working-tree file must survive."""
-    import subprocess
-
     subprocess.run(["git", "init", "--quiet"], cwd=tmp_repo, check=True, capture_output=True)
     subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_repo, check=True, capture_output=True)
     subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_repo, check=True, capture_output=True)
@@ -235,8 +232,6 @@ def test_connect_untracks_runs_db_if_already_tracked(tmp_repo: Path) -> None:
 
 def test_connect_does_not_error_when_runs_db_is_not_tracked(tmp_repo: Path) -> None:
     """The untrack helper must no-op cleanly when ``runs.db`` was never tracked (the common case on a fresh target repo). No git output, no exception, no spurious warning printed."""
-    import subprocess
-
     subprocess.run(["git", "init", "--quiet"], cwd=tmp_repo, check=True, capture_output=True)
     subprocess.run(["git", "config", "user.email", "t@t"], cwd=tmp_repo, check=True, capture_output=True)
     subprocess.run(["git", "config", "user.name", "t"], cwd=tmp_repo, check=True, capture_output=True)

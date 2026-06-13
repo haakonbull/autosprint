@@ -5,8 +5,6 @@ right order, replan triggers fire correctly, and commit behaviour respects
 COMMIT_SUCCESSFUL_SPRINTS.
 """
 
-from __future__ import annotations
-
 import random
 import subprocess
 from pathlib import Path
@@ -18,7 +16,7 @@ import autosprint.app.orchestrator as orch
 import autosprint.phases.plan_phase as plan_phase_mod
 from autosprint.app.cli import resolve_max_sprints
 from autosprint.config import config
-from autosprint.domain.plan import PendingTask, Plan, read_plan_md, write_plan_md
+from autosprint.core.plan import PendingTask, Plan, read_plan_md, write_plan_md
 from autosprint.util.output import speak_tier_enabled
 
 FAKE_TASK = {"title": "Add hello to hello.md", "description": "Append hello."}
@@ -70,9 +68,8 @@ def test_speak_tier_enabled_is_cumulative() -> None:
 
 
 @pytest.fixture
-def mock_phases(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict:
-    """Patch all PIT phases and git helpers. Plan IO uses tmp_path. Disables SAVE_CONSOLE_LOG so tests don't do per-print file IO. (Speech is silenced suite-wide by the conftest `_silence_speech` fixture.)"""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def mock_phases(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> dict:
+    """Patch all PIT phases and git helpers. Plan IO uses target_repo. Disables SAVE_CONSOLE_LOG so tests don't do per-print file IO. (Speech is silenced suite-wide by the conftest `_silence_speech` fixture.)"""
     monkeypatch.setattr(config, "SAVE_CONSOLE_LOG", False)
 
     plan_mock = AsyncMock(side_effect=lambda *a, **kw: Plan(pending=[PendingTask(title=FAKE_TASK["title"], description=FAKE_TASK["description"])]))
@@ -95,7 +92,7 @@ def mock_phases(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict:
     monkeypatch.setattr(orch, "check_escalation", MagicMock())
     monkeypatch.setattr(orch, "speak", MagicMock())
 
-    return {"plan": plan_mock, "implement": implement_mock, "test": test_mock, "commit": commit_mock, "log": log_mock, "tmp_path": tmp_path}
+    return {"plan": plan_mock, "implement": implement_mock, "test": test_mock, "commit": commit_mock, "log": log_mock, "tmp_path": target_repo}
 
 
 async def test_pit_loop_runs_plan_when_plan_empty(monkeypatch: pytest.MonkeyPatch, mock_phases: dict) -> None:

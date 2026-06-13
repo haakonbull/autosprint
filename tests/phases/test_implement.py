@@ -4,8 +4,6 @@ Unit tests mock query_agent — no LLM calls.
 The integration test (test_implement_changes_number_live) calls GPT-4.1 for real.
 """
 
-from __future__ import annotations
-
 import subprocess
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -32,8 +30,7 @@ REFUSAL_RESPONSE = f'---RESULT---\n{{"status": "failure", "reason": "{REFUSAL_RE
 PLAIN_FAILURE_RESPONSE = f'---RESULT---\n{{"status": "failure", "reason": "{PLAIN_FAILURE_REASON}"}}\n---END---'
 
 
-async def test_implement_success_returns_result(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+async def test_implement_success_returns_result(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(implement_mod, "query_agent", AsyncMock(return_value=SUCCESS_RESPONSE))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
 
@@ -43,8 +40,7 @@ async def test_implement_success_returns_result(monkeypatch: pytest.MonkeyPatch,
     assert "summary" in result
 
 
-async def test_implement_failure_reverts_and_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+async def test_implement_failure_reverts_and_raises(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(implement_mod, "query_agent", AsyncMock(return_value=FAILURE_RESPONSE))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     git_restore_mock = MagicMock()
@@ -56,8 +52,7 @@ async def test_implement_failure_reverts_and_raises(monkeypatch: pytest.MonkeyPa
     git_restore_mock.assert_called_once()
 
 
-async def test_implement_parse_failure_reverts_and_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+async def test_implement_parse_failure_reverts_and_raises(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(implement_mod, "query_agent", AsyncMock(return_value="this is not json"))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     git_restore_mock = MagicMock()
@@ -69,8 +64,7 @@ async def test_implement_parse_failure_reverts_and_raises(monkeypatch: pytest.Mo
     git_restore_mock.assert_called_once()
 
 
-async def test_implement_uses_configured_agent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+async def test_implement_uses_configured_agent(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     captured: dict = {}
 
     async def fake_query(agent: dict, prompt: str, tools: list[str] | None, **kwargs: object) -> str:
@@ -133,9 +127,8 @@ def test_parse_result_descends_into_rejected_outer_json() -> None:
     assert result == {"status": "success", "summary": "nested ok", "resolved_open_questions": []}
 
 
-async def test_implement_format_retry_embeds_prior_raw(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_implement_format_retry_embeds_prior_raw(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Regression test for the sprint-39 catastrophe: when the first Implement call returns malformed JSON, the format-retry prompt must embed the tail of the prior raw response so the retry agent (fresh session, no memory) has context. Without the tail embedded, the retry agent truthfully reports 'no prior task' and valid work gets reverted."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_PARSER_RETRY", True)
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "log_implement_failure", MagicMock())
@@ -163,8 +156,7 @@ async def test_implement_format_retry_embeds_prior_raw(monkeypatch: pytest.Monke
     assert "fresh SDK session" in retry_prompt, "retry prompt should warn the agent that this is a new session with no memory"
 
 
-async def test_implement_format_retry_disabled_reverts_immediately(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+async def test_implement_format_retry_disabled_reverts_immediately(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "IMPLEMENT_PARSER_RETRY", False)
     monkeypatch.setattr(implement_mod, "query_agent", AsyncMock(return_value='---RESULT---\n{"status": "success"}\n---END---'))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
@@ -179,11 +171,10 @@ async def test_implement_format_retry_disabled_reverts_immediately(monkeypatch: 
     git_restore_mock.assert_called_once()
 
 
-def test_check_escalation_groups_by_task_title_not_story_points(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_check_escalation_groups_by_task_title_not_story_points(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Regression test: the log schema is `sprint | ts | sp | task | …`. An earlier version of `check_escalation` read `parts[2]` (the story-points column) and grouped unrelated tasks that happened to share an SP value — so three successful-but-reverted SP=3 sprints looked like one task had failed three times. Escalation must group by task title (parts[3])."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
-    log_path = tmp_path / "autosprint" / "logs" / "sprint-outcomes.log"
+    log_path = target_repo / "autosprint" / "logs" / "sprint-outcomes.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(
         "\n".join(
@@ -200,10 +191,9 @@ def test_check_escalation_groups_by_task_title_not_story_points(monkeypatch: pyt
     run_log.check_escalation()  # three SP=3 reverts across distinct titles must NOT escalate
 
 
-def test_check_escalation_fires_when_same_title_reverts_thrice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_check_escalation_fires_when_same_title_reverts_thrice(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
-    log_path = tmp_path / "autosprint" / "logs" / "sprint-outcomes.log"
+    log_path = target_repo / "autosprint" / "logs" / "sprint-outcomes.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(
         "\n".join(
@@ -281,9 +271,8 @@ def test_detect_refusal_pattern_does_not_fire_when_raw_response_is_unrelated_cha
 # ---------------------------------------------------------------------------
 
 
-async def test_refusal_fallback_fires_on_refusal_and_succeeds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_refusal_fallback_fires_on_refusal_and_succeeds(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """When the primary implementor refuses with a recognised pattern, the refusal-fallback must re-dispatch the same task group to IMPLEMENT_FALLBACK_AGENT and surface its success."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     append_run_log_mock = MagicMock()
     monkeypatch.setattr(implement_mod, "append_run_log", append_run_log_mock)
@@ -308,9 +297,8 @@ async def test_refusal_fallback_fires_on_refusal_and_succeeds(monkeypatch: pytes
     assert last_call_kwargs.get("recovered_by_fallback") == "implementor_gpt55"
 
 
-async def test_refusal_fallback_does_not_fire_on_plain_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_refusal_fallback_does_not_fire_on_plain_failure(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """the refusal-fallback must skip the fallback for non-refusal failures (test failures, real bugs) so genuine problems aren't masked behind a second LLM dispatch."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "git_restore", MagicMock())
@@ -323,9 +311,8 @@ async def test_refusal_fallback_does_not_fire_on_plain_failure(monkeypatch: pyte
     assert query_mock.call_count == 1, "Fallback must not be dispatched for non-refusal failures"
 
 
-async def test_refusal_fallback_disabled_when_config_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_refusal_fallback_disabled_when_config_empty(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Empty IMPLEMENT_FALLBACK_AGENT must short-circuit the fallback branch even when the failure is a refusal — the user opted out of the refusal-fallback explicitly."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "")
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "git_restore", MagicMock())
@@ -338,9 +325,8 @@ async def test_refusal_fallback_disabled_when_config_empty(monkeypatch: pytest.M
     assert query_mock.call_count == 1, "Fallback must not be dispatched when IMPLEMENT_FALLBACK_AGENT is empty"
 
 
-async def test_refusal_fallback_also_fails_reverts_with_fallback_reason(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_refusal_fallback_also_fails_reverts_with_fallback_reason(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """If the fallback ALSO returns a failure, the sprint reverts and the surfaced reason is the fallback's (more recent) — not the primary's."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     git_restore_mock = MagicMock()
@@ -355,9 +341,8 @@ async def test_refusal_fallback_also_fails_reverts_with_fallback_reason(monkeypa
     assert PLAIN_FAILURE_REASON in str(excinfo.value), "Final reason must be the fallback's, not the primary's refusal"
 
 
-async def test_refusal_fallback_dispatch_exception_falls_through_to_revert(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_refusal_fallback_dispatch_exception_falls_through_to_revert(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """If the fallback dispatch itself raises (network, SDK crash), the refusal-fallback falls through to the original revert path with the primary's reason rather than crashing the loop."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "git_restore", MagicMock())
@@ -385,9 +370,8 @@ async def test_refusal_fallback_dispatch_exception_falls_through_to_revert(monke
 # ---------------------------------------------------------------------------
 
 
-async def test_structured_result_captured_success_used_directly(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_structured_result_captured_success_used_directly(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """When the agent calls submit_implement_success, the orchestrator must use the captured typed args directly — no regex, no ---RESULT--- parsing."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
 
     async def fake_query(agent: dict, prompt: str, *args: object, **kwargs: object) -> str:
@@ -407,9 +391,8 @@ async def test_structured_result_captured_success_used_directly(monkeypatch: pyt
     assert result == {"status": "success", "summary": "tool-captured success summary", "resolved_open_questions": []}
 
 
-async def test_structured_result_captured_failure_used_directly(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_structured_result_captured_failure_used_directly(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Same path as success but for the failure tool: typed reason flows through without parsing. Disable the refusal-fallback for this test so the failure surfaces as a normal revert rather than triggering a second dispatch."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "")
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "git_restore", MagicMock())
@@ -428,9 +411,8 @@ async def test_structured_result_captured_failure_used_directly(monkeypatch: pyt
     assert "Tests still failing" in str(excinfo.value)
 
 
-async def test_structured_result_falls_back_to_text_parser_when_capture_empty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_structured_result_falls_back_to_text_parser_when_capture_empty(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """If the agent does NOT call either submit tool (e.g., Copilot agents, or a Claude agent that emitted only text), the legacy ---RESULT--- parser must still recover the result. This is the safety-net property we keep so the structured-exit pattern can roll out incrementally without breaking non-Claude implementors."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
 
     async def fake_query(agent: dict, prompt: str, *args: object, **kwargs: object) -> str:
@@ -446,9 +428,8 @@ async def test_structured_result_falls_back_to_text_parser_when_capture_empty(mo
     assert "Added hello to hello.md" in result["summary"]
 
 
-async def test_structured_result_capture_dict_is_passed_to_query_agent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_structured_result_capture_dict_is_passed_to_query_agent(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """The orchestrator's _run_implement_llm must always thread a fresh dict as `result_capture` so the dispatcher can register the structured-exit tools. Without this kwarg the typed-exit path is unreachable."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     seen_kwargs: dict = {}
 
@@ -464,9 +445,8 @@ async def test_structured_result_capture_dict_is_passed_to_query_agent(monkeypat
     assert isinstance(seen_kwargs["result_capture"], dict), "result_capture must be a mutable dict for the dispatcher to populate"
 
 
-async def test_structured_result_format_retry_passes_result_capture_through(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_structured_result_format_retry_passes_result_capture_through(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Fix 2: when the primary response is malformed, the format-retry must thread result_capture so a Claude retry that calls the structured tool (instead of re-emitting the legacy block) still terminates cleanly. Without this, valid retry work would be reverted by the legacy parser failing on a tool-call-only response."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_PARSER_RETRY", True)
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "log_implement_failure", MagicMock())
@@ -495,9 +475,8 @@ async def test_structured_result_format_retry_passes_result_capture_through(monk
     assert result == {"status": "success", "summary": "recovered via tool on retry", "resolved_open_questions": []}
 
 
-async def test_structured_result_captured_result_takes_precedence_over_legacy_block(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_structured_result_captured_result_takes_precedence_over_legacy_block(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """If an agent both calls the tool AND emits a legacy ---RESULT--- block (belt-and-braces transitional behaviour), the captured tool args win — they're the typed contract. The legacy block is the safety net, not a competing source of truth."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
 
     async def fake_query(agent: dict, prompt: str, *args: object, **kwargs: object) -> str:
@@ -514,11 +493,10 @@ async def test_structured_result_captured_result_takes_precedence_over_legacy_bl
     assert result["summary"] == "from-tool-call"
 
 
-async def test_structured_result_resolved_open_questions_flows_through(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_structured_result_resolved_open_questions_flows_through(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """When the agent sets `resolved_open_questions` via submit_implement_success, the
     list must reach the result dict run_implement returns to commit_sprint — that's how
     the orchestrator's destination.md writeback gets its input."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
 
     resolved = [{"section": "Test strategy", "answer": "pytest, unit-heavy", "adr_ref": "ADR-A"}]
@@ -537,15 +515,14 @@ async def test_structured_result_resolved_open_questions_flows_through(monkeypat
 
 
 @pytest.mark.live
-async def test_implement_changes_number_live(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_implement_changes_number_live(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """GPT-4.1 changes a specific number in a file and writes a test for it. Marked live: excluded by default; run explicitly with `uv run pytest -m live`."""
-    target_file = tmp_path / "config.py"
+    target_file = target_repo / "config.py"
     target_file.write_text("NUMBER = 42\n")
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "init"], cwd=target_repo, check=True, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=target_repo, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=target_repo, check=True, capture_output=True)
 
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_AGENT", "quick_a_gpt41_copilot")
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "git_restore", MagicMock())
@@ -557,4 +534,4 @@ async def test_implement_changes_number_live(monkeypatch: pytest.MonkeyPatch, tm
     content = target_file.read_text()
     assert "99" in content, f"Expected 99 in config.py, got: {content}"
     assert "42" not in content, f"Old value 42 still present in config.py: {content}"
-    assert list(tmp_path.glob("test_*.py")) + list(tmp_path.glob("**/test_*.py")), "Implement agent did not write any test file"
+    assert list(target_repo.glob("test_*.py")) + list(target_repo.glob("**/test_*.py")), "Implement agent did not write any test file"

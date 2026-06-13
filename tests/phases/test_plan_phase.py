@@ -3,18 +3,33 @@
 LLM-mocked unit tests; no real API calls.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 
 import autosprint.phases.plan_phase as plan_phase_mod
-from autosprint.config import config
-from autosprint.domain.plan import PendingTask, Plan
+from autosprint.config import _project_root, config
+from autosprint.core.plan import PendingTask, Plan
+from autosprint.infra.dispatch import _CLAUDE_TOOLS, _effective_preset
 from autosprint.phases.plan_phase import should_replan, update_plan
-from autosprint.registry.agents import AGENT_QUICK_A_GPT41_COPILOT
+from autosprint.registry.agents import (
+    AGENT_EDITOR_GPT55,
+    AGENT_EDITOR_OPUS48,
+    AGENT_QUICK_A_GPT41_COPILOT,
+    AGENT_RESEARCH_LEAD_GPT55,
+    AGENT_RESEARCH_LEAD_OPUS48,
+    AGENT_STEELMANNER_GPT55,
+    AGENT_STEELMANNER_OPUS48,
+    AGENT_SYNTHESIZER_GPT55,
+    AGENT_SYNTHESIZER_OPUS48,
+    AGENT_WEB_RESEARCHER_GPT55,
+    AGENT_WEB_RESEARCHER_OPUS48,
+    TOOLS_FULL,
+    TOOLS_READ_ONLY,
+    TOOLS_RESEARCH,
+)
+from autosprint.registry.teams import TEAMS
 from autosprint.util.errors import PhaseFailedError
 
 VALID_PLAN_RESPONSE = '---RESULT---\n{"pending": [{"title": "Do thing", "description": "Do the first thing."}, {"title": "Do other", "description": "Do the second thing."}]}\n---END---'
@@ -31,8 +46,6 @@ PLAN_RESPONSE_WITH_SUMMARY = '---RESULT---\n{"pending": [{"title": "Do thing", "
 
 def test_research_council_teams_registered() -> None:
     """All three research_council variants resolve in TEAMS and have a selector."""
-    from autosprint.registry.teams import TEAMS
-
     for key in ("research_council", "research_council_opus", "research_council_gpt55"):
         team = TEAMS[key]
         assert "agents" in team, f"{key} should have agents"
@@ -42,19 +55,6 @@ def test_research_council_teams_registered() -> None:
 
 def test_research_agents_declare_research_prompt_files() -> None:
     """Every research-role agent points at the research-flavored plan-agent prompt; the research-lead agents point at the research team-lead prompt."""
-    from autosprint.registry.agents import (
-        AGENT_EDITOR_GPT55,
-        AGENT_EDITOR_OPUS48,
-        AGENT_RESEARCH_LEAD_GPT55,
-        AGENT_RESEARCH_LEAD_OPUS48,
-        AGENT_STEELMANNER_GPT55,
-        AGENT_STEELMANNER_OPUS48,
-        AGENT_SYNTHESIZER_GPT55,
-        AGENT_SYNTHESIZER_OPUS48,
-        AGENT_WEB_RESEARCHER_GPT55,
-        AGENT_WEB_RESEARCHER_OPUS48,
-    )
-
     members = [AGENT_WEB_RESEARCHER_OPUS48, AGENT_WEB_RESEARCHER_GPT55, AGENT_SYNTHESIZER_OPUS48, AGENT_SYNTHESIZER_GPT55, AGENT_STEELMANNER_OPUS48, AGENT_STEELMANNER_GPT55, AGENT_EDITOR_OPUS48, AGENT_EDITOR_GPT55]
     for a in members:
         assert a.get("plan_prompt_file") == ".claude/agents/plan-agent-research.md", f"{a['name']} should point at the research member prompt"
@@ -64,16 +64,12 @@ def test_research_agents_declare_research_prompt_files() -> None:
 
 def test_web_researcher_has_research_tools_preset() -> None:
     """Web Researcher needs web access — declares TOOLS_RESEARCH so its preset survives the Plan-phase TOOLS_READ_ONLY override."""
-    from autosprint.registry.agents import AGENT_WEB_RESEARCHER_GPT55, AGENT_WEB_RESEARCHER_OPUS48, TOOLS_RESEARCH
-
     assert AGENT_WEB_RESEARCHER_OPUS48["tools"] == TOOLS_RESEARCH
     assert AGENT_WEB_RESEARCHER_GPT55["tools"] == TOOLS_RESEARCH
 
 
 def test_research_prompt_files_exist_on_disk() -> None:
     """The two research prompt files referenced by the agents are checked into the repo so `read_agent_file` can load them at dispatch time."""
-    from autosprint.config import _project_root
-
     member_prompt = _project_root() / ".claude" / "agents" / "plan-agent-research.md"
     lead_prompt = _project_root() / ".claude" / "agents" / "plan-team-research.md"
     assert member_prompt.exists(), f"missing research member prompt: {member_prompt}"
@@ -132,9 +128,6 @@ def test_assemble_prompt_for_team_lead_routes_to_research_prompt_when_selector_d
 
 def test_tools_research_preset_survives_read_only_override() -> None:
     """A TOOLS_RESEARCH agent overridden to TOOLS_READ_ONLY keeps its preset — Plan phase passes TOOLS_READ_ONLY but we don't want to neuter Web Researcher's web access."""
-    from autosprint.infra.dispatch import _effective_preset
-    from autosprint.registry.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH
-
     research_agent = {"tools": TOOLS_RESEARCH}
     assert _effective_preset(research_agent, TOOLS_READ_ONLY) == TOOLS_RESEARCH
     assert _effective_preset(research_agent, None) == TOOLS_RESEARCH
@@ -147,9 +140,6 @@ def test_tools_research_preset_survives_read_only_override() -> None:
 
 def test_claude_research_tool_preset_includes_web_and_write() -> None:
     """Dispatch maps TOOLS_RESEARCH to a Claude allowlist that includes WebFetch/WebSearch (for fetching new sources) and Write/Edit (for landing them in `results/sources.md`), but NOT Bash (research agents don't shell out)."""
-    from autosprint.infra.dispatch import _CLAUDE_TOOLS
-    from autosprint.registry.agents import TOOLS_RESEARCH
-
     tools = set(_CLAUDE_TOOLS[TOOLS_RESEARCH])
     assert {"WebFetch", "WebSearch", "Read", "Write", "Edit", "Glob", "Grep"}.issubset(tools)
     assert "Bash" not in tools
@@ -169,50 +159,45 @@ def test_plan_depth_section_present_in_plan_only_mode() -> None:
     assert "depend" in section.lower()
 
 
-async def test_update_plan_uses_fake_plan_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_update_plan_uses_fake_plan_config(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """FAKE_PLAN_TITLE set writes a hardcoded plan with that task, no LLM call."""
     monkeypatch.setattr(config, "FAKE_PLAN_TITLE", "Add hello to hello.md")
     monkeypatch.setattr(config, "FAKE_PLAN_DESC", "Append the word 'hello' to the file hello.md.")
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     plan = await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
     assert len(plan.pending) == 1
     assert plan.pending[0].title == "Add hello to hello.md"
-    assert (tmp_path / "autosprint" / "plan.md").exists()
+    assert (target_repo / "autosprint" / "plan.md").exists()
 
 
-async def test_update_plan_single_agent_writes_plan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_update_plan_single_agent_writes_plan(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "LOG_LEVEL", 10)
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=VALID_PLAN_RESPONSE))
     plan = await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
     assert len(plan.pending) == 2
     assert plan.pending[0].title == "Do thing"
-    assert (tmp_path / "autosprint" / "plan.md").exists()
+    assert (target_repo / "autosprint" / "plan.md").exists()
 
 
-async def test_update_plan_writes_plan_summary_in_plan_only_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_update_plan_writes_plan_summary_in_plan_only_mode(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """plan-only mode renders the lead's plan_summary as a blockquote atop plan.md."""
     monkeypatch.setattr(config, "LOG_LEVEL", 10)
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=PLAN_RESPONSE_WITH_SUMMARY))
     await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT, plan_only_mode=True)
-    plan_text = (tmp_path / "autosprint" / "plan.md").read_text(encoding="utf-8")
+    plan_text = (target_repo / "autosprint" / "plan.md").read_text(encoding="utf-8")
     assert "> Merged 8 proposals into 1 task." in plan_text
 
 
-async def test_update_plan_omits_plan_summary_in_loop_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_update_plan_omits_plan_summary_in_loop_mode(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Loop mode ignores plan_summary even when the lead returns one — loop-mode plan.md stays clean."""
     monkeypatch.setattr(config, "LOG_LEVEL", 10)
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=PLAN_RESPONSE_WITH_SUMMARY))
     await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT, plan_only_mode=False)
-    plan_text = (tmp_path / "autosprint" / "plan.md").read_text(encoding="utf-8")
+    plan_text = (target_repo / "autosprint" / "plan.md").read_text(encoding="utf-8")
     assert "Merged 8 proposals" not in plan_text
 
 
-async def test_update_plan_raises_phase_failed_on_bad_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_update_plan_raises_phase_failed_on_bad_output(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "LOG_LEVEL", 10)
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value="this is not json"))
     with pytest.raises(PhaseFailedError):
         await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
@@ -269,15 +254,13 @@ def test_lock_destination_section_returns_lock_notice_when_enabled(monkeypatch: 
     assert "target-state-locked" in section
 
 
-def test_plan_phase_context_carries_lock_notice_when_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_plan_phase_context_carries_lock_notice_when_enabled(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "LOCK_DESTINATION", True)
     ctx = plan_phase_mod.plan_phase_context()
     assert "TARGET STATE LOCKED" in ctx
 
 
-def test_plan_phase_context_omits_lock_notice_when_disabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_plan_phase_context_omits_lock_notice_when_disabled(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "LOCK_DESTINATION", False)
     ctx = plan_phase_mod.plan_phase_context()
     assert "TARGET STATE LOCKED" not in ctx
@@ -301,16 +284,14 @@ def test_prioritize_section_carries_user_text_when_set(monkeypatch: pytest.Monke
     assert "add dark mode toggle to settings page" in section
 
 
-def test_plan_phase_context_carries_priority_section_when_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_plan_phase_context_carries_priority_section_when_set(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "PRIORITIZE", "fix the login bug first")
     ctx = plan_phase_mod.plan_phase_context()
     assert "User priority for this run" in ctx
     assert "fix the login bug first" in ctx
 
 
-def test_plan_phase_context_omits_priority_section_when_unset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+def test_plan_phase_context_omits_priority_section_when_unset(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     monkeypatch.setattr(config, "PRIORITIZE", "")
     ctx = plan_phase_mod.plan_phase_context()
     assert "User priority for this run" not in ctx

@@ -8,15 +8,12 @@ to waypoint.md and raises `WaypointReached` so the pit_loop can halt cleanly.
 LLM-mocked unit tests; no real API calls.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 
 import autosprint.phases.plan_phase as plan_phase_mod
-from autosprint.config import config
 from autosprint.phases.plan_phase import update_plan
 from autosprint.registry.agents import AGENT_QUICK_A_GPT41_COPILOT
 from autosprint.util.errors import WaypointReached
@@ -57,13 +54,12 @@ def _write_waypoint(repo: Path, body: str = WAYPOINT_BODY) -> Path:
 # ---------------------------------------------------------------------------
 
 
-async def test_plan_phase_with_waypoint_prepends_waypoint_section(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_plan_phase_with_waypoint_prepends_waypoint_section(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """When waypoint.md exists, the plan-phase context for team members and the
     team lead must include a `## Waypoint active` section so all planners see
     the same target. We capture the prompt the mock dispatcher receives and
     assert the section is present and quotes the waypoint body."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    _write_waypoint(tmp_path)
+    _write_waypoint(target_repo)
 
     captured: list[str] = []
 
@@ -85,10 +81,9 @@ async def test_plan_phase_with_waypoint_prepends_waypoint_section(monkeypatch: p
 # ---------------------------------------------------------------------------
 
 
-async def test_plan_phase_without_waypoint_omits_section(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_plan_phase_without_waypoint_omits_section(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """No waypoint.md → no `## Waypoint active` section in the dispatched prompt.
     Existing destination-driven planning is unchanged."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     captured: list[str] = []
 
     async def fake_query(agent, prompt, *args, **kwargs):
@@ -107,12 +102,11 @@ async def test_plan_phase_without_waypoint_omits_section(monkeypatch: pytest.Mon
 # ---------------------------------------------------------------------------
 
 
-async def test_waypoint_reached_writes_status_marker_and_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_waypoint_reached_writes_status_marker_and_raises(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """Team lead sets `waypoint_reached: true` while a waypoint is active →
     orchestrator appends a status marker to waypoint.md and raises WaypointReached.
     Critical: the file is *not* deleted (no auto-archive — user reviews and decides)."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    waypoint_path = _write_waypoint(tmp_path)
+    waypoint_path = _write_waypoint(target_repo)
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=WAYPOINT_REACHED_RESPONSE))
 
     with pytest.raises(WaypointReached) as exc_info:
@@ -126,18 +120,17 @@ async def test_waypoint_reached_writes_status_marker_and_raises(monkeypatch: pyt
     assert "All three acceptance criteria" in body
 
 
-async def test_waypoint_reached_ignored_when_no_waypoint_active(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_waypoint_reached_ignored_when_no_waypoint_active(monkeypatch: pytest.MonkeyPatch, target_repo: Path) -> None:
     """If the LLM hallucinates `waypoint_reached: true` while no waypoint.md exists,
     the orchestrator must ignore the flag and complete the plan normally — never
     halt on a phantom waypoint."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=WAYPOINT_REACHED_RESPONSE))
 
     plan = await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
     # Empty pending list because the mock response has no tasks; the important
     # assertion is that we got back a Plan instead of WaypointReached being raised.
     assert plan is not None
-    assert (tmp_path / "autosprint" / "plan.md").exists()
+    assert (target_repo / "autosprint" / "plan.md").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -163,13 +156,12 @@ def test_team_lead_prompt_template_carries_conflict_rule() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_paused_waypoint_is_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_paused_waypoint_is_ignored(target_repo: Path) -> None:
     """The documented pause gesture is to rename `waypoint.md` to
     `waypoint.md.paused`. Only the active filename is read; the paused file is
     not picked up. This lets users disable a waypoint without losing the
     content."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    autosprint_dir = tmp_path / "autosprint"
+    autosprint_dir = target_repo / "autosprint"
     autosprint_dir.mkdir(parents=True, exist_ok=True)
     paused_path = autosprint_dir / "waypoint.md.paused"
     paused_path.write_text(WAYPOINT_BODY, encoding="utf-8")
@@ -179,14 +171,13 @@ def test_paused_waypoint_is_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert plan_phase_mod.waypoint_title() == ""
 
 
-def test_already_reached_waypoint_is_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_already_reached_waypoint_is_ignored(target_repo: Path) -> None:
     """If waypoint.md already carries a `> **Status:** reached` marker from a
     previous halt that the user hasn't cleared, the next run must treat it as
     inactive (circuit-breaker). Otherwise we'd halt on every restart until the
     user manually deletes the file."""
-    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     body = WAYPOINT_BODY + "\n\n> **Status:** reached 2026-05-04 — all criteria met.\n"
-    _write_waypoint(tmp_path, body)
+    _write_waypoint(target_repo, body)
 
     assert plan_phase_mod.waypoint_section() == ""
     assert plan_phase_mod.waypoint_title() == ""

@@ -42,6 +42,10 @@ hooks:
 test *args:
     uv run pytest {{ args }}
 
+# Run the suite under coverage with a per-file missing-lines report.
+test-cov *args:
+    uv run pytest --cov --cov-report=term-missing {{ args }}
+
 # Build the sdist + wheel into dist/.
 build:
     uv build

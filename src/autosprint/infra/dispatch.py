@@ -49,6 +49,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -255,8 +256,7 @@ async def _run_claude(agent: dict, prompt: str, preset: str, result_capture: dic
         async for message in query(prompt=prompt, options=ClaudeAgentOptions(**opts_kwargs)):
             if isinstance(message, AssistantMessage):
                 for block in message.content:
-                    if hasattr(block, "text"):
-                        result_text += block.text
+                    result_text += getattr(block, "text", "")
         return result_text
     except Exception as e:
         raise add_context(e, f"Failed to run Claude query with model {agent.get('model')}") from e
@@ -327,7 +327,7 @@ def _build_copilot_result_tools(result_capture: dict) -> list:
 _STOP_CHECK_POLL_INTERVAL_SECONDS = 5.0
 
 
-async def _copilot_send_with_stop_check(session, prompt: str, timeout: float, stop_file: Path) -> object:
+async def _copilot_send_with_stop_check(session, prompt: str, timeout: float, stop_file: Path) -> Any:
     """Run ``session.send_and_wait`` as an asyncio task, polling every 5 seconds for
     (a) the stop-now control file and (b) our own elapsed-time deadline. If the file
     appears the LLM task is cancelled and ``StopSignalDetected`` is raised so

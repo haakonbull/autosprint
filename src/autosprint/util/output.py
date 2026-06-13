@@ -19,7 +19,9 @@ _CONSOLE_ALL_LOG_SEPARATOR_WRITTEN = False
 # unencodable character sneaks in — it becomes '?' instead of raising UnicodeEncodeError.
 for _stream in (sys.stdout, sys.stderr):
     with contextlib.suppress(Exception):
-        _stream.reconfigure(encoding="utf-8", errors="replace")
+        # reconfigure exists on the real console streams (TextIOWrapper) but not
+        # on the abstract TextIO type, and may be absent under capture/redirect.
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # ty: ignore[unresolved-attribute]
 
 
 def _wrap_line(line: str, max_width: int) -> str:

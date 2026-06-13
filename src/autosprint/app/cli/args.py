@@ -9,7 +9,7 @@ import sys
 import tomllib
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from autosprint.config import ENV_SET_FIELDS, _project_root, config
 from autosprint.domain.plan import read_plan_md
@@ -43,7 +43,7 @@ class _TerseArgumentParser(argparse.ArgumentParser):
     Two-pass suggestion logic: first scans the *other* CLI tokens for a known subcommand (so `autosprint list teams` resolves to "Did you mean: teams?" by finding the valid `teams` token after the unknown `list`); then falls back to difflib close-matching on the typed word (catches single-word typos like `clear-logss` → `clear-logs`).
     """
 
-    def error(self, message: str) -> None:  # type: ignore[override]
+    def error(self, message: str) -> NoReturn:
         match = _INVALID_SUBCOMMAND_RE.search(message)
         if match:
             typed = match.group(1)

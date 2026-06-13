@@ -220,7 +220,7 @@ def run_black_check() -> None:
     """Verify src/ and tests/ are black-formatted at the project's 1000-char line width. Runs `black --check` in report-only mode; a non-zero exit means drift and the self-test aborts. Silently skipped when the `black` module isn't installed so a stripped-down dev env can still run self-test."""
     try:
         try:
-            import black  # noqa: F401
+            import black  # noqa: F401  # ty: ignore[unresolved-import]
         except ImportError:
             printlev("[prepare] Skipping black --check — `black` not installed.", level=20)
             return

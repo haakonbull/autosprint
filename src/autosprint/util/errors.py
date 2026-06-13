@@ -38,7 +38,7 @@ def revert_reason_shrinks_cap(reason: RevertReason) -> bool:
 class PhaseFailedError(Exception):
     """Raised when a PIT phase (Plan, Implement, Test) fails after retries. `revert_reason` classifies why so the pit-loop can decide whether to shrink the adaptive task-count cap and whether the post-revert planner hint should surface this failure."""
 
-    def __init__(self, message: str, revert_reason: RevertReason = None) -> None:  # type: ignore[assignment]
+    def __init__(self, message: str, revert_reason: RevertReason | None = None) -> None:
         super().__init__(message)
         self.revert_reason = revert_reason if revert_reason is not None else RevertReason.OTHER
 
@@ -68,8 +68,10 @@ def add_context(error: Exception, message: str) -> Exception:
     reaches the top-level handler, error._context is a list showing
     the full path the error bubbled through, deepest first.
     """
-    if not hasattr(error, "_context"):
-        error._context = [str(error)]
-    error._context.append(message)
-    error.args = (" -> ".join(reversed(error._context)), *error.args[1:])
+    context: list[str] = list(getattr(error, "_context", None) or [str(error)])
+    context.append(message)
+    error.args = (" -> ".join(reversed(context)), *error.args[1:])
+    # Dynamic breadcrumb attached to an arbitrary exception — not modellable as a
+    # static attribute, so the write is opaque to the type checker.
+    error._context = context  # ty: ignore[unresolved-attribute]
     return error

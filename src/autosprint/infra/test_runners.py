@@ -25,6 +25,7 @@ import time
 import tomllib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from pathlib import Path
 
 from autosprint.config import config
 from autosprint.util.errors import add_context
@@ -425,7 +426,7 @@ class PytestRunner(TestRunner):
             printlev(f"[T] ⚠ Coverage dropped: {last_pct}% → {pct}%. Warn-only; sprint proceeds. See autosprint/logs/coverage-history.log.", level=100)
 
 
-def _setup_cfg_has_section(root: object, section: str) -> bool:
+def _setup_cfg_has_section(root: Path, section: str) -> bool:
     """Check whether `setup.cfg` in the target repo has a given INI section (e.g. `[flake8]`). Returns False on missing file or read errors."""
     setup_cfg = root / "setup.cfg"
     if not setup_cfg.exists():
@@ -436,7 +437,7 @@ def _setup_cfg_has_section(root: object, section: str) -> bool:
         return False
 
 
-def _pyproject_has_tool(root: object, tool: str) -> bool:
+def _pyproject_has_tool(root: Path, tool: str) -> bool:
     """Check whether `pyproject.toml` has a `[tool.<tool>]` table — used by lint auto-detection to pick mypy when its config lives in pyproject. Returns False on missing file or read errors."""
     pyproject = root / "pyproject.toml"
     if not pyproject.exists():

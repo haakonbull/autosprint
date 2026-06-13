@@ -100,6 +100,10 @@ ignore = [
 # Settings properties are UPPERCASE to mirror the env-var config-field convention.
 "src/autosprint/config/settings.py" = ["N802"]
 
+[tool.ty.environment]
+python-version = "3.12"
+root = ["src"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "-m 'not live'"
@@ -114,6 +118,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "import-linter>=2.0",
+    "ty>=0.0.1a1",
 ]
 
 # Architectural guardrail: the package is a strict layer stack. A module may

@@ -8,7 +8,7 @@ raise or catch them without depending on orchestrator. Mirrors the role of
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
 class StopSignalDetected(BaseException):
@@ -20,7 +20,7 @@ class StopSignalDetected(BaseException):
     """
 
 
-class RevertReason(str, Enum):
+class RevertReason(StrEnum):
     """Why a sprint was reverted. Drives the adaptive task-count cap and the post-revert planner hint. Only TEST_FAILURE and IMPLEMENT_REFUSED shrink the cap — formatting hiccups (IMPLEMENT_MALFORMED) are autosprint's fault and shouldn't punish the loop."""
 
     TEST_FAILURE = "test_failure"  # pytest exited non-zero after the Implement phase
@@ -30,7 +30,7 @@ class RevertReason(str, Enum):
     OTHER = "other"
 
 
-def revert_reason_shrinks_cap(reason: "RevertReason") -> bool:
+def revert_reason_shrinks_cap(reason: RevertReason) -> bool:
     """Which revert reasons justify shrinking the adaptive task-count cap? Bundle-size problems (tests failing, agent refusing to work on the group) do. Autosprint bugs (mangled parser output) don't — punishing the loop for our parser would cascade."""
     return reason in (RevertReason.TEST_FAILURE, RevertReason.IMPLEMENT_REFUSED)
 
@@ -38,7 +38,7 @@ def revert_reason_shrinks_cap(reason: "RevertReason") -> bool:
 class PhaseFailedError(Exception):
     """Raised when a PIT phase (Plan, Implement, Test) fails after retries. `revert_reason` classifies why so the pit-loop can decide whether to shrink the adaptive task-count cap and whether the post-revert planner hint should surface this failure."""
 
-    def __init__(self, message: str, revert_reason: "RevertReason" = None) -> None:  # type: ignore[assignment]
+    def __init__(self, message: str, revert_reason: RevertReason = None) -> None:  # type: ignore[assignment]
         super().__init__(message)
         self.revert_reason = revert_reason if revert_reason is not None else RevertReason.OTHER
 
@@ -71,5 +71,5 @@ def add_context(error: Exception, message: str) -> Exception:
     if not hasattr(error, "_context"):
         error._context = [str(error)]
     error._context.append(message)
-    error.args = (" -> ".join(reversed(error._context)),) + error.args[1:]
+    error.args = (" -> ".join(reversed(error._context)), *error.args[1:])
     return error

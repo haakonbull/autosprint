@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
 import textwrap
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from autosprint.config import SPEAK_LEVELS, config
 
@@ -17,10 +18,8 @@ _CONSOLE_ALL_LOG_SEPARATOR_WRITTEN = False
 # on Windows consoles that default to cp1252. `errors="replace"` keeps us safe if a truly
 # unencodable character sneaks in — it becomes '?' instead of raising UnicodeEncodeError.
 for _stream in (sys.stdout, sys.stderr):
-    try:
+    with contextlib.suppress(Exception):
         _stream.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
-        pass
 
 
 def _wrap_line(line: str, max_width: int) -> str:
@@ -53,7 +52,7 @@ def _append_to_log_file(text: str, filename: str, separator_flag_attr: str, warn
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as f:
             if not globals()[separator_flag_attr]:
-                ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
                 f.write(f"\n# === run started {ts} ===\n")
                 globals()[separator_flag_attr] = True
             f.write(text + "\n")
@@ -77,7 +76,7 @@ def printlev(message: object, level: int = 50, max_width: int = 120) -> None:
     """Print a message when the configured log level allows it (lower configured values mean more verbose output). Each line of `message` is wrapped at `max_width`; continuation lines copy the first line's leading whitespace. Pass max_width=0 to disable wrapping. When config.SAVE_CONSOLE_LOG is True the wrapped text is appended to **both** `autosprint/logs/console-verbose.log` (filtered — only lines that passed the LOG_LEVEL filter) and `autosprint/logs/console-all.log` (unfiltered — every call regardless of level). The filtered log is grep-friendly for common searches (sprints, commits, failures); the unfiltered log is the complete record for deep debugging."""
     text = wrap_message(str(message), max_width=max_width)
     _append_console_all_log(text)
-    if config.LOG_LEVEL <= level:
+    if level >= config.LOG_LEVEL:
         print(text)
         _append_console_log(text)
 

@@ -269,7 +269,7 @@ class PytestRunner(TestRunner):
     def summarise_failure(self, stdout: str, stderr: str = "") -> str:
         """Returns a short summary of a pytest failure: FAILED/ERROR lines from stdout + a leading 'E   ' exception line (ModuleNotFoundError / AssertionError / etc. — the actual cause pytest prefixes with 'E   ') + the final '=' summary line, plus any stderr content. Collection errors (pytest exit 2/3) are terse in the summary line but the 'E   ' traceback line carries the real cause; keep both. Falls back to the stdout tail if no structured lines are found."""
         lines = stdout.splitlines()
-        failed = [line for line in lines if line.startswith("FAILED") or line.startswith("ERROR")]
+        failed = [line for line in lines if line.startswith(("FAILED", "ERROR"))]
         exception_lines = [line for line in lines if line.lstrip().startswith("E   ")]
         summary = next((line for line in reversed(lines) if line.startswith("=")), "")
         parts = failed + exception_lines[:5] + ([summary] if summary else [])
@@ -356,7 +356,7 @@ class PytestRunner(TestRunner):
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True, cwd=config.TARGET_REPO_PATH, env=env, timeout=10)
         except subprocess.TimeoutExpired:
-            return False, "import-check", "", f"import check timed out after 10s"
+            return False, "import-check", "", "import check timed out after 10s"
         if proc.returncode == 0:
             return True, "import-check", proc.stdout, proc.stderr
         return False, "import-check", proc.stdout, proc.stderr
@@ -500,17 +500,16 @@ def _extract_json_objects(text: str) -> list[dict]:
             if depth == 0:
                 start = i
             depth += 1
-        elif ch == "}":
-            if depth > 0:
-                depth -= 1
-                if depth == 0 and start >= 0:
-                    try:
-                        obj = json.loads(text[start : i + 1])
-                        if isinstance(obj, dict):
-                            objects.append(obj)
-                    except json.JSONDecodeError:
-                        pass
-                    start = -1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start >= 0:
+                try:
+                    obj = json.loads(text[start : i + 1])
+                    if isinstance(obj, dict):
+                        objects.append(obj)
+                except json.JSONDecodeError:
+                    pass
+                start = -1
     return objects
 
 

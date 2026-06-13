@@ -52,7 +52,7 @@ def _resolve_howfar_agent(agent_override: str | None) -> dict:
 
 def _build_howfar_prompt(skill_body: str) -> str:
     """Returns the dispatch prompt: the how-far skill instructions wrapped with an explicit read-only framing and an instruction to print only the report."""
-    return 'Run the autosprint "how-far" measurement on the repository you are in.\n\n' "You have READ-ONLY tools (Read, Glob, Grep) — you cannot and must not edit, " "create, or delete any file. This is a measurement, not a change.\n\n" "Follow the skill instructions below exactly. Read autosprint/destination.md, " "decompose it into discrete requirements, verify each against the actual code " "and its tests, and print the headline + status table the instructions specify. " "Output only the report — no preamble, nothing after the closing verdict.\n\n" "=== how-far skill instructions ===\n" f"{skill_body}\n" "=== end how-far skill instructions ==="
+    return f'Run the autosprint "how-far" measurement on the repository you are in.\n\nYou have READ-ONLY tools (Read, Glob, Grep) — you cannot and must not edit, create, or delete any file. This is a measurement, not a change.\n\nFollow the skill instructions below exactly. Read autosprint/destination.md, decompose it into discrete requirements, verify each against the actual code and its tests, and print the headline + status table the instructions specify. Output only the report — no preamble, nothing after the closing verdict.\n\n=== how-far skill instructions ===\n{skill_body}\n=== end how-far skill instructions ==='
 
 
 async def _run_howfar_agent(agent: dict, prompt: str) -> str:

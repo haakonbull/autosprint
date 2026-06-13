@@ -20,29 +20,36 @@ import sys
 import time
 from datetime import datetime, timezone
 
-from autosprint.config import config
-from autosprint.errors import StopSignalDetected, add_context
-from autosprint.output import printlev, speak
-from autosprint.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
-
 # ---------------------------------------------------------------------------
 # Imports — only the names this orchestrator body actually uses. Phase logic,
 # CLI parsing, init, banners, git wrappers live in sibling modules and are
 # imported directly by their callers; tests likewise import from the home
 # module rather than from here.
 # ---------------------------------------------------------------------------
-
-from autosprint.banners import iteration_banner as _iteration_banner  # noqa: E402
-from autosprint.cli import _ONESHOT_COMMANDS, check_stop_request as _check_stop_request, prepare, raise_if_stop_between_phases as _raise_if_stop_between_phases  # noqa: E402
-from autosprint.errors import PhaseFailedError, RevertReason, StopRequested, WaypointReached, revert_reason_shrinks_cap as _revert_reason_shrinks_cap  # noqa: E402
-from autosprint.git_ops import get_commit_hash, git, git_commit, git_restore  # noqa: E402
-from autosprint.how_far import run_howfar_heartbeat  # noqa: E402
-from autosprint.implement_phase import run_implement  # noqa: E402
-from autosprint.paths import CHANGELOG_FILENAME, DESTINATION_FILENAME, WAYPOINT_FILENAME  # noqa: E402
-from autosprint.plan import group_titles as _group_titles  # noqa: E402
-from autosprint.plan_phase import SprintRevertRecord, build_post_revert_hint as _build_post_revert_hint, plan_phase, update_plan, waypoint_title as _waypoint_title  # noqa: E402
-from autosprint.run_log import append_changelog_entry, append_run_log, apply_destination_resolutions, check_escalation, extract_story_points as _extract_story_points, log_outcome_per_task as _log_outcome_per_task, print_run_summary as _print_run_summary, review_sprint as _review_sprint, update_runtime_stats as _update_runtime_stats, write_run_ended_separator, write_run_separator  # noqa: E402
-from autosprint.test_phase import run_test_phase  # noqa: E402
+from autosprint.banners import iteration_banner as _iteration_banner
+from autosprint.cli import _ONESHOT_COMMANDS, prepare
+from autosprint.cli import check_stop_request as _check_stop_request
+from autosprint.cli import raise_if_stop_between_phases as _raise_if_stop_between_phases
+from autosprint.config import config
+from autosprint.errors import PhaseFailedError, RevertReason, StopRequested, StopSignalDetected, WaypointReached, add_context
+from autosprint.errors import revert_reason_shrinks_cap as _revert_reason_shrinks_cap
+from autosprint.git_ops import get_commit_hash, git, git_commit, git_restore
+from autosprint.how_far import run_howfar_heartbeat
+from autosprint.implement_phase import run_implement
+from autosprint.output import printlev, speak
+from autosprint.paths import CHANGELOG_FILENAME, DESTINATION_FILENAME, WAYPOINT_FILENAME
+from autosprint.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
+from autosprint.plan import group_titles as _group_titles
+from autosprint.plan_phase import SprintRevertRecord, plan_phase, update_plan
+from autosprint.plan_phase import build_post_revert_hint as _build_post_revert_hint
+from autosprint.plan_phase import waypoint_title as _waypoint_title
+from autosprint.run_log import append_changelog_entry, append_run_log, apply_destination_resolutions, check_escalation, write_run_ended_separator, write_run_separator
+from autosprint.run_log import extract_story_points as _extract_story_points
+from autosprint.run_log import log_outcome_per_task as _log_outcome_per_task
+from autosprint.run_log import print_run_summary as _print_run_summary
+from autosprint.run_log import review_sprint as _review_sprint
+from autosprint.run_log import update_runtime_stats as _update_runtime_stats
+from autosprint.test_phase import run_test_phase
 
 # ---------------------------------------------------------------------------
 # PIT-loop core: commit finalization, manual-review prompt, the loop itself.
@@ -197,7 +204,7 @@ async def pit_loop(branch_name: str) -> None:
                 plan, task_group, sprints_since_replan = await plan_phase(sprints_since_replan, task_failure_counts, sprint_number=sprint_number, prev_sprint_reverted=prev_sprint_reverted, force_replan=force_first_replan, task_count_cap=task_count_cap, post_revert_hint=pending_post_revert_hint)
                 # If this sprint triggered a replan (sprints_since_replan reset to 0),
                 # consume the pending hint and clear the records — the planner has now seen them.
-                if sprints_since_replan == 0 and prior_sprints_since_replan != 0 or first_sprint:
+                if (sprints_since_replan == 0 and prior_sprints_since_replan != 0) or first_sprint:
                     revert_records_since_replan.clear()
                     pending_post_revert_hint = ""
                 first_sprint = False
@@ -279,7 +286,7 @@ async def pit_loop(branch_name: str) -> None:
                     _print_run_summary(sprint_results, time.monotonic() - loop_start)
                     write_run_ended_separator(f"aborted: {consecutive_failures} consecutive failures")
                     speak(f"Autosprint terminated early. {consecutive_failures} consecutive failures. Human input needed.")
-                    raise RuntimeError(f"{consecutive_failures} consecutive sprint failures. Human input needed.")
+                    raise RuntimeError(f"{consecutive_failures} consecutive sprint failures. Human input needed.") from None
                 await _maybe_run_heartbeat(sprint_number)
                 continue
 

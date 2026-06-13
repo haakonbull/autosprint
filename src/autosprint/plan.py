@@ -156,8 +156,7 @@ def serialise_plan(plan: Plan, recent_count: int = 5, plan_summary: str = "") ->
     lines.append("## Pending")
     lines.append("")
     if plan_summary.strip():
-        for summary_line in plan_summary.strip().split("\n"):
-            lines.append(f"> {summary_line}".rstrip())
+        lines.extend(f"> {summary_line}".rstrip() for summary_line in plan_summary.strip().split("\n"))
         lines.append("")
     if not plan.pending:
         lines.append("_(none — Plan phase will populate this)_")
@@ -167,8 +166,7 @@ def serialise_plan(plan: Plan, recent_count: int = 5, plan_summary: str = "") ->
             # Indent every line of a (possibly multi-line) description so trailing
             # annotation lines (Consensus/Importance, Depends on) render under the
             # task instead of flush-left.
-            for desc_line in task.description.split("\n"):
-                lines.append(f"  {desc_line}".rstrip())
+            lines.extend(f"  {desc_line}".rstrip() for desc_line in task.description.split("\n"))
     lines.append("")
     return "\n".join(lines)
 
@@ -180,7 +178,7 @@ def serialise_plan(plan: Plan, recent_count: int = 5, plan_summary: str = "") ->
 
 def _strip_gfm_dash(line: str) -> str:
     """Returns the line with a leading '- ' stripped from GFM checkbox markers so log output reads as '[ ] Title' instead of '- [ ] Title'."""
-    if line.startswith("- [ ]") or line.startswith("- [x]") or line.startswith("- [X]"):
+    if line.startswith(("- [ ]", "- [x]", "- [X]")):
         return line[2:]
     return line
 

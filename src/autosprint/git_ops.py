@@ -33,7 +33,7 @@ def git(*args: str) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(["git", *args], capture_output=True, text=True, check=True, cwd=config.TARGET_REPO_PATH)
     except Exception as e:
-        raise add_context(e, f'Failed to run git {" ".join(args)}') from e
+        raise add_context(e, f"Failed to run git {' '.join(args)}") from e
 
 
 def git_restore() -> None:
@@ -50,10 +50,7 @@ def git_commit(task_group: list[dict], summary: str) -> None:
     """Commit all staged changes for a task group (1+ tasks) as a single git commit. Single-task groups keep the legacy message shape `[autosprint] Title`; multi-task groups use `[autosprint] Group (N tasks): Title-A; Title-B` so the subject line stays scannable in git log."""
     try:
         git("add", "-A")
-        if len(task_group) == 1:
-            subject = f"[autosprint] {task_group[0]['title']}"
-        else:
-            subject = f"[autosprint] Group ({len(task_group)} tasks): {group_titles(task_group)}"
+        subject = f"[autosprint] {task_group[0]['title']}" if len(task_group) == 1 else f"[autosprint] Group ({len(task_group)} tasks): {group_titles(task_group)}"
         git("commit", "-m", f"{subject}\n\n{summary}")
     except Exception as e:
         raise add_context(e, f"Failed to git commit task group '{group_titles(task_group)}'") from e

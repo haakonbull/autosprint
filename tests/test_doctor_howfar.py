@@ -161,7 +161,6 @@ def test_check_install_health_flags_version_skew(monkeypatch: pytest.MonkeyPatch
 def test_run_doctor_exits_nonzero_when_install_is_stale(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """End-to-end: a stale install (mocked as missing `copilot`) makes doctor exit non-zero even when everything else would have passed."""
     import importlib
-
     from unittest.mock import AsyncMock
 
     from autosprint.init import run_doctor
@@ -295,7 +294,9 @@ def test_run_howfar_heartbeat_swallows_dispatch_failure(monkeypatch: pytest.Monk
     asyncio.run(run_howfar_heartbeat(sprint_number=20))  # must not raise
 
     out = capsys.readouterr().out
-    assert "⚠" in out and "sprint 20" in out and "dispatch boom" in out
+    assert "⚠" in out
+    assert "sprint 20" in out
+    assert "dispatch boom" in out
 
 
 def test_run_howfar_heartbeat_swallows_missing_destination(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -308,4 +309,6 @@ def test_run_howfar_heartbeat_swallows_missing_destination(monkeypatch: pytest.M
     asyncio.run(run_howfar_heartbeat(sprint_number=10))
     out = capsys.readouterr().out
     flat = " ".join(out.split())  # collapse any line-wrapping in the printed message
-    assert "⚠" in out and "nothing to" in flat and "measure" in flat
+    assert "⚠" in out
+    assert "nothing to" in flat
+    assert "measure" in flat

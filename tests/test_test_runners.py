@@ -77,8 +77,7 @@ def test_get_test_runner_returns_pytest_today() -> None:
 def _vitest_report(total: int, passed: int, failed: int, failed_names: list[str] | None = None) -> dict:
     """Build a minimal vitest/Jest-shaped JSON report for adapter tests."""
     assertion_results: list[dict] = [{"status": "passed", "fullName": f"pass {i}"} for i in range(passed)]
-    for name in failed_names or []:
-        assertion_results.append({"status": "failed", "fullName": name, "failureMessages": [f"AssertionError: {name} broke\n  at file.test.ts:1"]})
+    assertion_results.extend({"status": "failed", "fullName": name, "failureMessages": [f"AssertionError: {name} broke\n  at file.test.ts:1"]} for name in failed_names or [])
     return {
         "numTotalTests": total,
         "numPassedTests": passed,
@@ -102,7 +101,8 @@ def test_extract_json_objects_ignores_braces_inside_strings() -> None:
     from autosprint.test_runners import _extract_json_objects
 
     objs = _extract_json_objects('noise {"msg": "a } brace in a string", "numTotalTests": 1} tail')
-    assert len(objs) == 1 and objs[0]["numTotalTests"] == 1
+    assert len(objs) == 1
+    assert objs[0]["numTotalTests"] == 1
 
 
 def test_vitest_runner_command_single_package(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -292,7 +292,7 @@ def test_vitest_pre_test_gate_passes_through_when_no_typecheck(monkeypatch: pyte
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "TS_TYPECHECK", True)
-    ok, name, stdout, stderr = VitestRunner().pre_test_gate(quick=False)
+    ok, name, _stdout, _stderr = VitestRunner().pre_test_gate(quick=False)
     assert ok is True
     assert name == ""
 
@@ -338,7 +338,7 @@ def test_pytest_smoke_skipped_when_no_main_module(monkeypatch: pytest.MonkeyPatc
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "libonly"\n', encoding="utf-8")
     (tmp_path / "src" / "libonly").mkdir(parents=True)
     (tmp_path / "src" / "libonly" / "__init__.py").write_text("", encoding="utf-8")
-    ok, name, _, _ = PytestRunner().post_test_gate()
+    ok, _name, _, _ = PytestRunner().post_test_gate()
     assert ok is True
 
 
@@ -404,8 +404,9 @@ def test_pytest_smoke_env_sets_headless_vars() -> None:
 
 def test_run_smoke_with_timeout_passes_on_zero_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     """A subprocess that exits 0 within the timeout → smoke passes."""
-    from autosprint.test_runners import _run_smoke_with_timeout
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import _run_smoke_with_timeout
 
     mock_proc = MagicMock(returncode=0, stdout="usage: x [--help]", stderr="")
     monkeypatch.setattr("autosprint.test_runners.subprocess.run", MagicMock(return_value=mock_proc))
@@ -417,8 +418,9 @@ def test_run_smoke_with_timeout_passes_on_zero_exit(monkeypatch: pytest.MonkeyPa
 
 def test_run_smoke_with_timeout_fails_on_nonzero_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Non-zero exit → smoke fails. The returned stdout/stderr lets the caller include the crash output in the failure message."""
-    from autosprint.test_runners import _run_smoke_with_timeout
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import _run_smoke_with_timeout
 
     mock_proc = MagicMock(returncode=1, stdout="", stderr="ImportError: No module named missing_dep")
     monkeypatch.setattr("autosprint.test_runners.subprocess.run", MagicMock(return_value=mock_proc))
@@ -447,8 +449,9 @@ def test_pytest_pre_test_gate_all_off_is_noop(monkeypatch: pytest.MonkeyPatch, t
 
 def test_pytest_format_check_fail_short_circuits(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A failing format check short-circuits the pre-test gate — the lint and collect-only checks don't run."""
-    from autosprint.test_runners import PytestRunner
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import PytestRunner
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FORMAT_CHECK", "black --check src")
@@ -511,8 +514,9 @@ def test_pytest_lint_auto_returns_none_when_nothing_configured(monkeypatch: pyte
 
 def test_pytest_collect_only_gate_passes_on_zero_exit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A clean `pytest --collect-only` exits 0 → gate passes."""
-    from autosprint.test_runners import PytestRunner
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import PytestRunner
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FORMAT_CHECK", "off")
@@ -520,14 +524,15 @@ def test_pytest_collect_only_gate_passes_on_zero_exit(monkeypatch: pytest.Monkey
     monkeypatch.setattr(config, "PYTEST_COLLECT_GATE", True)
     pass_proc = MagicMock(returncode=0, stdout="5 tests collected", stderr="")
     monkeypatch.setattr("autosprint.test_runners.subprocess.run", MagicMock(return_value=pass_proc))
-    ok, name, _, _ = PytestRunner().pre_test_gate(quick=False)
+    ok, _name, _, _ = PytestRunner().pre_test_gate(quick=False)
     assert ok is True
 
 
 def test_pytest_collect_only_gate_passes_on_exit_5(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Exit 5 (no tests collected) is a valid empty-tree state — gate passes, same as the main test command treats it."""
-    from autosprint.test_runners import PytestRunner
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import PytestRunner
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FORMAT_CHECK", "off")
@@ -535,14 +540,15 @@ def test_pytest_collect_only_gate_passes_on_exit_5(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(config, "PYTEST_COLLECT_GATE", True)
     empty_proc = MagicMock(returncode=5, stdout="no tests ran", stderr="")
     monkeypatch.setattr("autosprint.test_runners.subprocess.run", MagicMock(return_value=empty_proc))
-    ok, name, _, _ = PytestRunner().pre_test_gate(quick=False)
+    ok, _name, _, _ = PytestRunner().pre_test_gate(quick=False)
     assert ok is True
 
 
 def test_pytest_import_check_passes_when_package_imports(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A clean `python -c 'import <pkg>'` (exit 0) → import check passes."""
-    from autosprint.test_runners import PytestRunner
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import PytestRunner
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     pass_proc = MagicMock(returncode=0, stdout="", stderr="")
@@ -554,8 +560,9 @@ def test_pytest_import_check_passes_when_package_imports(monkeypatch: pytest.Mon
 
 def test_pytest_import_check_fails_on_importerror(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A failing import (e.g. missing dep) → import check fails with the stderr surfaced."""
-    from autosprint.test_runners import PytestRunner
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import PytestRunner
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     fail_proc = MagicMock(returncode=1, stdout="", stderr="ModuleNotFoundError: No module named 'pygame'")
@@ -567,16 +574,16 @@ def test_pytest_import_check_fails_on_importerror(monkeypatch: pytest.MonkeyPatc
 
 def test_pytest_import_check_normalises_hyphen_to_underscore(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Distribution names like `my-game` (PEP 503) are imported in Python as `my_game`. The check has to do that normalisation or it tries to import the wrong name and gets a syntax error."""
-    from autosprint.test_runners import PytestRunner
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import PytestRunner
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     captured = {}
 
     def fake_run(cmd, **kwargs):
         captured["cmd"] = cmd
-        m = MagicMock(returncode=0, stdout="", stderr="")
-        return m
+        return MagicMock(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr("autosprint.test_runners.subprocess.run", fake_run)
     PytestRunner()._run_import_check("my-game")
@@ -586,8 +593,9 @@ def test_pytest_import_check_normalises_hyphen_to_underscore(monkeypatch: pytest
 
 def test_pytest_smoke_literal_command_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A literal `SMOKE_TEST` (not 'auto'/'off') is shell-split and run as-is. Lets users with a non-standard launch (e.g. a wrapper script) plug in their own command. IMPORT_CHECK disabled to isolate the smoke override from the import-check gate."""
-    from autosprint.test_runners import PytestRunner
     from unittest.mock import MagicMock
+
+    from autosprint.test_runners import PytestRunner
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SMOKE_TEST", "./scripts/smoke.sh")
@@ -597,8 +605,7 @@ def test_pytest_smoke_literal_command_override(monkeypatch: pytest.MonkeyPatch, 
 
     def fake_run(cmd, **kwargs):
         captured["cmd"] = cmd
-        m = MagicMock(returncode=0, stdout="", stderr="")
-        return m
+        return MagicMock(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr("autosprint.test_runners.subprocess.run", fake_run)
     ok, _, _, _ = PytestRunner().post_test_gate()

@@ -22,13 +22,12 @@ import re
 import shutil
 import sys
 import tomllib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from autosprint.teams import TEAMS
 from autosprint.banners import print_effective_config, print_start_banner, section_banner
-from autosprint.config import ENV_SET_FIELDS, config, _project_root
+from autosprint.config import ENV_SET_FIELDS, _project_root, config
 from autosprint.errors import StopRequested, add_context
 from autosprint.git_ops import git
 from autosprint.how_far import run_how_far
@@ -47,6 +46,7 @@ from autosprint.output import printlev
 from autosprint.paths import AUTOSPRINT_DIR_NAME, STOP_CONTROL_FILENAME, STOP_NOW_CONTROL_FILENAME
 from autosprint.plan import read_plan_md
 from autosprint.run_log import trim_console_verbose_log, trim_plan_decisions_log
+from autosprint.teams import TEAMS
 from autosprint.test_phase import check_initial_tests, run_self_test
 
 # Bundled CLI presets: a single flag that expands to a (team, implement_agent)
@@ -122,10 +122,7 @@ class _TerseArgumentParser(argparse.ArgumentParser):
             choice_set = set(choices)
             # First: did the user type extra verbs like `autosprint list teams`? Pick the trailing valid command.
             extra_token_hits = [tok for tok in sys.argv[1:] if tok != typed and not tok.startswith("-") and tok in choice_set]
-            if extra_token_hits:
-                suggestions = extra_token_hits[:3]
-            else:
-                suggestions = difflib.get_close_matches(typed, choices, n=3, cutoff=0.5)
+            suggestions = extra_token_hits[:3] if extra_token_hits else difflib.get_close_matches(typed, choices, n=3, cutoff=0.5)
             lines = [f"autosprint: unknown subcommand '{typed}'"]
             if suggestions:
                 hint = suggestions[0] if len(suggestions) == 1 else ", ".join(suggestions)
@@ -536,8 +533,7 @@ def run_show_teams() -> None:
             lines.append(f"   {key}{marker}")
             if desc:
                 lines.append(f"      {desc}")
-            for agent in agents_list:
-                lines.append(f"      - {agent.get('name', '?')} [{agent.get('assistant', '?')}/{agent.get('model', '?')}]")
+            lines.extend(f"      - {agent.get('name', '?')} [{agent.get('assistant', '?')}/{agent.get('model', '?')}]" for agent in agents_list)
             if selector:
                 lines.append(f"      lead: {selector.get('name', '?')} [{selector.get('assistant', '?')}/{selector.get('model', '?')}]")
             else:
@@ -613,7 +609,7 @@ def describe_gates() -> list[dict[str, str]]:
 
             pkg = PytestRunner()._detect_package_name() if config.TARGET_REPO_PATH.exists() else None
             if pkg:
-                rows.append({"name": "import-check", "config_value": "true", "status": "active", "detail": f"`python -c \"import {pkg.replace('-', '_')}\"`"})
+                rows.append({"name": "import-check", "config_value": "true", "status": "active", "detail": f'`python -c "import {pkg.replace("-", "_")}"`'})
             else:
                 rows.append({"name": "import-check", "config_value": "true", "status": "auto-skipped", "detail": "no pyproject.toml [project].name in target"})
         except Exception:
@@ -679,8 +675,7 @@ def run_show_gates() -> None:
         lines.append("")
         lines.append(f"   {'Gate':<20} {'Config':<10} {'Status':<22} Detail")
         lines.append(f"   {'-' * 20} {'-' * 10} {'-' * 22} {'-' * 40}")
-        for row in rows:
-            lines.append(f"   {row['name']:<20} {row['config_value']:<10} {row['status']:<22} {row['detail']}")
+        lines.extend(f"   {row['name']:<20} {row['config_value']:<10} {row['status']:<22} {row['detail']}" for row in rows)
         lines.append("")
         lines.append("   Use:  edit `autosprint/config.toml` to flip a gate. `auto` mode safely skips when tooling is missing.")
         lines.append(section_banner("GATES", "END"))
@@ -703,8 +698,7 @@ def run_show_sprints() -> None:
             lines.append("   Run `autosprint run` to start producing entries.")
         else:
             lines.append("")
-            for line in history.splitlines():
-                lines.append(f"   {line}")
+            lines.extend(f"   {line}" for line in history.splitlines())
         lines.append("")
         lines.append(section_banner("RECENT SPRINTS", "END"))
         lines.append("")
@@ -863,7 +857,7 @@ def run_stop(immediate: bool) -> None:
         autosprint_dir.mkdir(parents=True, exist_ok=True)
         filename = STOP_NOW_CONTROL_FILENAME if immediate else STOP_CONTROL_FILENAME
         control_file = config.TARGET_REPO_PATH / filename
-        control_file.write_text(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ\n"), encoding="utf-8")
+        control_file.write_text(datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ\n"), encoding="utf-8")
         mode = "stop-now (immediate + revert)" if immediate else "stop (soft — finish current sprint, then exit)"
         printlev(f"\n[stop] Wrote {filename} in {config.TARGET_REPO_PATH}.", level=100)
         printlev(f"[stop] Mode: {mode}", level=100)

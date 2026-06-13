@@ -16,7 +16,8 @@ from autosprint.parsing import ImplementResponseMalformed, parse_implement_resul
 from autosprint.paths import LAST_IMPLEMENT_FAILURE_FILENAME, SPRINT_LOG_FILENAME
 from autosprint.plan import PendingTask, Plan
 from autosprint.plan_phase import select_sprint_task_group
-from autosprint.run_log import extract_story_points as _extract_story_points, write_run_separator
+from autosprint.run_log import extract_story_points as _extract_story_points
+from autosprint.run_log import write_run_separator
 
 # ---------------------------------------------------------------------------
 # dump_last_implement_raw
@@ -282,7 +283,8 @@ def test_select_sprint_task_group_count_cap_floor_at_1(monkeypatch: pytest.Monke
 
 
 def test_revert_reason_shrinks_cap_only_on_real_failures() -> None:
-    from autosprint.errors import RevertReason, revert_reason_shrinks_cap as _revert_reason_shrinks_cap
+    from autosprint.errors import RevertReason
+    from autosprint.errors import revert_reason_shrinks_cap as _revert_reason_shrinks_cap
 
     assert _revert_reason_shrinks_cap(RevertReason.TEST_FAILURE) is True
     assert _revert_reason_shrinks_cap(RevertReason.IMPLEMENT_REFUSED) is True
@@ -304,7 +306,8 @@ def test_post_revert_hint_empty_when_no_records() -> None:
 
 def test_post_revert_hint_includes_real_failures_and_action_suggestions() -> None:
     from autosprint.errors import RevertReason
-    from autosprint.plan_phase import SprintRevertRecord, build_post_revert_hint as _build_post_revert_hint
+    from autosprint.plan_phase import SprintRevertRecord
+    from autosprint.plan_phase import build_post_revert_hint as _build_post_revert_hint
 
     records = [
         SprintRevertRecord(sprint_number=3, task_titles=["Task A (2)", "Task B (3)"], reason=RevertReason.TEST_FAILURE, reason_message="tests failed at assertion X"),
@@ -323,7 +326,8 @@ def test_post_revert_hint_includes_real_failures_and_action_suggestions() -> Non
 def test_post_revert_hint_parser_only_window_gets_soft_note(monkeypatch: pytest.MonkeyPatch) -> None:
     """When the only reverts in the window are parser-format hiccups, the planner gets a SHORT note explaining it's an autosprint bug, not a task problem — the task-splitting / deprioritise framing is suppressed."""
     from autosprint.errors import RevertReason
-    from autosprint.plan_phase import SprintRevertRecord, build_post_revert_hint as _build_post_revert_hint
+    from autosprint.plan_phase import SprintRevertRecord
+    from autosprint.plan_phase import build_post_revert_hint as _build_post_revert_hint
 
     records = [
         SprintRevertRecord(sprint_number=3, task_titles=["Task A (2)"], reason=RevertReason.IMPLEMENT_MALFORMED, reason_message="missing ---END---"),
@@ -337,7 +341,8 @@ def test_post_revert_hint_parser_only_window_gets_soft_note(monkeypatch: pytest.
 def test_post_revert_hint_mixes_real_and_parser_with_real_taking_priority() -> None:
     """If the window has BOTH real + parser reverts, the hint shows the real ones (which drive action) and ignores the parser ones (they don't mean a task needs splitting)."""
     from autosprint.errors import RevertReason
-    from autosprint.plan_phase import SprintRevertRecord, build_post_revert_hint as _build_post_revert_hint
+    from autosprint.plan_phase import SprintRevertRecord
+    from autosprint.plan_phase import build_post_revert_hint as _build_post_revert_hint
 
     records = [
         SprintRevertRecord(sprint_number=3, task_titles=["Parser-ghost (1)"], reason=RevertReason.IMPLEMENT_MALFORMED, reason_message="missing ---END---"),

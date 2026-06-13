@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from autosprint.config import config, _project_root
+from autosprint.config import _project_root, config
 from autosprint.errors import PhaseFailedError, RevertReason, add_context
 from autosprint.git_ops import git_restore
 from autosprint.output import printlev
@@ -82,7 +82,7 @@ def write_last_test_output(sprint_number: int, outcome: str, stdout: str, stderr
     try:
         log_path = config.TARGET_REPO_PATH / LAST_TEST_OUTPUT_FILENAME
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         highlights = extract_test_output_highlights(stdout, stderr)
         log_path.write_text(f"# Last test-phase output | sprint={sprint_number} | {ts} | outcome={outcome}\n\n{highlights}\n", encoding="utf-8")
     except Exception as e:
@@ -107,7 +107,7 @@ def read_last_test_output() -> str:
                 return ""
             return f"# Last test-phase output (previous sprint PASSED — warnings only)\n{highlights}"
         if len(lines) > 60:
-            lines = ["[...truncated — oldest lines dropped...]"] + lines[-60:]
+            lines = ["[...truncated — oldest lines dropped...]", *lines[-60:]]
         return "\n".join(lines)
     except Exception as e:
         raise add_context(e, "Failed to read last-test-output log") from e
@@ -199,7 +199,7 @@ def run_preflight_tests() -> str:
         runner = get_test_runner()
         result = runner.run(quick=True, terse=True)
         stderr_block = f"\n--- stderr ---\n{result.stderr}" if result.stderr.strip() else ""
-        full_output = f"# Pre-flight test run at {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n# exit={result.returncode} elapsed={result.elapsed:.1f}s\n\n{result.stdout}{stderr_block}"
+        full_output = f"# Pre-flight test run at {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}\n# exit={result.returncode} elapsed={result.elapsed:.1f}s\n\n{result.stdout}{stderr_block}"
         log_path = config.TARGET_REPO_PATH / PREFLIGHT_LOG_FILENAME
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text(full_output, encoding="utf-8")

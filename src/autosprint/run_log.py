@@ -21,7 +21,7 @@ for the planner's task-history section).
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from autosprint import db
 from autosprint.config import config
@@ -63,7 +63,7 @@ def append_run_log(sprint_number: int, task_title: str, implement_status: str, t
     sp = extract_story_points(task_title)
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         is_new = not log_path.exists()
         with log_path.open("a", encoding="utf-8") as f:
             if is_new:
@@ -82,7 +82,7 @@ def write_run_separator() -> None:
     log_path = config.TARGET_REPO_PATH / SPRINT_LOG_FILENAME
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         is_new = not log_path.exists()
         with log_path.open("a", encoding="utf-8") as f:
             if is_new:
@@ -100,7 +100,7 @@ def write_run_ended_separator(exit_reason: str) -> None:
     log_path = config.TARGET_REPO_PATH / SPRINT_LOG_FILENAME
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         with log_path.open("a", encoding="utf-8") as f:
             f.write(f"# === run ended {ts} ({exit_reason}) ===\n")
     except Exception as e:
@@ -141,7 +141,7 @@ def append_changelog_entry(sprint_number: int, task_group: list[dict], summary: 
     path = config.TARGET_REPO_PATH / CHANGELOG_FILENAME
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         date = now.strftime("%Y-%m-%d")
         is_new = not path.exists()
         with path.open("a", encoding="utf-8") as f:
@@ -223,7 +223,7 @@ def apply_destination_resolutions(resolutions: list[dict]) -> None:
         if not path.exists():
             printlev(f"[writeback] ⚠️  destination.md not found at {path} — cannot write back {len(resolutions)} resolved open question(s). Skipping.", level=100)
             return
-        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date = datetime.now(UTC).strftime("%Y-%m-%d")
         lines = path.read_text(encoding="utf-8").split("\n")
         for entry in resolutions:
             section = str(entry.get("section") or "").strip()
@@ -372,7 +372,7 @@ def log_plan_decision(plan: Plan, proposals_text: str = "") -> None:
     log_path = config.TARGET_REPO_PATH / PLAN_DECISIONS_FILENAME
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         with log_path.open("a", encoding="utf-8") as f:
             f.write(f"\n## {ts} — {config.TEAM}\n\n")
             if proposals_text:
@@ -506,7 +506,7 @@ def check_escalation() -> None:
             key = (sprint_no, task)
             sprint_revert_is_refusal[key] = sprint_revert_is_refusal.get(key, False) or is_refusal
         recent_reverts: dict[str, int] = {}
-        for (sprint_no, task), is_refusal in sprint_revert_is_refusal.items():
+        for (_sprint_no, task), is_refusal in sprint_revert_is_refusal.items():
             if a6_enabled and is_refusal:
                 # The refusal-fallback will intercept future refusals on this task; don't escalate
                 # historical refusal-only reverts that predate the safety net.
@@ -638,7 +638,7 @@ def persist_run_summary(rendered: str) -> None:
     try:
         log_path = config.TARGET_REPO_PATH / LAST_RUN_SUMMARY_FILENAME
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         log_path.write_text(f"# Last autosprint run summary\n\n_Written at {ts}._\n\n```\n{rendered}\n```\n", encoding="utf-8")
     except Exception as e:
         raise add_context(e, "Failed to persist run summary to last-run-summary.md") from e

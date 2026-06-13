@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import sqlite3
 import subprocess
-from contextlib import closing
-from datetime import datetime, timezone
+from contextlib import closing, suppress
+from datetime import UTC, datetime
 from pathlib import Path
 
 from autosprint.config import config
@@ -75,7 +75,7 @@ def _db_path() -> Path:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _ensure_gitignore_excludes_runs_db() -> None:
@@ -131,14 +131,12 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(path, isolation_level=None, timeout=5.0)
     conn.executescript(_SCHEMA)
     for stmt in _MIGRATIONS:
-        try:
+        # Expected when the column already exists on an already-migrated DB.
+        # Any other OperationalError (corrupt DB, locked, etc.) re-surfaces
+        # via the next caller's exception handler — same swallow pattern as
+        # the rest of this module's public functions.
+        with suppress(sqlite3.OperationalError):
             conn.execute(stmt)
-        except sqlite3.OperationalError:
-            # Expected when the column already exists on an already-migrated DB.
-            # Any other OperationalError (corrupt DB, locked, etc.) re-surfaces
-            # via the next caller's exception handler — same swallow pattern as
-            # the rest of this module's public functions.
-            pass
     return conn
 
 

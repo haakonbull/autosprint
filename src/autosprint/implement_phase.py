@@ -15,7 +15,7 @@ Owns:
 from __future__ import annotations
 
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY
 from autosprint.config import config
@@ -71,7 +71,7 @@ def log_implement_failure(sprint_number: int, task: dict, reason: str, raw_respo
     log_path = config.TARGET_REPO_PATH / IMPLEMENT_FAILURES_LOG_FILENAME
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         raw = raw_response or "(no raw response captured)"
         excerpt = raw if len(raw) <= 4000 else f"{raw[:2000]}\n\n... [middle of response truncated, {len(raw) - 4000} chars omitted] ...\n\n{raw[-2000:]}"
         block = f"\n# === {ts} · sprint {sprint_number} ===\nTask: {task.get('title', '(unknown)')}\nReason: {reason}\n\n--- Raw agent response ---\n{excerpt}\n"
@@ -91,8 +91,8 @@ def dump_last_implement_raw(raw_response: str, reason: str) -> None:
     path = config.TARGET_REPO_PATH / LAST_IMPLEMENT_FAILURE_FILENAME
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        header = "# autosprint — last implement-phase failure transcript\n# This file is overwritten ONLY when an implement phase fails; successful sprints DO NOT update it.\n# If many sprints have succeeded since the timestamp below, this transcript is from an older failed run — check sprint-outcomes.log for the current state.\n" f"# timestamp: {ts}\n# reason: {reason}\n# raw response follows (unredacted):\n\n"
+        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        header = f"# autosprint — last implement-phase failure transcript\n# This file is overwritten ONLY when an implement phase fails; successful sprints DO NOT update it.\n# If many sprints have succeeded since the timestamp below, this transcript is from an older failed run — check sprint-outcomes.log for the current state.\n# timestamp: {ts}\n# reason: {reason}\n# raw response follows (unredacted):\n\n"
         path.write_text(header + (raw_response or "(no raw response captured)"), encoding="utf-8")
     except Exception:
         # Best-effort only — never block the revert path on a dump failure.

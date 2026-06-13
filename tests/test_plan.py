@@ -164,7 +164,7 @@ def test_mark_top_pending_done_moves_task(tmp_path: Path) -> None:
 def test_mark_top_pending_done_raises_when_empty(tmp_path: Path) -> None:
     plan = Plan()
     write_plan_md(tmp_path, plan)
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="no pending tasks"):
         mark_top_pending_done(tmp_path, summary="x")
 
 

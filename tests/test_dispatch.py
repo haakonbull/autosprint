@@ -227,7 +227,7 @@ class _FakeSession:
         self.return_value = return_value
         self.cancelled = False
 
-    async def send_and_wait(self, prompt: str, timeout: float):  # noqa: ARG002
+    async def send_and_wait(self, prompt: str, timeout: float):
         if self.behaviour == "hang":
             try:
                 await asyncio.sleep(timeout * 10)  # far longer than the test will wait
@@ -263,7 +263,7 @@ async def test_send_with_stop_check_passes_larger_timeout_to_sdk(monkeypatch: py
     seen_timeouts: list[float] = []
 
     class _CapturingSession:
-        async def send_and_wait(self, prompt: str, timeout: float):  # noqa: ARG002
+        async def send_and_wait(self, prompt: str, timeout: float):
             seen_timeouts.append(timeout)
             return "ok"
 

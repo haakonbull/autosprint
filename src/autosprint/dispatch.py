@@ -43,11 +43,12 @@ until the agent supplies a valid call.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from pydantic import BaseModel, Field
 
@@ -202,7 +203,7 @@ _FAILURE_TOOL_DESC: str = "Call exactly once at the end of your work when the ta
 
 def _build_claude_result_tools(result_capture: dict) -> tuple[object, list[str]]:
     """Build the Claude-side structured-exit MCP server and the fully-qualified tool names to add to ``allowed_tools``. Returns ``(server, tool_names)``. The handlers close over ``result_capture`` and use the shared validators so the wording stays identical to the Copilot side. Each call produces fresh closures so parallel dispatches can't collide."""
-    from claude_agent_sdk import tool, create_sdk_mcp_server
+    from claude_agent_sdk import create_sdk_mcp_server, tool
 
     @tool("submit_implement_success", _SUCCESS_TOOL_DESC, {"summary": str, "resolved_open_questions": list})
     async def submit_implement_success(args: dict) -> dict:
@@ -235,7 +236,7 @@ def _build_claude_result_tools(result_capture: dict) -> tuple[object, list[str]]
 
 async def _run_claude(agent: dict, prompt: str, preset: str, result_capture: dict | None = None) -> str:
     """Dispatch a prompt to Claude via the Anthropic Agent SDK and return the concatenated narration text. When ``result_capture`` is a dict (used by the Implement phase for the structured-result-tool exit pattern), an in-process MCP server exposing ``submit_implement_success`` and ``submit_implement_failure`` is registered, and the agent's typed args from whichever tool it calls are written into the dict. Plan-phase callers leave ``result_capture=None`` so no extra tools are registered and behaviour is unchanged."""
-    from claude_agent_sdk import ClaudeAgentOptions, AssistantMessage, query
+    from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, query
 
     try:
         allowed_tools = list(_CLAUDE_TOOLS[preset])  # copy so per-call extension doesn't mutate the preset
@@ -358,10 +359,8 @@ async def _copilot_send_with_stop_check(session, prompt: str, timeout: float, st
                 raise TimeoutError(f"Implement LLM call exceeded {timeout:.0f}s hard timeout (outer guard fired before SDK timeout)")
     except BaseException:
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
-        except (asyncio.CancelledError, Exception):
-            pass
         raise
 
 
@@ -547,10 +546,8 @@ async def query_agent(agent: dict, prompt: str, tools: str | None = None, cache_
                 # poisoned payload) so corrupt cache entries don't look like
                 # silent cache misses that waste tokens on re-dispatch.
                 printlev(f"{prefix}[cache] read failed for {label}: {cache_err}; dropping entry and re-dispatching", level=50)
-                try:
+                with contextlib.suppress(Exception):
                     cache_file.unlink(missing_ok=True)
-                except Exception:
-                    pass
 
         dispatcher = DISPATCHERS.get(agent["assistant"])
         if not dispatcher:
@@ -588,7 +585,7 @@ async def _query_agent_timed(agent: dict, prompt: str, cache_namespace: str = ""
 
 async def query_agents(agents: list[dict], prompts: list[str], phase_tag: str = "", on_result: Callable[[str], None] | None = None, result_log_suffix: str = "") -> AgentResults:
     try:
-        coros = [_query_agent_timed(agent, prompt, cache_namespace=str(i), phase_tag=phase_tag, on_result=on_result, result_log_suffix=result_log_suffix) for i, (agent, prompt) in enumerate(zip(agents, prompts))]
+        coros = [_query_agent_timed(agent, prompt, cache_namespace=str(i), phase_tag=phase_tag, on_result=on_result, result_log_suffix=result_log_suffix) for i, (agent, prompt) in enumerate(zip(agents, prompts, strict=False))]
         results = await asyncio.gather(*coros)
         return AgentResults(results=list(results))
     except Exception as e:

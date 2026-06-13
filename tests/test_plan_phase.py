@@ -14,8 +14,8 @@ import autosprint.plan_phase as plan_phase_mod
 from autosprint.agents import AGENT_QUICK_A_GPT41_COPILOT
 from autosprint.config import config
 from autosprint.errors import PhaseFailedError
-from autosprint.plan_phase import should_replan, update_plan
 from autosprint.plan import PendingTask, Plan
+from autosprint.plan_phase import should_replan, update_plan
 
 VALID_PLAN_RESPONSE = '---RESULT---\n{"pending": [{"title": "Do thing", "description": "Do the first thing."}, {"title": "Do other", "description": "Do the second thing."}]}\n---END---'
 PLAN_RESPONSE_WITH_SUMMARY = '---RESULT---\n{"pending": [{"title": "Do thing", "description": "Do the first thing."}], "plan_summary": "Merged 8 proposals into 1 task."}\n---END---'
@@ -35,7 +35,8 @@ def test_research_council_teams_registered() -> None:
 
     for key in ("research_council", "research_council_opus", "research_council_gpt55"):
         team = TEAMS[key]
-        assert "agents" in team and len(team["agents"]) == 4, f"{key} should have 4 members"
+        assert "agents" in team, f"{key} should have agents"
+        assert len(team["agents"]) == 4, f"{key} should have 4 members"
         assert "selector" in team, f"{key} needs a selector"
 
 
@@ -162,7 +163,8 @@ def test_plan_depth_section_empty_in_loop_mode() -> None:
 def test_plan_depth_section_present_in_plan_only_mode() -> None:
     """plan-only mode injects guidance for a fuller 15–30 candidate list, ordered by dependency, for human curation."""
     section = plan_phase_mod.plan_depth_section(True)
-    assert "15" in section and "30" in section
+    assert "15" in section
+    assert "30" in section
     assert "plan-only" in section.lower()
     assert "depend" in section.lower()
 

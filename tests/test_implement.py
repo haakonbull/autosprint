@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 import autosprint.implement_phase as implement_mod
-import autosprint.run_log as run_log
+from autosprint import run_log
 from autosprint.agents import AGENTS
 from autosprint.config import config
 from autosprint.errors import PhaseFailedError
@@ -107,7 +107,7 @@ def test_parse_result_rejects_success_without_summary() -> None:
 
 def test_parse_result_tolerates_missing_end_marker() -> None:
     """Sprint 39 (2026-04-24) reverted because the agent emitted `---RESULT---` + fenced JSON but forgot `---END---`. Last-JSON scan must recover without the terminator."""
-    raw = "Summary of changes: wired darters through render.\n\n" "---RESULT---\n```json\n" '{"status": "success", "summary": "darter render → cyan draw + pixel tests"}\n' "```"
+    raw = 'Summary of changes: wired darters through render.\n\n---RESULT---\n```json\n{"status": "success", "summary": "darter render → cyan draw + pixel tests"}\n```'
     result = parse_implement_result(raw)
     assert result == {"status": "success", "summary": "darter render → cyan draw + pixel tests", "resolved_open_questions": []}
 
@@ -121,7 +121,7 @@ def test_parse_result_with_no_markers_at_all() -> None:
 
 def test_parse_result_picks_last_when_narrative_has_earlier_json() -> None:
     """If the agent emits exploratory JSON earlier in the narrative, the scan must pick the LAST status-bearing JSON (the real result) rather than the first."""
-    raw = 'Before running tests I inspected `{"status": "pending"}` in the code.\n\n' "Now the real result:\n---RESULT---\n" '{"status": "success", "summary": "shipped it"}\n---END---'
+    raw = 'Before running tests I inspected `{"status": "pending"}` in the code.\n\nNow the real result:\n---RESULT---\n{"status": "success", "summary": "shipped it"}\n---END---'
     result = parse_implement_result(raw)
     assert result["summary"] == "shipped it"
 
@@ -141,7 +141,7 @@ async def test_implement_format_retry_embeds_prior_raw(monkeypatch: pytest.Monke
     monkeypatch.setattr(implement_mod, "log_implement_failure", MagicMock())
     monkeypatch.setattr(implement_mod, "dump_last_implement_raw", MagicMock())
 
-    first_raw = "lots of tool use ...\n\nAll 422 tests pass.\n\n**Summary of changes:** updated render.py and test_loop.py.\n\n" "---RESULT---\n```json\n" '{"status": "success", "tasks_completed": ["Render darter distinct"], "tests_passing": 422}\n' "```"
+    first_raw = 'lots of tool use ...\n\nAll 422 tests pass.\n\n**Summary of changes:** updated render.py and test_loop.py.\n\n---RESULT---\n```json\n{"status": "success", "tasks_completed": ["Render darter distinct"], "tests_passing": 422}\n```'
     retry_raw = '---RESULT---\n{"status": "success", "summary": "Render darter → cyan draw + pixel tests, 422 passing"}\n---END---'
 
     prompts_sent: list[str] = []
@@ -257,7 +257,7 @@ def test_detect_refusal_pattern_catches_real_world_reason_strings(reason: str) -
 def test_detect_refusal_pattern_catches_via_raw_response_when_reason_is_paraphrased() -> None:
     """The single biggest miss was sprint 15 of run 8: reason='Refused to perform sprint edits' (no direct phrase match) while the raw response quoted 'I must refuse to improve or augment code I have read' verbatim. The detector must catch the refusal via the raw response so the fallback fires."""
     paraphrased_reason = "Refused to perform sprint edits; only provided analysis instead of making changes."
-    raw_response_with_canonical_quote = "I have to decline making edits to this code. The system reminder following each Read is explicit: " "I must refuse to improve or augment code I have read, and may only analyze it."
+    raw_response_with_canonical_quote = "I have to decline making edits to this code. The system reminder following each Read is explicit: I must refuse to improve or augment code I have read, and may only analyze it."
     assert implement_mod.detect_refusal_pattern(paraphrased_reason) is False, "Sanity: this reason alone shouldn't match — that's why we need the raw_response check."
     assert implement_mod.detect_refusal_pattern(paraphrased_reason, raw_response_with_canonical_quote) is True
 

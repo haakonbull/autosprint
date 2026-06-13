@@ -92,16 +92,7 @@ def print_start_banner(branch_name: str) -> None:
             modes.append("use-cache")
         modes_str = ", ".join(modes) if modes else "(defaults)"
 
-        if config.COMMIT_SUCCESSFUL_SPRINTS:
-            commit_policy_lines = [
-                "Each sprint is committed to the branch when all tests pass.",
-                "On any test or implement failure the working tree is reverted (git restore + clean) and the loop continues.",
-            ]
-        else:
-            commit_policy_lines = [
-                "Commits are disabled for this run (COMMIT_SUCCESSFUL_SPRINTS=False).",
-                "Failing tests still trigger a revert (git restore + clean).",
-            ]
+        commit_policy_lines = ["Each sprint is committed to the branch when all tests pass.", "On any test or implement failure the working tree is reverted (git restore + clean) and the loop continues."] if config.COMMIT_SUCCESSFUL_SPRINTS else ["Commits are disabled for this run (COMMIT_SUCCESSFUL_SPRINTS=False).", "Failing tests still trigger a revert (git restore + clean)."]
 
         sp_target_display = f"aim for ~{config.SPRINT_STORY_POINT_TARGET} SP/sprint (groups multiple tasks when they fit)" if config.SPRINT_STORY_POINT_TARGET > 0 else "disabled (one task per sprint)"
         token_limit_display = f"{config.CLAUDE_TOKEN_LIMIT:,} tokens (end-of-run summary shows Claude usage as % of this budget; Copilot not counted)" if config.CLAUDE_TOKEN_LIMIT > 0 else "not set (end-of-run summary shows raw Claude token estimate only; Copilot not counted)"
@@ -189,8 +180,7 @@ def print_effective_config(branch_name: str) -> None:
             "",
             "   Team roster:",
         ]
-        for agent in config.TEAM_AGENTS:
-            lines.append(f"      - {agent.get('name', '?')} [{agent.get('assistant', '?')}/{agent.get('model', '?')}]")
+        lines.extend(f"      - {agent.get('name', '?')} [{agent.get('assistant', '?')}/{agent.get('model', '?')}]" for agent in config.TEAM_AGENTS)
         lines.append(f"   Team lead (selector): {config.TEAM_SELECTOR.get('name', '?')} [{config.TEAM_SELECTOR.get('assistant', '?')}/{config.TEAM_SELECTOR.get('model', '?')}]")
         lines.append(f"   Implement agent: {config.IMPLEMENT_AGENT_CONFIG.get('name', '?')} [{config.IMPLEMENT_AGENT_CONFIG.get('assistant', '?')}/{config.IMPLEMENT_AGENT_CONFIG.get('model', '?')}]")
         lines.append(section_banner("EFFECTIVE CONFIG", "END"))

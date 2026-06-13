@@ -69,7 +69,7 @@ def test_speak_tier_enabled_is_cumulative() -> None:
     assert all(speak_tier_enabled(t, "all") for t in ("run", "reverts", "sprints", "all"))
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_phases(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict:
     """Patch all PIT phases and git helpers. Plan IO uses tmp_path. Disables SAVE_CONSOLE_LOG so tests don't do per-print file IO. (Speech is silenced suite-wide by the conftest `_silence_speech` fixture.)"""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))

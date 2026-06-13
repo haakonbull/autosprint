@@ -111,7 +111,7 @@ def test_council_family_has_same_six_lenses() -> None:
 
     def lens(name: str) -> str:
         # Strip a trailing backend-tag like " (Opus 4.8)" / " (GPT-5.5)".
-        return name.split("(")[0].strip()
+        return name.split("(", maxsplit=1)[0].strip()
 
     expected_lenses = {"The North Star", "The Bug Hunter", "The Pragmatist", "The Tester", "The Minimalist", "The Architect"}
     for key in ("council", "council_gpt55", "council_opus"):

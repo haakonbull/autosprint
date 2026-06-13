@@ -22,24 +22,81 @@ Changelog = "https://github.com/haakonbull/autosprint/blob/master/CHANGELOG.md"
 autosprint = "autosprint.orchestrator:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/autosprint"]
-
-[tool.black]
-line-length = 1000
-target-version = ["py312"]
+[tool.uv.build-backend]
+# src layout: the package lives at src/autosprint, matching the project name.
+module-name = "autosprint"
+module-root = "src"
 
 [tool.ruff]
 line-length = 1000
 target-version = "py312"
+# The package is src/; examples/ holds illustrative and vendored assets that CI
+# deliberately leaves out of scope (it lints src and tests only).
+extend-exclude = ["examples"]
+
+[tool.ruff.lint]
+# Ruff already covers everything Black did for formatting; these rule families
+# add real linting on top. Kept broad but pragmatic — families that mostly
+# fight an existing house style (e.g. forced docstrings) are left off.
+select = [
+    "F",   # pyflakes
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "C4",  # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "ISC", # flake8-implicit-str-concat
+    "PIE", # flake8-pie
+    "PT",  # flake8-pytest-style
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "TID", # flake8-tidy-imports
+    "PTH", # flake8-use-pathlib
+    "PL",  # pylint
+    "PERF", # perflint
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    # The formatter owns implicit string concatenation; ISC001 fights it.
+    "ISC001",
+    # line-length is intentionally unbounded (see [tool.ruff] above); a few long
+    # prompt/seed strings legitimately exceed even that.
+    "E501",
+    # Lazy/local imports are deliberate here — they break import cycles and defer
+    # optional/heavy SDK imports until the code path that needs them runs.
+    "PLC0415",
+    # Test runners inspect subprocess returncode by design: a non-zero exit from
+    # the target repo's suite is data to act on, not an error to raise.
+    "PLW1510",
+    # Module-level caches and run-state are mutated via `global` on purpose.
+    "PLW0603",
+    # Magic-value comparisons are too noisy to enforce across this codebase.
+    "PLR2004",
+    # Orchestration/phase functions are inherently large; complexity caps add
+    # noise without improving the code.
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+    # Em-dashes and other Unicode in user-facing strings/docstrings are house style.
+    "RUF001", "RUF002", "RUF003",
+    # Signal exceptions (StopRequested, WaypointReached) are named by role, not
+    # with an -Error suffix, on purpose.
+    "N818",
+    # Log timestamps are rendered in local time for humans by design.
+    "DTZ005", "DTZ006",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # orchestrator.py is a re-export shim — it deliberately imports sibling-module
 # names purely to surface them under `autosprint.orchestrator` for tests.
 "src/autosprint/orchestrator.py" = ["F401"]
+# Settings properties are UPPERCASE to mirror the env-var config-field convention.
+"src/autosprint/config.py" = ["N802"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -51,7 +108,7 @@ markers = [
 
 [dependency-groups]
 dev = [
-    "black>=26.3.1",
+    "ruff>=0.10",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
 ]

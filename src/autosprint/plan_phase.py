@@ -20,10 +20,10 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from autosprint.agents import TOOLS_READ_ONLY
-from autosprint.config import config, _project_root
+from autosprint.config import _project_root, config
 from autosprint.dispatch import AgentResults, query_agent, query_agents
 from autosprint.errors import PhaseFailedError, RevertReason, WaypointReached, add_context
 from autosprint.output import printlev
@@ -59,7 +59,7 @@ def prioritize_section() -> str:
     text = config.PRIORITIZE.strip()
     if not text:
         return ""
-    return "\n\n## User priority for this run\n\n" "The user has flagged the following as a priority for this planning run:\n\n" f"```\n{text}\n```\n\n" "Surface tasks that address this priority near the top of your proposed list. " "If the text references an existing section of `destination.md` (vaguely or by name), look it up and prioritise tasks toward that section. " "If it introduces a concern not yet in destination.md, propose tasks for it as one-off work for this run — do not add the priority itself to destination.md; that is the human's decision to make later. " "When in doubt about how to interpret the hint, follow the most direct reading and proceed."
+    return f"\n\n## User priority for this run\n\nThe user has flagged the following as a priority for this planning run:\n\n```\n{text}\n```\n\nSurface tasks that address this priority near the top of your proposed list. If the text references an existing section of `destination.md` (vaguely or by name), look it up and prioritise tasks toward that section. If it introduces a concern not yet in destination.md, propose tasks for it as one-off work for this run — do not add the priority itself to destination.md; that is the human's decision to make later. When in doubt about how to interpret the hint, follow the most direct reading and proceed."
 
 
 def lock_destination_section() -> str:
@@ -121,7 +121,7 @@ def write_waypoint_status_marker(rationale: str) -> None:
         path = config.TARGET_REPO_PATH / WAYPOINT_FILENAME
         if not path.exists():
             return  # waypoint was deleted between detection and write — nothing to mark
-        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        date = datetime.now(UTC).strftime("%Y-%m-%d")
         clean_rationale = rationale.strip().replace("\n", " ") or "(no rationale provided)"
         marker = f"\n\n> **Status:** reached {date} — {clean_rationale}\n"
         with path.open("a", encoding="utf-8") as f:
@@ -286,7 +286,7 @@ def plan_depth_section(plan_only_mode: bool) -> str:
     often, so a long stale tail is wasted)."""
     if not plan_only_mode:
         return ""
-    return "\n\n## Plan-only mode — produce a fuller candidate list\n\n" "This is an `autosprint plan` run: the plan you produce will be **reviewed " 'and curated by a human**, not executed immediately. Override the "aim for 5–10 ' 'pending tasks" guidance above — instead aim for a **broader candidate list of ' "roughly 15–30 pending tasks**, still ordered by strategic value (most reliable, " "highest-value work first; more speculative work last). The human will prune, " "reorder, and delete — your job here is coverage and good ordering, not a minimal " "list. Every task must still meet the quality bar above (concrete title, " "story-point estimate, ADR conversion for decisions-in-disguise); breadth is not " "licence for vague filler. Because the list is deep, the **Dependency ordering** " "final pass matters most here — be thorough and explicit with `Depends on:` " "annotations so the human curating plan.md can verify the execution order at a glance."
+    return '\n\n## Plan-only mode — produce a fuller candidate list\n\nThis is an `autosprint plan` run: the plan you produce will be **reviewed and curated by a human**, not executed immediately. Override the "aim for 5–10 pending tasks" guidance above — instead aim for a **broader candidate list of roughly 15–30 pending tasks**, still ordered by strategic value (most reliable, highest-value work first; more speculative work last). The human will prune, reorder, and delete — your job here is coverage and good ordering, not a minimal list. Every task must still meet the quality bar above (concrete title, story-point estimate, ADR conversion for decisions-in-disguise); breadth is not licence for vague filler. Because the list is deep, the **Dependency ordering** final pass matters most here — be thorough and explicit with `Depends on:` annotations so the human curating plan.md can verify the execution order at a glance.'
 
 
 # ---------------------------------------------------------------------------
@@ -430,8 +430,7 @@ def select_sprint_task_group(plan: Plan, task_count_cap: int | None = None) -> l
 
     target = config.SPRINT_STORY_POINT_TARGET
     cap = task_count_cap if task_count_cap is not None else config.SPRINT_TASK_COUNT_CAP_INITIAL
-    if cap < 1:
-        cap = 1
+    cap = max(cap, 1)
     if not plan.pending:
         return []
     if target <= 0:
@@ -488,7 +487,7 @@ async def plan_phase(sprints_since_replan: int, task_failure_counts: dict[str, i
     try:
         printlev("\n[P] 📋 Entering Plan phase...", level=50)
         plan = read_plan_md(config.TARGET_REPO_PATH)
-        replan, reason = should_replan(plan, sprints_since_replan, task_failure_counts, force=force_replan)
+        replan, _reason = should_replan(plan, sprints_since_replan, task_failure_counts, force=force_replan)
         if replan:
             plan = await update_plan(config.TEAM_AGENTS, config.TEAM_SELECTOR, sprint_number=sprint_number, prev_sprint_reverted=prev_sprint_reverted, post_revert_hint=post_revert_hint)
             sprints_since_replan = 0

@@ -16,7 +16,7 @@ import subprocess
 import sys
 from datetime import datetime
 
-from autosprint.config import config, _project_root
+from autosprint.config import _project_root, config
 from autosprint.config_toml import render_config_toml as _render_config_toml
 from autosprint.errors import add_context
 from autosprint.output import printlev
@@ -310,15 +310,7 @@ def _ensure_gitignore_entries() -> None:
         elif has_pyproject:
             language_essentials = ["__pycache__/", ".venv/", "*.pyc"]
 
-        required = language_essentials + [
-            f"{LOGS_SUBDIR}/*",
-            f"!{SPRINT_LOG_FILENAME}",
-            f"!{PLAN_DECISIONS_FILENAME}",
-            f"!{RUNTIME_STATS_FILENAME}",
-            f"{AUTOSPRINT_DIR_NAME}/cache/",
-            f"{AUTOSPRINT_DIR_NAME}/stop",
-            f"{AUTOSPRINT_DIR_NAME}/stop-now",
-        ]
+        required = [*language_essentials, f"{LOGS_SUBDIR}/*", f"!{SPRINT_LOG_FILENAME}", f"!{PLAN_DECISIONS_FILENAME}", f"!{RUNTIME_STATS_FILENAME}", f"{AUTOSPRINT_DIR_NAME}/cache/", f"{AUTOSPRINT_DIR_NAME}/stop", f"{AUTOSPRINT_DIR_NAME}/stop-now"]
         gitignore_path = config.TARGET_REPO_PATH / ".gitignore"
         seeded = not gitignore_path.exists()
         existing_text = "" if seeded else gitignore_path.read_text(encoding="utf-8")
@@ -652,7 +644,7 @@ def _check_dockerignore_and_warn() -> None:
     printlev("[init] ✅ `.dockerignore` covers high-priority entries.", level=100)
 
 
-_CREDENTIAL_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+_CREDENTIAL_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("Anthropic API key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{50,}")),
     ("OpenAI API key", re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_\-]{32,}")),
     ("GitHub personal token", re.compile(r"\bghp_[A-Za-z0-9]{36}\b")),

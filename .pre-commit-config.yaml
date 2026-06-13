@@ -1,0 +1,30 @@
+# Runs with prek (https://github.com/j178/prek), a drop-in pre-commit runner.
+#   prek install         # wire up the git hook
+#   prek run --all-files # run every hook against the whole tree
+#
+# See https://pre-commit.com for the config format and https://pre-commit.com/hooks.html for more hooks.
+
+# Vendored third-party assets — never rewrite them.
+exclude: '^examples/research_paper_assets/LaTeXTemplates_journal-article_v2\.0/'
+
+repos:
+  - repo: 'https://github.com/astral-sh/ruff-pre-commit'
+    # Pinned to the same ruff the dev group pins in pyproject.toml, so local
+    # hooks and CI lint against one ruleset.
+    rev: v0.15.17
+    hooks:
+      # Lint with autofix, then format — the linter runs first so its fixes
+      # don't fight the formatter's output.
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: 'https://github.com/pre-commit/pre-commit-hooks'
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files

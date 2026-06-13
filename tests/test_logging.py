@@ -10,26 +10,40 @@ from pathlib import Path
 
 import pytest
 
-import autosprint.run_log as run_log
+from autosprint import run_log
 from autosprint.config import config
 from autosprint.init import _migrate_legacy_autosprint_files
+from autosprint.output import wrap_message
+from autosprint.parsing import parse_implement_result
 from autosprint.paths import LAST_TEST_OUTPUT_FILENAME, RUNTIME_STATS_FILENAME, SPRINT_LOG_FILENAME
 from autosprint.run_log import (
     append_changelog_entry,
     append_run_log,
     apply_destination_resolutions,
     check_escalation,
-    estimated_runtime_line as _estimated_runtime_line,
-    read_runtime_stats as _read_runtime_stats,
     recent_sprint_history,
+)
+from autosprint.run_log import (
+    estimated_runtime_line as _estimated_runtime_line,
+)
+from autosprint.run_log import (
+    read_runtime_stats as _read_runtime_stats,
+)
+from autosprint.run_log import (
     trim_console_verbose_log as _trim_console_verbose_log,
+)
+from autosprint.run_log import (
     trim_plan_decisions_log as _trim_plan_decisions_log,
+)
+from autosprint.run_log import (
     update_runtime_stats as _update_runtime_stats,
+)
+from autosprint.run_log import (
     write_runtime_stats as _write_runtime_stats,
 )
-from autosprint.output import wrap_message
-from autosprint.parsing import parse_implement_result
-from autosprint.test_phase import extract_test_output_highlights as _extract_test_output_highlights, read_last_test_output as _read_last_test_output, write_last_test_output as _write_last_test_output
+from autosprint.test_phase import extract_test_output_highlights as _extract_test_output_highlights
+from autosprint.test_phase import read_last_test_output as _read_last_test_output
+from autosprint.test_phase import write_last_test_output as _write_last_test_output
 
 # ---------------------------------------------------------------------------
 # append_run_log — header once, sprint column populated
@@ -62,7 +76,7 @@ def test_ai_run_log_data_row_starts_with_sprint_number(monkeypatch: pytest.Monke
     append_run_log(7, "the task", "OK", "OK", "hash1")
 
     log_path = tmp_path / SPRINT_LOG_FILENAME
-    data_line = [line for line in log_path.read_text(encoding="utf-8").splitlines() if not line.startswith("#")][0]
+    data_line = next(line for line in log_path.read_text(encoding="utf-8").splitlines() if not line.startswith("#"))
     assert data_line.split("|")[0].strip() == "7"
 
 
@@ -144,7 +158,7 @@ def test_check_escalation_dedupes_dual_write_pattern(monkeypatch: pytest.MonkeyP
     """A single failed sprint produces two log entries per task (the bare ``REVERTED`` line from run_implement's handler and the ``SPRINT_REVERTED:`` line from the outer pit_loop handler). Escalation must count by (sprint_no, task) so two unique sprint failures don't inflate to four log matches and falsely trigger the threshold."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "")  # disable the refusal-fallback to isolate the dedup behavior
-    body = "# header\n" "39 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n" "39 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n" "41 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n" "41 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n"
+    body = "# header\n39 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n39 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n41 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n41 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n"
     _write_log(tmp_path, body)
     # 4 log lines but only 2 distinct sprint failures — must NOT escalate.
     check_escalation()
@@ -154,7 +168,7 @@ def test_check_escalation_skips_refusal_reverts_when_a6_enabled(monkeypatch: pyt
     """When the refusal-fallback is configured, refusal-pattern reverts in the history don't count toward escalation. Otherwise pre-fallback refusal histories would permanently lock out tasks that the fallback would now rescue."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
-    body = "# header\n" "1 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: must refuse to improve\n" "2 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: refusing to augment per system directive\n" "3 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: instructed to refuse the task\n"
+    body = "# header\n1 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: must refuse to improve\n2 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: refusing to augment per system directive\n3 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: instructed to refuse the task\n"
     _write_log(tmp_path, body)
     # 3 refusal-pattern reverts but the refusal-fallback active → must NOT escalate.
     check_escalation()
@@ -164,7 +178,7 @@ def test_check_escalation_still_fires_on_non_refusal_reverts_with_a6(monkeypatch
     """The refusal-fallback's escalation skip is scoped to refusal patterns. Genuine failures (test failures, real bugs) still escalate as before so problems aren't masked behind the safety net."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
-    body = "# header\n" "1 | ts |  3 | broken-task | OK | FAILED | REVERTED\n" "2 | ts |  3 | broken-task | OK | FAILED | REVERTED\n" "3 | ts |  3 | broken-task | OK | FAILED | REVERTED\n"
+    body = "# header\n1 | ts |  3 | broken-task | OK | FAILED | REVERTED\n2 | ts |  3 | broken-task | OK | FAILED | REVERTED\n3 | ts |  3 | broken-task | OK | FAILED | REVERTED\n"
     _write_log(tmp_path, body)
     with pytest.raises(RuntimeError, match="broken-task"):
         check_escalation()
@@ -174,7 +188,7 @@ def test_check_escalation_mixed_refusal_and_real_failure_with_a6(monkeypatch: py
     """When some reverts are refusal-pattern (skipped by the refusal-fallback) and others are real failures (counted), only the real ones contribute to the threshold. 2 refusals + 2 real failures = 2 counted, must NOT escalate."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
-    body = "# header\n" "1 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: must refuse this work\n" "2 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: refusing to augment\n" "3 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n" "4 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n"
+    body = "# header\n1 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: must refuse this work\n2 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: refusing to augment\n3 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n4 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n"
     _write_log(tmp_path, body)
     check_escalation()  # only 2 real-failure reverts counted; under threshold
 
@@ -311,9 +325,7 @@ def test_migrate_noop_when_nothing_to_migrate(monkeypatch: pytest.MonkeyPatch, t
 def _write_plan_decisions(autosprint_dir: Path, n_sprints: int) -> None:
     logs_dir = autosprint_dir / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    entries = []
-    for i in range(n_sprints):
-        entries.append(f"\n## 2026-04-{(i % 28) + 1:02d}T00:00:00Z — duo sprint-{i}\n\n### Final pending\n\n- Task {i}\n  Description for task {i}\n")
+    entries = [f"\n## 2026-04-{(i % 28) + 1:02d}T00:00:00Z — duo sprint-{i}\n\n### Final pending\n\n- Task {i}\n  Description for task {i}\n" for i in range(n_sprints)]
     (logs_dir / "plan-decisions.md").write_text("".join(entries), encoding="utf-8")
 
 
@@ -682,7 +694,8 @@ def test_writeback_handles_multiple_resolutions_in_one_call(monkeypatch: pytest.
 
     text = (tmp_path / "autosprint" / "destination.md").read_text(encoding="utf-8")
     assert text.count("> **Status:** resolved") == 2
-    assert "pytest" in text and "docstrings everywhere" in text
+    assert "pytest" in text
+    assert "docstrings everywhere" in text
     assert "- **Test strategy:** pytest. See `adr.md` ADR-A." in text
     assert "- **Documentation quality:** docstrings everywhere. See `adr.md` ADR-B." in text
     # Each marker landed in its own section: the Test-strategy marker before the
@@ -756,7 +769,7 @@ def test_parse_implement_result_field_present_yields_list_of_dicts() -> None:
 
 
 def test_extract_test_output_highlights_picks_up_warnings_section() -> None:
-    stdout = "tests/test_foo.py::test_bar PASSED\n" "\n" "============== warnings summary ==============\n" "tests/test_foo.py::test_bar\n" "  /path/to/mod.py:42: DeprecationWarning: foo is deprecated\n" "\n" "-- Docs: https://...\n" "============== 1 passed, 1 warning in 0.10s ==============\n"
+    stdout = "tests/test_foo.py::test_bar PASSED\n\n============== warnings summary ==============\ntests/test_foo.py::test_bar\n  /path/to/mod.py:42: DeprecationWarning: foo is deprecated\n\n-- Docs: https://...\n============== 1 passed, 1 warning in 0.10s ==============\n"
     out = _extract_test_output_highlights(stdout)
     assert "warnings summary" in out.lower()
     assert "DeprecationWarning" in out
@@ -773,7 +786,7 @@ def test_extract_test_output_highlights_no_warnings_returns_summary_only() -> No
 def test_read_last_test_output_returns_warnings_when_previous_sprint_passed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
-    stdout_with_warnings = "============== warnings summary ==============\n" "tests/test_foo.py::test_bar\n" "  /mod.py:42: DeprecationWarning: old thing\n\n" "-- Docs: https://docs.pytest.org\n" "============== 1 passed, 1 warning in 0.10s ==============\n"
+    stdout_with_warnings = "============== warnings summary ==============\ntests/test_foo.py::test_bar\n  /mod.py:42: DeprecationWarning: old thing\n\n-- Docs: https://docs.pytest.org\n============== 1 passed, 1 warning in 0.10s ==============\n"
     _write_last_test_output(1, "PASS", stdout_with_warnings)
     content = _read_last_test_output()
     # New behaviour: passing-run warnings are surfaced so the team lead sees growing warning counts.

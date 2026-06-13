@@ -158,7 +158,8 @@ def test_render_config_toml_empty_is_all_commented_template() -> None:
 
     text = init_mod._render_config_toml({})
     assert tomllib.loads(text) == {}  # every setting commented out
-    assert "implement_agent" in text and "implement_fallback_agent" in text
+    assert "implement_agent" in text
+    assert "implement_fallback_agent" in text
 
 
 def test_render_config_toml_writes_active_keys_as_live_settings() -> None:
@@ -183,7 +184,7 @@ def _feed_input(monkeypatch: pytest.MonkeyPatch, *answers: str) -> None:
         try:
             return next(queue)
         except StopIteration:
-            raise EOFError
+            raise EOFError from None
 
     monkeypatch.setattr("builtins.input", fake_input)
 
@@ -275,7 +276,8 @@ def test_run_config_wizard_copilot_typescript_end_to_end(monkeypatch: pytest.Mon
 def test_detect_assistants_returns_two_bools() -> None:
     """_detect_assistants probes the machine and returns a (claude, copilot) bool pair."""
     claude, copilot = init_mod._detect_assistants()
-    assert isinstance(claude, bool) and isinstance(copilot, bool)
+    assert isinstance(claude, bool)
+    assert isinstance(copilot, bool)
 
 
 def test_ensure_config_toml_interactive_skips_wizard_without_tty(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

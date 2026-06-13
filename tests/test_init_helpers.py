@@ -46,7 +46,7 @@ def test_ensure_adr_stub_does_not_overwrite_existing(monkeypatch: pytest.MonkeyP
 def test_ensure_destination_aborts_with_examples_hint_when_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """When destination.md is missing, init aborts with a message pointing the user at the bundled seeds in `autosprint/examples/` (placed there by `_ensure_examples_dir_seeded` earlier in the init flow). destination.md is NOT auto-created — the user picks a seed or writes from scratch."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    with pytest.raises(RuntimeError, match="examples/destination_game.example.md"):
+    with pytest.raises(RuntimeError, match=r"examples/destination_game\.example\.md"):
         _ensure_destination_or_abort()
     # destination.md itself is NOT created — the user must decide whether to copy a seed or start fresh.
     assert not (tmp_path / DESTINATION_FILENAME).exists()

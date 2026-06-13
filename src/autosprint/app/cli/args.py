@@ -1,7 +1,5 @@
 """Extracted from the original autosprint.app.cli module."""
 
-from __future__ import annotations
-
 import argparse
 import difflib
 import re
@@ -12,7 +10,7 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from autosprint.config import ENV_SET_FIELDS, _project_root, config
-from autosprint.domain.plan import read_plan_md
+from autosprint.core.plan import read_plan_md
 from autosprint.util.errors import add_context
 from autosprint.util.output import printlev
 from autosprint.util.paths import AUTOSPRINT_DIR_NAME

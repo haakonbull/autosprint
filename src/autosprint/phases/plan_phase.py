@@ -16,14 +16,12 @@ Owns:
   that the implementor-prompt and post-revert-hint paths also depend on.
 """
 
-from __future__ import annotations
-
 import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from autosprint.config import _project_root, config
-from autosprint.domain.plan import PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
+from autosprint.core.plan import PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
 from autosprint.infra.dispatch import AgentResults, query_agent, query_agents
 from autosprint.infra.stop import raise_if_stop_between_phases
 from autosprint.phases.test_phase import get_initial_tests_summary, read_last_test_output, run_preflight_tests

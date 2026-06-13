@@ -22,57 +22,14 @@ orchestration.
 
 ## Project structure
 
-The package is organised as a **layered architecture** of sub-packages,
-enforced by import-linter (see `[tool.importlinter]` in pyproject.toml).
-Imports may only point *down* the stack; the layer order is
-`app > phases > reporting > infra > domain > util > config > registry`.
+The package under `src/autosprint/` is a **layered architecture** of
+sub-packages — imports may only point *down* the stack. The layer contract is
+the source of truth in `[tool.importlinter]` in pyproject.toml (enforced in CI
+and pre-commit); the layers and what each owns are described in
+`docs/architecture.qmd`. Prompt templates live in `.claude/agents/`, tests in
+`tests/`. Read the tree directly rather than a checked-in listing — it drifts.
 
-```text
-src/autosprint/
-  app/              # Top layer — entry points & user surface
-    orchestrator.py #   pit_loop, commit_sprint, plan_only, main — the PIT loop
-    cli/            #   argparse (args), one-shot handlers (commands), prepare()
-    init/           #   `autosprint init`: seeds, wizard, gitignore, assets, checks, doctor
-    how_far.py      #   `autosprint how-far` — distance-to-destination report
-  phases/           # The PIT phases (business logic)
-    plan_phase.py   #   Plan: prompts, team-lead context, update_plan, replan
-    implement_phase.py #  Implement: dispatch, refusal-fallback, failure logs
-    test_phase.py   #   Test: drives the runner, revert/commit decision, self-test
-  reporting/        # Observability & presentation
-    run_log/        #   outcomes, changelog, history, stats, summary, maintenance
-    banners.py      #   Section banners, PIT-loop tree, start banner, show-config
-  infra/            # External-world adapters
-    dispatch.py     #   query_agent / query_agents — SDK dispatch, caching, parallelism
-    git_ops.py      #   git, git_restore, git_commit, summarise_working_tree_diff
-    test_runners.py #   TestRunner adapters (pytest + vitest)
-    db.py           #   SQLite mirror of sprint outcomes
-    stop.py         #   Stop-control file lifecycle (write / poll / raise)
-    gates.py        #   Per-sprint gate inspection (describe_gates)
-  domain/           # Domain model
-    plan.py         #   plan.md parser/writer, Plan/PendingTask/CompletedTask
-  util/             # Cross-cutting utilities
-    errors.py       #   add_context, RevertReason, PhaseFailedError, StopRequested
-    output.py       #   printlev() — level-gated stdout
-    parsing.py      #   Result-block parsing + detect_refusal_pattern
-    paths.py        #   Path/filename constants for autosprint/* layout
-  config/           # Configuration
-    settings.py     #   Environment-driven settings via pydantic-settings (Config, config)
-    toml_io.py      #   render_config_toml
-  registry/         # Static agent/team registries (bottom layer — no deps)
-    agents/         #   personas (prompts+tools), definitions (AGENT_* dicts), AGENTS
-    teams.py        #   TEAM_* dicts + TEAMS registry
-.claude/agents/
-  plan-agent.md            # Prompt template for a single agent's Plan phase (code projects)
-  plan-team.md             # Prompt for the selector when merging team proposals (code projects)
-  plan-agent-research.md   # Plan-phase prompt for research-team members (sources / paper / deep-dives)
-  plan-team-research.md    # Selector prompt for the research team lead
-  implement.md             # Prompt for the Implement phase (artifact-agnostic — code or research)
-tests/
-  test_plan_phase.py
-  test_implement.py
-  test_pit_loop.py
-  test_plan.py
-```
+A couple of non-obvious wiring details worth knowing before editing:
 
 `app/orchestrator.py` re-exports most names from the phase / helper modules so
 existing `from autosprint.app.orchestrator import _foo` paths in tests keep

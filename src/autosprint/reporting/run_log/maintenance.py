@@ -1,11 +1,9 @@
 """Extracted from the original autosprint.reporting.run_log module."""
 
-from __future__ import annotations
-
 from datetime import UTC, datetime
 
 from autosprint.config import config
-from autosprint.domain.plan import Plan
+from autosprint.core.plan import Plan
 from autosprint.util.errors import add_context
 from autosprint.util.output import printlev
 from autosprint.util.paths import (

@@ -17,14 +17,12 @@ the normalized `TestResult` it returns. The `summarise_pytest_failure` /
 compatibility (orchestrator.py re-exports them and tests import the aliases).
 """
 
-from __future__ import annotations
-
 import subprocess
 import sys
 from datetime import UTC, datetime
 
 from autosprint.config import _project_root, config
-from autosprint.domain.plan import group_titles
+from autosprint.core.plan import group_titles
 from autosprint.infra.git_ops import git_restore
 from autosprint.infra.test_runners import PytestRunner, count_passed_pytest, get_test_runner
 from autosprint.util.errors import PhaseFailedError, RevertReason, add_context

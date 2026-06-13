@@ -135,7 +135,7 @@ layers = [
     "phases",
     "reporting",
     "infra",
-    "domain",
+    "core",
     "util",
     "config",
     "registry",

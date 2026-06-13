@@ -12,13 +12,11 @@ Owns:
   every Implement-agent dispatch.
 """
 
-from __future__ import annotations
-
 import random
 from datetime import UTC, datetime
 
 from autosprint.config import config
-from autosprint.domain.plan import group_titles, read_plan_md, serialise_plan
+from autosprint.core.plan import group_titles, read_plan_md, serialise_plan
 from autosprint.infra.dispatch import query_agent
 from autosprint.infra.git_ops import git_restore, summarise_working_tree_diff
 from autosprint.phases.plan_phase import lock_destination_section, read_adr, read_agent_file

@@ -18,8 +18,6 @@ The orchestrator is the only thing that mutates plan.md after creation.
 LLMs read it as context and propose new plan content during the Plan phase.
 """
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass, field
 from pathlib import Path

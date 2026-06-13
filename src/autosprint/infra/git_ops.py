@@ -6,12 +6,10 @@ TARGET_REPO_PATH as cwd. Pure side-effecting helpers — no module-level
 state, no caching — so they can be re-imported / re-exported safely.
 """
 
-from __future__ import annotations
-
 import subprocess
 
 from autosprint.config import config
-from autosprint.domain.plan import group_titles
+from autosprint.core.plan import group_titles
 from autosprint.util.errors import add_context
 from autosprint.util.output import printlev
 from autosprint.util.paths import PLAN_DECISIONS_FILENAME, RUNTIME_STATS_FILENAME, SPRINT_LOG_FILENAME

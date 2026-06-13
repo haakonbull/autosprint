@@ -52,8 +52,8 @@ repos:
 
   - repo: local
     hooks:
-      # Enforce the layered architecture (app > phases > reporting > infra >
-      # domain > util > config > registry) on any change under src/.
+      # Enforce the layered architecture on any change under src/. The layer
+      # contract is defined in [tool.importlinter] in pyproject.toml.
       - id: import-linter
         name: import-linter (layered architecture)
         entry: uv run lint-imports

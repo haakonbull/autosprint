@@ -13,8 +13,6 @@ re-export is a name alias; the function looks up its dependencies in its
 own module's `__globals__`.
 """
 
-from __future__ import annotations
-
 import asyncio
 import sys
 import time
@@ -23,8 +21,8 @@ from datetime import datetime, timezone
 from autosprint.app.cli import _ONESHOT_COMMANDS, prepare
 from autosprint.app.how_far import run_howfar_heartbeat
 from autosprint.config import config
-from autosprint.domain.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
-from autosprint.domain.plan import group_titles as _group_titles
+from autosprint.core.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
+from autosprint.core.plan import group_titles as _group_titles
 from autosprint.infra.git_ops import get_commit_hash, git, git_commit, git_restore
 from autosprint.infra.stop import check_stop_request as _check_stop_request
 from autosprint.infra.stop import raise_if_stop_between_phases as _raise_if_stop_between_phases

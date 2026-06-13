@@ -17,11 +17,11 @@ When the answer is not yet known, the destination can name the topic or question
 
 The destination document will describe the state we want to come to. It will not describe how we will come to that state. For instance, the destination document might state that we want good code quality according to best practice. It will not describe refactoring, since that is related to the journey not the destination. So even though good refactoring routines are important, it is not within the scope of the destination document to describe how to refactor — the destination document will describe the state we aim for after refactoring. Because the destination is stable while the journey is not, this document is re-read often but rewritten rarely.
 
-> **Every parameter has a concrete answer or is explicitly open.** If you know the answer, write it directly under the section, replacing the italic prompt. If you don't, write a **destination-shaped sentence** describing what the repo will have once the question is answered, followed by an explicit `*(Open — autosprint to decide.)*` italic marker. Example for an unanswered Test strategy: *"We have a well thought-through testing strategy with a clear rationale specified in `adr.md`. (Open — autosprint to decide.)"*. The destination-shaped sentence keeps the file consistent (every section reads as a destination, not a process); the italic marker is the unambiguous signal to the planner that this section is still pending. Autosprint resolves open parameters by recording the full rationale in `adr.md`, appending a status marker at the end of the resolved section, and adding a one-line receipt to `## AI-resolved questions` at the bottom. Do not write "TBD" or invented placeholders — silent assumptions are the failure mode this rule prevents.
+> **Every parameter has a concrete answer or is explicitly open.** If you know the answer, write it directly under the section, replacing the italic prompt. If you don't, write a **destination-shaped sentence** describing what the repo will have once the question is answered, followed by an explicit `*(Open — autosprint to decide.)*` italic marker. Example for an unanswered Test strategy: _"We have a well thought-through testing strategy with a clear rationale specified in XXXXXXXX. (Open — autosprint to decide.)"_. The destination-shaped sentence keeps the file consistent (every section reads as a destination, not a process); the italic marker is the unambiguous signal to the planner that this section is still pending. Autosprint resolves open parameters by recording the full rationale in `adr.md`, appending a status marker at the end of the resolved section, and adding a one-line receipt to `## AI-resolved questions` at the bottom. Do not write "TBD" or invented placeholders — silent assumptions are the failure mode this rule prevents.
 >
 > **Section ownership.** Human-authored content lives above the `## AI-resolved questions` and `## AI-generated subgoals` headings at the bottom. Agents may append to those sections only, and may append a single status-marker blockquote at the end of a section once they've resolved that section's open question. Agents never modify the human content above those markers.
 >
-> **Status marker format** (used by agents when resolving an open question): `> **Status:** resolved <YYYY-MM-DD> — <one-line answer>. See ` `` `adr.md` `` ` <ADR title or date>.`
+> **Status marker format** (used by agents when resolving an open question): `> **Status:** resolved <YYYY-MM-DD> — <one-line answer>. See` `` `adr.md` `` `<ADR title or date>.`
 >
 > **Promotion path.** When you want a resolution to graduate into the main spec, edit the original section to write the chosen answer in (replacing the prompt or "open" line), delete the status marker, and delete the receipt from `## AI-resolved questions`. The decision now reads as a normal human-authored answer; rationale stays in `adr.md` as history.
 >
@@ -59,6 +59,7 @@ _One sentence: where does this run, and what's the output shape? Examples: "CLI 
 _Optional. Working artifacts under `autosprint/inputs/` that the destination depends on. **`destination.md` is authoritative** — if any artifact below contradicts what this file says, the artifact is wrong and gets updated, not this file. Each reference says (a) what the doc is, (b) where it lives, (c) what its status is, and (d) the rule for using it._
 
 _Examples (delete or replace):_
+
 - _**Data model** — `inputs/data_model.md`. The destination must be consistent with the schema described there. Half-finished; treat unfilled sections as open questions._
 - _**Domain glossary** — `inputs/glossary.md`. Use these terms as defined; if you encounter a domain term not in the glossary, surface it as an open question rather than inventing a definition._
 - _**Project background** — `inputs/project_description.md`. Why this project exists. Read once for orientation; not load-bearing per sprint._
@@ -69,7 +70,7 @@ _Recommended default: a src-based Python layout managed with `uv`, runnable as a
 
 **Folder structure:**
 
-```
+```text
 <repo>/
 ├── README.md
 ├── pyproject.toml
@@ -108,7 +109,7 @@ Optional folders for specific project types: `data/raw/interim/processed/externa
 _Cross-project standards the planners and implementors should treat as permanent targets. The list below is a reasonable default — keep, edit, or delete to match your project. This is also where naming, type-safety, formatting, and dependency rules belong as one-liners (don't fragment them into separate sections)._
 
 - **Clean code.** No dead code, no commented-out blocks, no stale comments. Names match what the code actually does.
-- **Honest tests.** Every non-trivial behavior has a test that would fail if reverted. No two tests assert the same invariant on the same code path — when a behavior needs more than one test, parametrise rather than clone. Tests assert *behavior*, not snapshot state.
+- **Honest tests.** Every non-trivial behavior has a test that would fail if reverted. No two tests assert the same invariant on the same code path — when a behavior needs more than one test, parametrise rather than clone. Tests assert _behavior_, not snapshot state.
 - **Readable README.** A new reader can get from clone to running the project in ~10 minutes. README commands actually execute.
 - **Architecture reflects responsibility.** Folder structure matches concerns; no circular imports; modules have single purposes.
 - **ADR hygiene.** Long-term technical decisions (library, schema, major pattern) live in `autosprint/adr.md`. Superseded entries stay in the file as history; nothing is deleted.
@@ -147,9 +148,9 @@ _Concrete, user-visible checkpoints that signal the project is working as intend
 
 ## AI-resolved questions
 
-This section is reserved for one-line summaries of open questions that autosprint's implementor has resolved. Only the implementor writes here, and only after the full rationale has been recorded in `autosprint/adr.md`. The original question text in the human-authored spec above stays untouched — this section is the agent's *receipt*, not a rewrite.
+This section is reserved for one-line summaries of open questions that autosprint's implementor has resolved. Only the implementor writes here, and only after the full rationale has been recorded in `autosprint/adr.md`. The original question text in the human-authored spec above stays untouched — this section is the agent's _receipt_, not a rewrite.
 
-Each entry: `**<short tag>:** chose <answer>. See ` `` `adr.md` `` ` <ADR title or date>.`. Keep it terse — the rationale lives in `adr.md`.
+Each entry: `**<short tag>:** chose <answer>. See` `` `adr.md` `` `<ADR title or date>.`. Keep it terse — the rationale lives in `adr.md`.
 
 Humans may later promote a resolution by editing the human-authored spec above (writing the chosen answer in directly), then delete the status marker from that section AND the entry from this list. Do not edit other entries directly — if a resolution turned out to be wrong, supersede it via a new `adr.md` entry rather than rewriting history here.
 

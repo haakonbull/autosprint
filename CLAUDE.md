@@ -9,6 +9,7 @@ All tool output, code, comments, commit messages, and user-facing documentation 
 ## What this project does
 
 Autosprint runs a PIT loop against a **target repository**. Each sprint:
+
 1. **Plan** — one or more AI agents propose tasks, a selector merges them into `autosprint/plan.md`
 2. **Implement** — an AI agent implements the top pending task
 3. **Test** — pytest runs the target repo's test suite (Python, not LLM)
@@ -26,7 +27,7 @@ enforced by import-linter (see `[tool.importlinter]` in pyproject.toml).
 Imports may only point *down* the stack; the layer order is
 `app > phases > reporting > infra > domain > util > config > registry`.
 
-```
+```text
 src/autosprint/
   app/              # Top layer — entry points & user surface
     orchestrator.py #   pit_loop, commit_sprint, plan_only, main — the PIT loop
@@ -141,6 +142,7 @@ For one-shot work that fits in a single sprint, skip the waypoint and just open 
 ## Config
 
 Resolved from (low → high precedence): code defaults < per-repo `autosprint/config.toml` < environment / `.env` < CLI flags. Managed via pydantic-settings. Key vars:
+
 - `TEAM` — team name (key in `teams.TEAMS`)
 - `IMPLEMENT_AGENT` — agent key used for the Implement phase (key in `agents.AGENTS`)
 - `HOWFAR_AGENT` — agent key used by `autosprint how-far` (key in `agents.AGENTS`)

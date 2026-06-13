@@ -22,6 +22,7 @@ Data-science projects have a property normal code projects don't: **you don't kn
 ## Topics (5)
 
 ### 1. Staged workflow — does this project follow one?
+
 - The default staged shape is **explore → select → refine**:
   - **Explore**: try a wide range of approaches cheaply (simple baselines, different feature sets, small model classes).
   - **Select**: narrow to the top 2–3 candidates based on the metric.
@@ -30,18 +31,21 @@ Data-science projects have a property normal code projects don't: **you don't kn
 - **Minimum**: either "staged workflow: explore / select / refine" confirmed, or explicit "not staged — single recipe" recorded.
 
 ### 2. What counts as "enough" exploration?
+
 - Only ask if stage 1 landed on a staged workflow.
 - Options to offer: (a) fixed experiment budget — "run 10 candidate approaches before selecting"; (b) time budget — "explore for 5 sprints, then select"; (c) plateau criterion — "stop exploring when the last 3 candidates don't improve the top score by ≥ 2%"; (d) planning-phase judgement — "the planning phase decides each sprint whether more exploration is warranted based on the experiment log".
 - Lean toward (d) for open-ended projects — rigid counts often cut exploration too early on hard problems. But if the user is tight on budget, a fixed count is defensible.
 - **Minimum**: one stopping rule chosen or explicit "not staged".
 
 ### 3. Metrics — what guides decisions?
+
 - Which metric(s) decide whether one experiment beats another? A single primary metric is ideal; two at most (e.g. accuracy + inference latency).
 - Every metric must be computable from a holdout / test set with a deterministic script. "Looks better" is not a metric.
 - Ask for concrete thresholds: what value would count as "done enough to ship"?
 - **Minimum**: 1 primary metric named + 1 threshold value (or explicit "no ship threshold yet, we'll refine as we go").
 
 ### 4. Experiment log — should autosprint maintain one?
+
 - Suggest a dedicated `autosprint/data_science_results.md` that each sprint can append to. Format per-entry:
   - **Sprint / commit hash** — which sprint produced this result.
   - **Method** — 1-line summary ("random forest, 100 trees, depth 8").
@@ -53,6 +57,7 @@ Data-science projects have a property normal code projects don't: **you don't kn
 - **Minimum**: decision recorded — `data_science_results.md` yes/no, or external tool name.
 
 ### 5. Success criteria — what does "shipped" look like for this data-science project?
+
 - Augment the general `## Success criteria` section with DS-specific checkpoints. Examples:
   - "A baseline model achieves primary metric ≥ 0.X on holdout set."
   - "The final model reaches the ship threshold and has a deterministic training script committed to git."

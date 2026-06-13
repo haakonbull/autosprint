@@ -135,7 +135,7 @@ Drop anything that doesn't fit these buckets.
 
 End your response with a `---RESULT---` block containing valid JSON:
 
-```
+```text
 ---RESULT---
 {"pending": [
   {"title": "Short imperative title (SP)", "description": "What to do and why."},

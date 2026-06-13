@@ -80,7 +80,7 @@ work.
 
 End your response with a ---RESULT--- block containing valid JSON:
 
-```
+```text
 ---RESULT---
 {"pending": [
   {"title": "Short imperative title", "description": "One or two sentences describing what to do and why."},
@@ -90,7 +90,8 @@ End your response with a ---RESULT--- block containing valid JSON:
 ```
 
 The `title` is used as the git commit subject (prefixed with `[autosprint] `), so keep it:
-- **≤50 characters** (leaves room for the `[autosprint] ` prefix within git's 72-char convention)
+
+- **≤50 characters** (leaves room for the `[autosprint]` prefix within git's 72-char convention)
 - Imperative mood (`Add caching`, not `Added caching` or `Caching`)
 - Concrete about the change, not generic (`Add retry to query_agent`, not `Improve reliability`)
 - Story-point estimate in trailing parens: `Add retry to query_agent (2)`

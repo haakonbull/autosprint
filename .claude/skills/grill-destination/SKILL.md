@@ -174,9 +174,10 @@ Once all Pass 1 sections are answered (or marked "let autosprint decide") and th
 ## Writing the file
 
 **Fresh / mature-repo mode — propose then write:**
+
 1. Print the full drafted `destination.md` in the conversation. The conceptual primer (`## How to read this document` section) is the same for every project — copy it verbatim. If `autosprint/destination.md` already exists, read it from there. Otherwise use this embedded copy:
 
-   ```
+   ```text
    ## How to read this document
 
    A destination document describes the target shape of the repo.
@@ -203,11 +204,13 @@ Once all Pass 1 sections are answered (or marked "let autosprint decide") and th
    >
    > **Promotion path.** When you want a resolution to graduate into the main spec, edit the original section (or "Open questions" bullet) to write the chosen answer in directly, delete the status marker, and delete the receipt from `## AI-resolved questions`. The decision now reads as a normal human-authored answer; rationale stays in `adr.md` as history.
    ```
+
 2. Ask "ready to write this to `<target_repo>/autosprint/destination.md`?".
 3. Allow one round of inline edits ("change success criterion 2 to...").
 4. Write the file on explicit approval.
 
 **Refine mode — diff or full-file then write:**
+
 1. For **light refines** (a few sections changed): show a diff against the existing file, only the changed sections.
 2. For **heavy refines** (structural reorganisation, multiple new sections, section renames): show the **full assembled file** — diffs become unreadable when structure changes.
 3. Ask for approval.

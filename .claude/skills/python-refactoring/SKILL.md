@@ -107,6 +107,6 @@ Refactor the marked code (or the current file if nothing is marked) following th
 
 Run black:
 
-```
+```text
 black --line-length 1000 <changed files>
 ```

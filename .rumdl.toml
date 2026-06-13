@@ -1,0 +1,13 @@
+[global]
+flavor = "quarto"
+respect-gitignore = true
+disable = [
+  "MD013",  # line length — markdown's E501; noisy, generated docs exceed it
+  "MD041",  # first-line-must-be-h1 — violated by generated doc intros
+  "MD033",  # inline HTML — needed for README badges / centered header
+  "MD046",  # code-block style — prompt assets mix fenced + indented intentionally
+]
+
+[MD060]
+enabled = true
+style = "aligned"

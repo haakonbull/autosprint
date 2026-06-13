@@ -1,8 +1,8 @@
 # Destination
 
-_Target-state specification for this project. What + why, in plain language. Technical decisions live in `adr.md`. Last reviewed: YYYY-MM-DD by <user>._
+*Target-state specification for this project. What + why, in plain language. Technical decisions live in XXXXXXXX. Last reviewed: YYYY-MM-DD by <user>.*
 
-_Recommended autosprint config for this template (set in `autosprint/config.toml`): `team = "research_council"`, `implement_agent = "implementor_opus48"`. Copilot-only setups: `team = "research_council_gpt55"`, `implement_agent = "implementor_gpt55"`._
+*Recommended autosprint config for this template (set in XXXXXXXXXXXXXXXXXXXXXXXX): XXXXXXXXXXXXXXXXXXXXXXXXXXX, XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. Copilot-only setups: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX, XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.*
 
 ## How to use this document
 
@@ -23,7 +23,7 @@ The destination document will describe the state we want to come to. It will not
 >
 > **Section ownership.** Human-authored content lives above the `## AI-resolved questions` and `## AI-generated subgoals` headings at the bottom. Agents may append to those sections only, and may append a single status-marker blockquote at the end of a section once they've resolved that section's open question. Agents never modify the human content above those markers.
 >
-> **Status marker format** (used by agents when resolving an open question): `> **Status:** resolved <YYYY-MM-DD> — <one-line answer>. See ` `` `adr.md` `` ` <ADR title or date>.`
+> **Status marker format** (used by agents when resolving an open question): `> **Status:** resolved <YYYY-MM-DD> — <one-line answer>. See` `` `adr.md` `` `<ADR title or date>.`
 >
 > **Promotion path.** When you want a resolution to graduate into the main spec, edit the original section to write the chosen answer in (replacing the prompt or "open" line), delete the status marker, and delete the receipt from `## AI-resolved questions`. The decision now reads as a normal human-authored answer; rationale stays in `adr.md` as history.
 
@@ -117,8 +117,8 @@ Beyond the automated gates, a periodic full-paper read for narrative coherence i
 
 ## AI-resolved questions
 
-_(autosprint appends here as it answers open questions during sprints.)_
+## (autosprint appends here as it answers open questions during sprints.)
 
 ## AI-generated subgoals
 
-_(autosprint appends product/behavioural subgoals it proposes during planning here.)_
+## (autosprint appends product/behavioural subgoals it proposes during planning here.)

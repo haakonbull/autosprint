@@ -29,6 +29,27 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
 
+  # Secret scanning across the whole tree.
+  - repo: 'https://github.com/gitleaks/gitleaks'
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  # Markdown lint + format (Quarto flavor — see .rumdl.toml).
+  - repo: 'https://github.com/rvben/rumdl-pre-commit'
+    rev: v0.2.4
+    hooks:
+      - id: rumdl
+      - id: rumdl-fmt
+
+  # Conventional Commits enforcement on the commit message.
+  - repo: 'https://github.com/alessandrojcm/commitlint-pre-commit-hook'
+    rev: v9.25.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ['@commitlint/config-conventional']
+
   - repo: local
     hooks:
       # Enforce the layered architecture (app > phases > reporting > infra >

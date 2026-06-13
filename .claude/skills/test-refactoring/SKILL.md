@@ -56,7 +56,7 @@ The following tests are off-limits to this skill:
 
 End your response with a `---RESULT---` block. Required format:
 
-```
+```text
 ---RESULT---
 {"status": "success", "summary": "Consolidated <N> tests → <M>: deleted test_foo::test_a (subsumed by test_foo::test_parametrised); parametrised test_bar's 4 cases into one. Coverage: <before>% → <after>% (no lines regressed)."}
 ---END---
@@ -64,13 +64,14 @@ End your response with a `---RESULT---` block. Required format:
 
 Or on failure (coverage dropped, a test couldn't be unified safely, or a surviving test broke):
 
-```
+```text
 ---RESULT---
 {"status": "failure", "reason": "Coverage dropped: ds_sit_test/foo.py:123 was covered before, uncovered after (deleted test_foo::test_b removed the only call). Reverting."}
 ---END---
 ```
 
 The summary must:
+
 - Name specific files and test functions that changed.
 - Quote the before/after coverage percentages.
 - Fit in ≤120 chars (same hard limit as the implement skill — git commit body).

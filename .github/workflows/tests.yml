@@ -29,5 +29,8 @@ jobs:
       - name: Run ruff check
         run: uv run ruff check src tests
 
+      - name: Check layered architecture (import-linter)
+        run: uv run lint-imports
+
       - name: Run pytest (fast, non-live)
         run: uv run pytest -q -m "not slow and not live"

@@ -113,4 +113,25 @@ dev = [
     "ruff>=0.10",
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "import-linter>=2.0",
+]
+
+# Architectural guardrail: the package is a strict layer stack. A module may
+# only import from layers below it. Run with `uv run lint-imports`.
+[tool.importlinter]
+root_package = "autosprint"
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture (imports point downward only)"
+type = "layers"
+containers = ["autosprint"]
+layers = [
+    "app",
+    "phases",
+    "reporting",
+    "infra",
+    "domain",
+    "util",
+    "config",
+    "registry",
 ]

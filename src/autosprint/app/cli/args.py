@@ -45,7 +45,9 @@ class _TerseArgumentParser(argparse.ArgumentParser):
         match = _INVALID_SUBCOMMAND_RE.search(message)
         if match:
             typed = match.group(1)
-            choices = [c.strip() for c in match.group(2).split(",")]
+            # argparse renders each choice quoted ('run', 'stop', …); strip the
+            # quotes so token-membership and difflib compare against bare names.
+            choices = [c.strip().strip("'") for c in match.group(2).split(",")]
             choice_set = set(choices)
             # First: did the user type extra verbs like `autosprint list teams`? Pick the trailing valid command.
             extra_token_hits = [tok for tok in sys.argv[1:] if tok != typed and not tok.startswith("-") and tok in choice_set]

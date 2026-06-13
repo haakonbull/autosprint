@@ -42,7 +42,7 @@ The single biggest cause of reverts is **scope creep inside a task** — the age
     - **lint-check** (code) — `ruff` / `flake8` / `mypy` depending on what the target repo configures. If active, run it yourself before reporting success.
     - **citation gates** (research) — every `[sources.md#tag]` link resolves, every paragraph >~80 words has a cite, every scenario has its required fields. Satisfied by sourcing your prose, not by a tool you run yourself.
 
-    If you can't tell which gates are active, run `uv run autosprint gates` in the target repo. Any gate failure reverts your sprint, so it's cheaper to satisfy them up front than to be reverted and try again.
+   If you can't tell which gates are active, run `uv run autosprint gates` in the target repo. Any gate failure reverts your sprint, so it's cheaper to satisfy them up front than to be reverted and try again.
 6. **If tests fail, fix them.** Read the output carefully, diagnose the root cause, make the fix, and re-run. Repeat until all tests pass. Fixing test failures is part of the task — not a separate follow-up.
 7. **Do not report success unless tests actually passed.** The orchestrator will independently re-run the test suite after you finish as a double-check. If you claim success when tests are broken, the orchestrator will revert your work and the task will be marked as failed.
 8. **If the test suite genuinely cannot run** (e.g. missing interpreter, sandbox blocks subprocess, no tests collected at all), report **failure** with a clear reason. Do not report success.

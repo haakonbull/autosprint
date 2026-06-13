@@ -8,6 +8,8 @@ write down where you want the code to end up in `autosprint/destination.md`;
 autosprint repeatedly measures the gap and closes it, one sprint at a time,
 using AI agents driven by the Claude Agent SDK and the GitHub Copilot SDK.
 
+![Each sprint plans the next step from the current state toward the destination.](plan-and-destination.png){#fig-plan-and-destination fig-alt="Diagram showing autosprint planning sprints from the current codebase state toward the destination spec."}
+
 ## The PIT loop
 
 Each sprint runs four phases:

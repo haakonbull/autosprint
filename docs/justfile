@@ -1,5 +1,8 @@
-# Documentation: Quarto site + LikeC4 architecture model.
-# Recipes run from docs/ (the Quarto project root).
+# Documentation: the Quarto site, with the LikeC4 model as a nested module.
+# Quarto recipes run from docs/ (the Quarto project root).
+# C4 recipes live under `just docs likec4 ...`.
+
+mod likec4
 
 _default:
     @just --list
@@ -14,12 +17,6 @@ build:
 dev:
     quarto preview
 
-# Validate the LikeC4 architecture model.
+# Read-only doc gate: validate the LikeC4 model.
 [group('check')]
-check:
-    npx -y likec4@latest validate likec4
-
-# Serve the interactive LikeC4 architecture model in a browser.
-[group('dev')]
-serve:
-    npx -y likec4@latest serve likec4
+check: likec4::check

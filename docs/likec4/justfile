@@ -1,0 +1,19 @@
+# LikeC4 architecture model. Recipes run from docs/likec4/.
+
+_default:
+    @just --list
+
+# Build the static diagrams site (into docs/likec4/dist).
+[group('build')]
+build:
+    npx -y likec4@latest build .
+
+# Validate the LikeC4 model.
+[group('check')]
+check:
+    npx -y likec4@latest validate .
+
+# Serve the interactive model with live reload.
+[group('dev')]
+dev:
+    npx -y likec4@latest serve .

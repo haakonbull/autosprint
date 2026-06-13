@@ -55,3 +55,7 @@ Desktop.ini
 .claude/scheduled_tasks.lock
 todos.md
 .data/
+
+# Quarto build output
+docs/_site/
+docs/.quarto/

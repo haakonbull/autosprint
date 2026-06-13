@@ -1,0 +1,55 @@
+---
+title: "Configuration"
+---
+
+## Precedence
+
+Settings are resolved from lowest to highest precedence:
+
+```text
+code defaults  <  autosprint/config.toml  <  environment / .env  <  CLI flags
+```
+
+Configuration is managed with `pydantic-settings`. Run `autosprint settings` to
+see the fully-resolved values, and `autosprint config-keys` to list every key.
+
+## Key settings
+
+| Key                        | Meaning                                                                      |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `TEAM`                     | Planning team name (a key in `teams.TEAMS`).                                 |
+| `IMPLEMENT_AGENT`          | Agent used for the Implement phase (a key in `agents.AGENTS`).               |
+| `HOWFAR_AGENT`             | Agent used by `autosprint how-far`.                                          |
+| `MAX_SPRINTS`              | Sprint limit. In reviewed-plan mode it auto-sizes from `plan.md` when unset. |
+| `MAX_CONSECUTIVE_FAILURES` | Consecutive-failure limit before the loop stops.                             |
+| `TARGET_REPO`              | Dev/debug fallback path; normal use targets the cwd or `--target`.           |
+| `LOG_LEVEL`                | `1` = debug/hardcoded task; `15` = use cache; `50+` = full production mode.  |
+
+## Test runner
+
+Autosprint normalises test execution across languages through a `TestRunner`
+adapter (see `infra/test_runners.py`).
+
+| Key                           | Meaning                                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| `TARGET_TEST_RUNNER`          | `auto` \| `pytest` \| `vitest`; `auto` detects from the target's marker files.                      |
+| `TEST_COMMAND`                | Optional override of the run command.                                                               |
+| `IMPLEMENT_TESTS_FAST_MARKER` | Marker expression for the Implement agent's inline self-check (default `"not slow"`).               |
+| `TEST_PHASE_QUICK_ONLY`       | If true, the Test phase runs only the quick subset each sprint (default false runs the full suite). |
+
+Mark slow tests in the target repo with `@pytest.mark.slow` so the fast subset
+stays fast.
+
+## Per-sprint gates
+
+Beyond the test suite, optional quality gates run before a sprint's changes are
+accepted (import-check, smoke-test, format-check, lint-check, collect-only,
+coverage-track). Each gate is `active`, `off`, or `auto-skipped` (enabled but
+missing tooling). Inspect the live state with:
+
+```bash
+autosprint gates
+```
+
+`auto` gates safely skip themselves when the required tooling is absent, so the
+same config works across very different target repos.

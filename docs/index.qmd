@@ -1,0 +1,51 @@
+---
+title: "Autosprint"
+subtitle: "An automated sprint loop — Plan, Implement, Test, Commit."
+---
+
+Autosprint runs an autonomous **PIT loop** against a *target repository*. You
+write down where you want the code to end up in `autosprint/destination.md`;
+autosprint repeatedly measures the gap and closes it, one sprint at a time,
+using AI agents driven by the Claude Agent SDK and the GitHub Copilot SDK.
+
+## The PIT loop
+
+Each sprint runs four phases:
+
+1. **Plan** — one or more AI agents propose tasks; a selector merges them into
+   `autosprint/plan.md`.
+2. **Implement** — an AI agent implements the top pending task.
+3. **Test** — the target repo's own test suite runs (real pytest/vitest, not an
+   LLM judging itself).
+4. **Commit** — if tests pass, the change is committed to the working branch.
+
+```{mermaid}
+%%| label: fig-pit-loop
+%%| fig-cap: "The four phases of a sprint. A failing Test phase reverts the working tree instead of committing."
+flowchart LR
+  Plan --> Implement --> Test
+  Test -->|tests pass| Commit
+  Test -->|tests fail| Revert
+  Commit --> Plan
+  Revert --> Plan
+```
+
+## What makes it safe
+
+- **Autosprint never modifies itself.** The orchestrator refuses to run if
+  `TARGET_REPO` points at the autosprint repo. All file changes happen inside
+  the target repository — autosprint ships only methodology, prompts, and
+  orchestration.
+- **Every sprint is a transaction.** A sprint that fails its tests is reverted,
+  so the working branch only ever moves forward through green states.
+- **You stay in control.** A reviewed `plan.md`, optional waypoints, and a stop
+  control file let you steer or halt the loop at any time.
+
+## Where to go next
+
+- [Installation](installation.qmd) — prerequisites and getting `autosprint` on
+  your PATH.
+- [Usage](usage.qmd) — running the loop, the CLI commands, and the waypoint
+  workflow.
+- [Configuration](configuration.qmd) — teams, agents, gates, and test runners.
+- [Architecture](architecture.qmd) — the layered package design and C4 model.

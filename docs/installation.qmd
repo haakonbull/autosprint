@@ -1,0 +1,65 @@
+---
+title: "Installation"
+---
+
+## Prerequisites
+
+Always required:
+
+- **Python 3.12+**
+- **[uv](https://github.com/astral-sh/uv)** — the package and tool manager
+- **git** — the commit/revert flow depends on the target being a git repo
+
+Plus **one or both** AI backends, depending on which team you run:
+
+- **Claude** — the Claude Agent SDK with a working `claude` CLI login
+- **GitHub Copilot** — the Copilot SDK with a working `copilot` CLI login
+
+## Install autosprint
+
+Clone the repo and install it as an editable tool so the `autosprint` command
+is on your PATH from any directory:
+
+```bash
+git clone https://github.com/haakonbull/autosprint.git
+cd autosprint
+uv tool install --editable .
+```
+
+The install is editable, so pulling a newer autosprint takes effect
+immediately. If `pyproject.toml` dependencies changed, reinstall, then refresh
+the bundled skills in any target repo you have already initialised:
+
+```bash
+uv tool install --editable . --reinstall
+autosprint init --update-skills    # run inside the target repo
+```
+
+## Verify the setup
+
+From inside a target repository, run the doctor — it checks the target repo,
+`destination.md`, the required CLIs, and performs an agent round-trip:
+
+```bash
+autosprint doctor
+```
+
+## Developing autosprint itself
+
+The development toolchain is driven by `uv` and enforced by
+[prek](https://github.com/j178/prek) (a drop-in pre-commit runner):
+
+```bash
+uv sync                 # install deps incl. the dev group
+prek install            # wire up the git hooks
+prek install -t commit-msg
+uv run pytest           # run the test suite
+uv run ruff check src tests
+uv run ty check src     # type check
+uv run lint-imports     # enforce the layered architecture
+```
+
+::: {.callout-note}
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/);
+the `commitlint` hook enforces this on the commit message.
+:::

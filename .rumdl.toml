@@ -6,6 +6,7 @@ disable = [
   "MD041",  # first-line-must-be-h1 — violated by generated doc intros
   "MD033",  # inline HTML — needed for README badges / centered header
   "MD046",  # code-block style — prompt assets mix fenced + indented intentionally
+  "MD078",  # chunk-label — rumdl doesn't recognise mermaid's `%%| label:` cell syntax
 ]
 
 [MD060]

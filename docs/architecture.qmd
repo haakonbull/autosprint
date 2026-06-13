@@ -1,0 +1,67 @@
+---
+title: "Architecture"
+---
+
+Autosprint's Python package is organised as a strict **layered architecture**.
+Modules are grouped into eight sub-packages, and imports may only point *down*
+the stack. The rule is enforced automatically by
+[import-linter](https://import-linter.readthedocs.io/) (see `[tool.importlinter]`
+in `pyproject.toml`) — a contract that fails CI and the pre-commit hooks if any
+module imports from a layer above it.
+
+## Layered package diagram
+
+A layer may import from **any** layer below it, never from one above. The arrows
+show the adjacency of the stack; the dashed back-edges are the runtime path
+(each sprint loops), not import dependencies.
+
+```{mermaid}
+%%| label: fig-layers
+%%| fig-cap: "The eight package layers. Imports flow strictly downward; any layer may use any layer beneath it."
+flowchart TD
+  app["app<br>orchestrator · cli · init · how_far<br><i>entry points & user surface</i>"]
+  phases["phases<br>plan · implement · test<br><i>the PIT phases</i>"]
+  reporting["reporting<br>run_log · banners<br><i>observability & presentation</i>"]
+  infra["infra<br>dispatch · git_ops · test_runners · db · stop · gates<br><i>external-world adapters</i>"]
+  domain["domain<br>plan<br><i>domain model</i>"]
+  util["util<br>errors · output · parsing · paths<br><i>cross-cutting utilities</i>"]
+  config["config<br>settings · toml_io<br><i>configuration</i>"]
+  registry["registry<br>agents · teams<br><i>static registries (no deps)</i>"]
+
+  app --> phases --> reporting --> infra --> domain --> util --> config --> registry
+```
+
+## What each layer owns
+
+| Layer         | Responsibility                                                                                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **app**       | Entry points and the user-facing surface: the PIT loop (`orchestrator`), argparse + subcommands (`cli`), bootstrap (`init`), and the read-only distance report (`how_far`). |
+| **phases**    | The business logic of the three sprint phases: Plan, Implement, Test.                                                                                                       |
+| **reporting** | Everything written to `autosprint/logs/`, plus the console banners and run summaries.                                                                                       |
+| **infra**     | Adapters to the outside world: LLM dispatch, git, test runners, the SQLite mirror, the stop-control file, and gate inspection.                                              |
+| **domain**    | The `plan.md` model — `Plan`, `PendingTask`, `CompletedTask`, and the parser/writer.                                                                                        |
+| **util**      | Cross-cutting primitives with no business meaning: errors, level-gated output, result parsing, path constants.                                                              |
+| **config**    | The `pydantic-settings` singleton and TOML rendering.                                                                                                                       |
+| **registry**  | Static data with no internal dependencies: the agent and team definitions.                                                                                                  |
+
+## Why the lazy imports were removed
+
+The original flat layout had three *upward* function-local imports used to break
+cycles (`banners → cli`, `plan_phase → cli`, `run_log → implement_phase`). The
+refactor eliminated them by moving the shared leaf utilities **down** to where
+both sides could reach them:
+
+- gate inspection (`describe_gates`) moved to `infra.gates`
+- stop control (`raise_if_stop_between_phases`) moved to `infra.stop`
+- refusal detection (`detect_refusal_pattern`) moved to `util.parsing`
+
+The result is zero upward imports anywhere in the package — the static import
+graph is a clean DAG, which is exactly what the import-linter contract locks in.
+
+## C4 model
+
+The diagrams below model the system at the three C4 levels — System Context,
+Containers, and Components. They are generated from the LikeC4 model in
+[`docs/likec4/`](https://github.com/haakonbull/autosprint/tree/master/docs/likec4).
+
+<!-- C4 diagrams are embedded in the "C4 model" section; see architecture task. -->

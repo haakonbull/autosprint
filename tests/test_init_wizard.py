@@ -77,7 +77,7 @@ def test_apply_config_toml_overlays_values(monkeypatch: pytest.MonkeyPatch, tmp_
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SPRINT_STORY_POINT_TARGET", 8)
     monkeypatch.setattr(config, "IMPLEMENT_AGENT", "implementor_opus48")
-    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset())
+    monkeypatch.setattr("autosprint.app.cli.args.ENV_SET_FIELDS", frozenset())
     _write_config_toml(tmp_path, 'sp_target = 15\nimplement_agent = "implementor_gpt55"\n')
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
     assert config.SPRINT_STORY_POINT_TARGET == 15
@@ -92,7 +92,7 @@ def test_apply_config_toml_env_beats_toml(monkeypatch: pytest.MonkeyPatch, tmp_p
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SPRINT_STORY_POINT_TARGET", 7)
-    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset({"SPRINT_STORY_POINT_TARGET"}))
+    monkeypatch.setattr("autosprint.app.cli.args.ENV_SET_FIELDS", frozenset({"SPRINT_STORY_POINT_TARGET"}))
     _write_config_toml(tmp_path, "sp_target = 99\n")
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
     assert config.SPRINT_STORY_POINT_TARGET == 7  # env value kept, toml ignored
@@ -116,7 +116,7 @@ def test_apply_config_toml_mode_specific_team(monkeypatch: pytest.MonkeyPatch, t
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "TEAM", "builder")
-    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset())
+    monkeypatch.setattr("autosprint.app.cli.args.ENV_SET_FIELDS", frozenset())
     _write_config_toml(tmp_path, '[plan]\nteam = "council"\n\n[auto_replan]\nteam = "duo"\n')
     _apply_config_toml(argparse.Namespace(command="plan", auto_replan=False))
     assert config.TEAM == "council"
@@ -141,7 +141,7 @@ def test_apply_config_toml_disables_fallback_agent(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
-    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset())
+    monkeypatch.setattr("autosprint.app.cli.args.ENV_SET_FIELDS", frozenset())
     _write_config_toml(tmp_path, 'implement_fallback_agent = ""\n')
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
     assert config.IMPLEMENT_FALLBACK_AGENT == ""
@@ -191,7 +191,7 @@ def _feed_input(monkeypatch: pytest.MonkeyPatch, *answers: str) -> None:
 
 def test_wizard_assistants_both_records_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
     """Choosing 'both' keeps every default — nothing is written to config.toml."""
-    monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (True, True))
+    monkeypatch.setattr(init_mod.wizard, "_detect_assistants", lambda: (True, True))
     _feed_input(monkeypatch, "1")
     active: dict[str, str] = {}
     init_mod._wizard_assistants(active)
@@ -200,7 +200,7 @@ def test_wizard_assistants_both_records_nothing(monkeypatch: pytest.MonkeyPatch)
 
 def test_wizard_assistants_claude_only_disables_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Claude-only resolves to council_opus (6-agent Claude mirror of council), pins implementor + how-far to Opus 4.8, and disables the (Copilot) refusal-fallback."""
-    monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (True, False))
+    monkeypatch.setattr(init_mod.wizard, "_detect_assistants", lambda: (True, False))
     _feed_input(monkeypatch, "2")
     active: dict[str, str] = {}
     init_mod._wizard_assistants(active)
@@ -209,7 +209,7 @@ def test_wizard_assistants_claude_only_disables_fallback(monkeypatch: pytest.Mon
 
 def test_wizard_assistants_copilot_only_sets_gpt_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     """Copilot-only resolves team + implement + how-far agents to the GPT-5.5 keys (council_gpt55 multi-agent team, GPT-5.5 implementor, fallback disabled since primary is already Copilot)."""
-    monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (False, True))
+    monkeypatch.setattr(init_mod.wizard, "_detect_assistants", lambda: (False, True))
     _feed_input(monkeypatch, "3")
     active: dict[str, str] = {}
     init_mod._wizard_assistants(active)
@@ -218,7 +218,7 @@ def test_wizard_assistants_copilot_only_sets_gpt_agents(monkeypatch: pytest.Monk
 
 def test_wizard_assistants_eof_falls_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     """An EOF mid-prompt is treated as 'use defaults' — nothing recorded."""
-    monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (True, True))
+    monkeypatch.setattr(init_mod.wizard, "_detect_assistants", lambda: (True, True))
     _feed_input(monkeypatch)  # no answers — input raises EOFError
     active: dict[str, str] = {}
     init_mod._wizard_assistants(active)
@@ -267,7 +267,7 @@ def test_run_config_wizard_copilot_typescript_end_to_end(monkeypatch: pytest.Mon
     """Full wizard: a TypeScript repo on Copilot-only resolves runner + team + agents."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     (tmp_path / "package.json").write_text("{}\n", encoding="utf-8")
-    monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (False, True))
+    monkeypatch.setattr(init_mod.wizard, "_detect_assistants", lambda: (False, True))
     _feed_input(monkeypatch, "y", "3")  # confirm TS detection, then Copilot-only
     active = init_mod._run_config_wizard()
     assert active == {"team": "council_gpt55", "implement_agent": "implementor_gpt55", "implement_fallback_agent": "", "howfar_agent": "howfar_gpt55"}

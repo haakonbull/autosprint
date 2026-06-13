@@ -83,7 +83,7 @@ def test_ensure_examples_dir_seeded_copies_all_files(monkeypatch: pytest.MonkeyP
     (src_root / "examples" / "waypoint.example.md").write_text("# waypoint\n", encoding="utf-8")
     target = tmp_path / "target"
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.seeds, "_project_root", lambda: src_root)
 
     copied = _ensure_examples_dir_seeded()
     examples_dir = target / AUTOSPRINT_DIR_NAME / "examples"
@@ -102,7 +102,7 @@ def test_ensure_examples_dir_seeded_copies_subfolders(monkeypatch: pytest.Monkey
     (src_root / "examples" / "research_paper_assets" / "build_pdf.py").write_text("# build\n", encoding="utf-8")
     target = tmp_path / "target"
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.seeds, "_project_root", lambda: src_root)
 
     copied = _ensure_examples_dir_seeded()
     examples_dir = target / AUTOSPRINT_DIR_NAME / "examples"
@@ -121,7 +121,7 @@ def test_ensure_examples_dir_seeded_preserves_user_edits(monkeypatch: pytest.Mon
     examples_dir.mkdir(parents=True)
     (examples_dir / "destination_game.example.md").write_text("# my hand-edited version\n", encoding="utf-8")
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.seeds, "_project_root", lambda: src_root)
 
     copied = _ensure_examples_dir_seeded()
     assert copied == []  # nothing newly copied — the existing user-edited file was respected
@@ -134,7 +134,7 @@ def test_ensure_examples_dir_seeded_silent_when_source_missing(monkeypatch: pyte
     src_root.mkdir()
     target = tmp_path / "target"
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.seeds, "_project_root", lambda: src_root)
 
     copied = _ensure_examples_dir_seeded()
     assert copied == []
@@ -251,7 +251,7 @@ def test_copy_claude_assets_creates_target_and_copies_missing(monkeypatch: pytes
     _make_fake_claude_src(src_root, skills=["skill-a", "skill-b"], agent_files=["implement.md", "plan-team.md"])
     target = tmp_path / "target"
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.assets, "_project_root", lambda: src_root)
     _copy_claude_assets_to_target()
     assert (target / ".claude" / "skills" / "skill-a" / "SKILL.md").exists()
     assert (target / ".claude" / "skills" / "skill-b" / "SKILL.md").exists()
@@ -270,7 +270,7 @@ def test_copy_claude_assets_does_not_overwrite_existing(monkeypatch: pytest.Monk
     existing_agent_dir.mkdir(parents=True, exist_ok=True)
     (existing_agent_dir / "implement.md").write_text("# user-edited agent\n", encoding="utf-8")
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.assets, "_project_root", lambda: src_root)
     _copy_claude_assets_to_target()
     assert (existing_skill / "SKILL.md").read_text(encoding="utf-8") == "# user-edited skill\n\nkeep me\n"
     assert (existing_agent_dir / "implement.md").read_text(encoding="utf-8") == "# user-edited agent\n"
@@ -280,7 +280,7 @@ def test_copy_claude_assets_silent_when_source_missing(monkeypatch: pytest.Monke
     src_root = tmp_path / "autosprint_src"  # intentionally not created
     target = tmp_path / "target"
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.assets, "_project_root", lambda: src_root)
     _copy_claude_assets_to_target()  # must not raise
     assert not (target / ".claude").exists()
 
@@ -297,7 +297,7 @@ def test_copy_claude_assets_overwrite_replaces_existing(monkeypatch: pytest.Monk
     existing_agent_dir.mkdir(parents=True, exist_ok=True)
     (existing_agent_dir / "implement.md").write_text("# stale user-edited agent\n", encoding="utf-8")
     monkeypatch.setattr(config, "TARGET_REPO", str(target))
-    monkeypatch.setattr(init_mod, "_project_root", lambda: src_root)
+    monkeypatch.setattr(init_mod.assets, "_project_root", lambda: src_root)
     _copy_claude_assets_to_target(overwrite=True)
     assert (existing_skill / "SKILL.md").read_text(encoding="utf-8") == "# skill-a\n\nstub\n"
     assert (existing_agent_dir / "implement.md").read_text(encoding="utf-8") == "# agent implement.md\n"

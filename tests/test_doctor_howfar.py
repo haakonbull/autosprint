@@ -32,7 +32,7 @@ def test_run_doctor_all_green(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     _make_doctor_target(tmp_path)
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr(init_mod.doctor, "_required_assistants_for_run", lambda: {"copilot"})
     monkeypatch.setattr("autosprint.infra.dispatch.query_agent", AsyncMock(return_value="OK"))
     run_doctor()  # all checks pass → no SystemExit
 
@@ -45,7 +45,7 @@ def test_run_doctor_exits_nonzero_on_failed_dispatch(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     _make_doctor_target(tmp_path)
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr(init_mod.doctor, "_required_assistants_for_run", lambda: {"copilot"})
     monkeypatch.setattr("autosprint.infra.dispatch.query_agent", AsyncMock(side_effect=RuntimeError("no auth")))
     with pytest.raises(SystemExit):
         run_doctor()
@@ -63,7 +63,7 @@ def test_probe_backends_passes_on_working_dispatch(monkeypatch: pytest.MonkeyPat
     from autosprint.app.init import probe_backends
 
     monkeypatch.setattr(config, "LOG_LEVEL", 100)
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"claude", "copilot"})
+    monkeypatch.setattr(init_mod.doctor, "_required_assistants_for_run", lambda: {"claude", "copilot"})
     monkeypatch.setattr("autosprint.infra.dispatch.query_agent", AsyncMock(return_value="OK"))
     assert probe_backends() is True
 
@@ -75,7 +75,7 @@ def test_probe_backends_raises_on_failed_dispatch(monkeypatch: pytest.MonkeyPatc
     from autosprint.app.init import probe_backends
 
     monkeypatch.setattr(config, "LOG_LEVEL", 100)
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr(init_mod.doctor, "_required_assistants_for_run", lambda: {"copilot"})
     monkeypatch.setattr("autosprint.infra.dispatch.query_agent", AsyncMock(side_effect=RuntimeError("Copilot CLI not found")))
     with pytest.raises(RuntimeError, match="autosprint doctor"):
         probe_backends()
@@ -88,7 +88,7 @@ def test_probe_backends_warn_only_returns_false(monkeypatch: pytest.MonkeyPatch)
     from autosprint.app.init import probe_backends
 
     monkeypatch.setattr(config, "LOG_LEVEL", 100)
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr(init_mod.doctor, "_required_assistants_for_run", lambda: {"copilot"})
     monkeypatch.setattr("autosprint.infra.dispatch.query_agent", AsyncMock(side_effect=RuntimeError("no auth")))
     assert probe_backends(warn_only=True) is False
 
@@ -167,7 +167,7 @@ def test_run_doctor_exits_nonzero_when_install_is_stale(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     _make_doctor_target(tmp_path)
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr(init_mod.doctor, "_required_assistants_for_run", lambda: {"copilot"})
     monkeypatch.setattr("autosprint.infra.dispatch.query_agent", AsyncMock(return_value="OK"))
 
     real_import = importlib.import_module

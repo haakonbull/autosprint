@@ -30,15 +30,15 @@ Imports may only point *down* the stack; the layer order is
 src/autosprint/
   app/              # Top layer — entry points & user surface
     orchestrator.py #   pit_loop, commit_sprint, plan_only, main — the PIT loop
-    cli.py          #   argparse, prepare(), one-shot subcommand dispatch
-    init.py         #   `autosprint init` + config wizard + prepare-step helpers
+    cli/            #   argparse (args), one-shot handlers (commands), prepare()
+    init/           #   `autosprint init`: seeds, wizard, gitignore, assets, checks, doctor
     how_far.py      #   `autosprint how-far` — distance-to-destination report
   phases/           # The PIT phases (business logic)
     plan_phase.py   #   Plan: prompts, team-lead context, update_plan, replan
     implement_phase.py #  Implement: dispatch, refusal-fallback, failure logs
     test_phase.py   #   Test: drives the runner, revert/commit decision, self-test
   reporting/        # Observability & presentation
-    run_log.py      #   sprint-outcomes log, plan-decisions, runtime stats, escalation
+    run_log/        #   outcomes, changelog, history, stats, summary, maintenance
     banners.py      #   Section banners, PIT-loop tree, start banner, show-config
   infra/            # External-world adapters
     dispatch.py     #   query_agent / query_agents — SDK dispatch, caching, parallelism
@@ -58,7 +58,7 @@ src/autosprint/
     settings.py     #   Environment-driven settings via pydantic-settings (Config, config)
     toml_io.py      #   render_config_toml
   registry/         # Static agent/team registries (bottom layer — no deps)
-    agents.py       #   Agent definitions (name, model, system_prompt, tools) + AGENTS
+    agents/         #   personas (prompts+tools), definitions (AGENT_* dicts), AGENTS
     teams.py        #   TEAM_* dicts + TEAMS registry
 .claude/agents/
   plan-agent.md            # Prompt template for a single agent's Plan phase (code projects)

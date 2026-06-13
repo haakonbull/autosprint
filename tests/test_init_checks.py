@@ -52,23 +52,23 @@ def test_verify_target_is_initialised_passes_when_both_present(monkeypatch: pyte
 
 def test_check_cli_deps_passes_when_claude_is_on_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """Happy path: `claude` is on PATH → no raise. Note: copilot dispatch uses the github-copilot-sdk Python package directly (no CLI binary needed), so this check only probes for `claude`."""
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"claude", "copilot"})
-    monkeypatch.setattr(init_mod.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(init_mod.checks, "_required_assistants_for_run", lambda: {"claude", "copilot"})
+    monkeypatch.setattr(init_mod.checks.shutil, "which", lambda name: f"/usr/bin/{name}")
     init_mod._check_cli_deps_or_abort()  # must not raise
 
 
 def test_check_cli_deps_aborts_when_required_claude_cli_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     """If TEAM uses Claude agents but `claude` isn't installed, fail fast before any side effects rather than letting the user discover it 90 seconds into sprint 1."""
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"claude"})
-    monkeypatch.setattr(init_mod.shutil, "which", lambda name: None if name == "claude" else f"/usr/bin/{name}")
+    monkeypatch.setattr(init_mod.checks, "_required_assistants_for_run", lambda: {"claude"})
+    monkeypatch.setattr(init_mod.checks.shutil, "which", lambda name: None if name == "claude" else f"/usr/bin/{name}")
     with pytest.raises(RuntimeError, match="claude"):
         init_mod._check_cli_deps_or_abort()
 
 
 def test_check_cli_deps_silent_for_copilot_only_run_with_no_claude(monkeypatch: pytest.MonkeyPatch) -> None:
     """Copilot-only runs use the github-copilot-sdk Python package, which talks to Microsoft's API directly — no CLI binary required. A missing `claude` (and missing `gh`) must NOT abort when the run is Copilot-only. This is the false-positive guard that makes the hard-abort behaviour safe."""
-    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"copilot"})
-    monkeypatch.setattr(init_mod.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(init_mod.checks, "_required_assistants_for_run", lambda: {"copilot"})
+    monkeypatch.setattr(init_mod.checks.shutil, "which", lambda _name: None)
     init_mod._check_cli_deps_or_abort()  # must not raise — copilot has no CLI binary requirement
 
 

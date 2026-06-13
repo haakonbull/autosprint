@@ -508,7 +508,7 @@ def _reset_changelog_run_heading(monkeypatch: pytest.MonkeyPatch) -> None:
     """`append_changelog_entry` gates the `## Run …` heading on a module-level flag that
     resets only on process restart. Tests share the process, so reset it before each test
     — without this a test that ran earlier would suppress the run heading here."""
-    monkeypatch.setattr(run_log, "_CHANGELOG_RUN_HEADING_WRITTEN", False)
+    monkeypatch.setattr(run_log.changelog, "_CHANGELOG_RUN_HEADING_WRITTEN", False)
 
 
 def test_append_changelog_creates_file_with_header(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -564,7 +564,7 @@ def test_append_changelog_two_runs_do_not_collide(monkeypatch: pytest.MonkeyPatc
 
     # Simulate a process restart: the run-heading flag resets, exactly as it would
     # when a brand-new `autosprint` invocation starts a fresh `pit_loop`.
-    monkeypatch.setattr(run_log, "_CHANGELOG_RUN_HEADING_WRITTEN", False)
+    monkeypatch.setattr(run_log.changelog, "_CHANGELOG_RUN_HEADING_WRITTEN", False)
 
     # --- Run 2: sprints 1, 2 again (counter reset) ---
     append_changelog_entry(1, [{"title": "Run2 task A"}], "second run sprint 1")

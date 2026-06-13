@@ -18,6 +18,10 @@ website:
         text: Configuration
       - href: architecture.qmd
         text: Architecture
+      - href: backends.qmd
+        text: Backends
+      - href: glossary.qmd
+        text: Glossary
   page-footer:
     center: "Autosprint — descend toward the destination, one sprint at a time."
 

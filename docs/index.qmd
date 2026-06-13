@@ -51,3 +51,6 @@ flowchart LR
   workflow.
 - [Configuration](configuration.qmd) — teams, agents, gates, and test runners.
 - [Architecture](architecture.qmd) — the layered package design and C4 model.
+- [Backends](backends.qmd) — how autosprint reaches Claude and Copilot, and what
+  to install and authenticate.
+- [Glossary](glossary.qmd) — the project's controlled vocabulary.

@@ -1,0 +1,130 @@
+---
+title: "Backends"
+---
+
+A **backend** is the AI provider an agent dispatches to. Autosprint supports
+two — **Claude** and **Copilot** — and reaches each one in a genuinely
+different way. This page explains how model access works, what you need
+installed and authenticated for each, and how autosprint verifies access
+before a long run.
+
+The short version: **autosprint holds no API key and passes none.** It
+delegates authentication entirely to the tool you have already logged into.
+
+## The agent / backend model
+
+An *agent* is a plain dict defined in the
+[registry](architecture.qmd) (`registry/agents/`):
+
+```python
+{"assistant": "claude",  "model": "claude-opus-4-8", "system_prompt": "...", "tools": TOOLS_FULL}
+{"assistant": "copilot", "model": "gpt-5.2",         "system_prompt": "...", "tools": TOOLS_FULL}
+```
+
+The `assistant` field is the only thing that selects a backend. Every LLM call
+funnels through `infra/dispatch.py`, which looks `assistant` up in a
+registry-of-functions and calls the matching dispatcher:
+
+```python
+DISPATCHERS = {"claude": _run_claude, "copilot": _run_copilot}
+```
+
+The phases above `infra` never import an SDK directly — they call
+`query_agent()` / `query_agents()` with an agent dict and a prompt, and stay
+backend-agnostic. Adding a third backend is one entry in that dict plus one
+`_run_*` function.
+
+```{mermaid}
+%%| label: fig-backends
+%%| fig-cap: "The assistant field routes each agent to one of two dispatchers, which reach their models by different mechanisms."
+flowchart TD
+  phases["phases — call query_agent / query_agents"]
+  dispatch["infra/dispatch.py<br>DISPATCHERS"]
+  claude["_run_claude"]
+  copilot["_run_copilot"]
+  cli["claude CLI<br>(subprocess on PATH)"]
+  api["GitHub Copilot API<br>(direct HTTP)"]
+  phases --> dispatch
+  dispatch -->|assistant = claude| claude
+  dispatch -->|assistant = copilot| copilot
+  claude -->|spawns| cli
+  copilot -->|calls| api
+```
+
+## Claude — a local CLI agent harness
+
+The `claude-agent-sdk` does **not** make HTTP calls to the Anthropic API
+itself. It **spawns the `claude` CLI (Claude Code) as a subprocess** and drives
+it through a streaming message protocol.
+
+That means model access for Claude agents is *whatever your local `claude`
+install is authenticated to*: your Claude Code login (a Pro/Max subscription
+session) or an `ANTHROPIC_API_KEY` present in the CLI's own environment.
+Autosprint neither knows nor cares which — it only requires the `claude` binary
+on `PATH`.
+
+- **Install:** [Claude Code](https://claude.com/claude-code).
+- **Required on PATH:** `claude`.
+- **Authentication:** handled by the CLI (`claude` login, or the CLI's env).
+
+## Copilot — the SDK calls the API directly
+
+The `github-copilot-sdk` is a pure Python package that **calls GitHub's Copilot
+API directly** — no subprocess, no PATH binary. Model access here is your
+**GitHub Copilot subscription**, whose session the SDK resolves on its own.
+
+- **Install:** the `github-copilot-sdk` Python dependency (already in
+  `pyproject.toml`).
+- **Required on PATH:** nothing.
+- **Authentication:** your existing GitHub Copilot session.
+
+## Authentication summary
+
+|                             | Claude                                                  | Copilot                                         |
+| --------------------------- | ------------------------------------------------------- | ----------------------------------------------- |
+| Mechanism                   | `claude-agent-sdk` **spawns the `claude` CLI**          | `github-copilot-sdk` **calls the API directly** |
+| Needs on PATH               | `claude` binary (hard-required)                         | nothing                                         |
+| Auth source                 | local Claude Code login / its env's `ANTHROPIC_API_KEY` | GitHub Copilot subscription session             |
+| Does autosprint hold a key? | No                                                      | No                                              |
+| Token accounting            | counted (can be per-token)                              | not counted (flat-rate subscription)            |
+
+The token-accounting asymmetry is encoded in the dispatcher: it tallies Claude
+prompt/response characters for an end-of-run usage estimate but deliberately
+skips Copilot, because a flat-rate subscription's call count does not reflect
+cost.
+
+## Verifying access before a run
+
+Only the backends your configured team actually uses are probed —
+`_required_assistants_for_run` collects the `assistant` kinds across `TEAM`,
+`IMPLEMENT_AGENT`, the implement fallback, and `HOWFAR_AGENT`. A Claude-only
+setup is never asked for Copilot auth, and vice versa.
+
+Two layers of checking:
+
+- **Static pre-flight** (`init` / startup): `claude` on `PATH` for Claude;
+  importability of the Copilot SDK. Fast, but cannot tell you the login is
+  still valid.
+- **Live round-trip** (`autosprint doctor`): one cheap real call per backend in
+  use, confirming auth and dispatch end to end. This catches an expired login,
+  a hit usage cap, or a Copilot SDK that lost its bundled binary *before* a
+  multi-hour run starts limping. The live probe is skipped in debug/cache modes
+  (`LOG_LEVEL <= 15`) so dev loops and tests never make live calls.
+
+```bash
+autosprint doctor   # PATH check + one live round-trip per backend in use
+```
+
+If a backend is misconfigured, `doctor` prints the full checklist and the run
+path refuses to start rather than failing confusingly mid-sprint.
+
+## Choosing backends
+
+Team composition lives in `registry/teams.py` and is selected with the `TEAM`
+config var (see [Configuration](configuration.qmd)). Because the phases only
+ever see strings and dicts, you can mix providers freely — e.g. Claude planners
+with a Copilot selector, or a Claude implementor with a Copilot fallback.
+Single-provider users have ready-made teams:
+
+- **Claude only:** `TEAM=solo_opus`.
+- **Copilot only:** `TEAM=solo_gpt55`.

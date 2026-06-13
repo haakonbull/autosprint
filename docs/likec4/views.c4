@@ -1,0 +1,23 @@
+views {
+  view context {
+    title "System Context — Autosprint"
+    description "Who uses autosprint and what it talks to."
+    include developer, autosprint, targetRepo, claude, copilot
+    autoLayout TopBottom
+  }
+
+  view containers of autosprint {
+    title "Containers — Autosprint"
+    description "The major subsystems inside autosprint and their neighbours."
+    include *
+    include developer, targetRepo, claude, copilot
+    autoLayout TopBottom
+  }
+
+  view components {
+    title "Components — sub-package dependencies"
+    description "Every sub-package as a component; edges are downward imports."
+    include autosprint.**
+    autoLayout TopBottom
+  }
+}

@@ -1,0 +1,90 @@
+model {
+  developer = person "Developer" {
+    description "Writes destination.md, reviews plan.md, runs and steers the loop."
+  }
+
+  autosprint = system "Autosprint" {
+    description "Automated PIT-loop orchestrator. Plans, implements, tests, and commits toward a destination spec."
+
+    app = container "App / Orchestrator" {
+      description "Entry points and the user-facing surface."
+      orchestrator = component "orchestrator" "Runs the PIT loop (pit_loop, commit_sprint, main)."
+      cli = component "cli" "Argparse, prepare-steps, one-shot subcommand dispatch."
+      init = component "init" "`autosprint init` bootstrap, config wizard, doctor."
+      howfar = component "how_far" "Read-only distance-to-destination report."
+    }
+
+    phases = container "Phases" {
+      description "The business logic of the three sprint phases."
+      planPhase = component "plan_phase" "Plan: prompts, team-lead merge, replan."
+      implementPhase = component "implement_phase" "Implement: dispatch, refusal-fallback."
+      testPhase = component "test_phase" "Test: run the suite, decide revert vs commit."
+    }
+
+    reporting = container "Reporting" {
+      description "Observability and presentation."
+      runLog = component "run_log" "sprint-outcomes, decisions, stats, escalation."
+      banners = component "banners" "Section banners, start banner, summaries."
+    }
+
+    infra = container "Infra" {
+      description "Adapters to the outside world."
+      dispatch = component "dispatch" "Dispatches agents to the LLM backends; caches."
+      gitOps = component "git_ops" "git status / restore / commit."
+      testRunners = component "test_runners" "pytest / vitest adapters."
+      db = component "db" "SQLite mirror of sprint outcomes."
+      stop = component "stop" "Stop-control file lifecycle."
+      gates = component "gates" "Per-sprint quality-gate inspection."
+    }
+
+    foundation = container "Foundation" {
+      description "Domain model, utilities, configuration, and static registries."
+      plan = component "domain.plan" "plan.md model and parser/writer."
+      util = component "util" "errors, output, parsing, paths."
+      config = component "config" "pydantic-settings singleton + TOML."
+      registry = component "registry" "agent and team definitions."
+    }
+  }
+
+  targetRepo = system "Target Repository" {
+    description "The git repo autosprint works on — its source, tests, and autosprint/ working files."
+  }
+
+  claude = system "Claude" {
+    description "Claude Agent SDK + `claude` CLI."
+  }
+
+  copilot = system "GitHub Copilot" {
+    description "GitHub Copilot SDK + `copilot` CLI."
+  }
+
+  // --- System context relationships ---
+  developer -> autosprint.app.cli "Runs commands, reviews plan.md"
+  autosprint.infra.dispatch -> claude "Dispatches agent prompts"
+  autosprint.infra.dispatch -> copilot "Dispatches agent prompts"
+  claude -> targetRepo "Reads & edits files via tools"
+  copilot -> targetRepo "Reads & edits files via tools"
+  autosprint.infra.gitOps -> targetRepo "Commits accepted sprints, reverts failures"
+  autosprint.infra.testRunners -> targetRepo "Runs the test suite"
+
+  // --- Container / component relationships (downward only) ---
+  autosprint.app.orchestrator -> autosprint.phases.planPhase "Plan phase"
+  autosprint.app.orchestrator -> autosprint.phases.implementPhase "Implement phase"
+  autosprint.app.orchestrator -> autosprint.phases.testPhase "Test phase"
+  autosprint.app.orchestrator -> autosprint.reporting.runLog "Records outcomes"
+  autosprint.app.cli -> autosprint.infra.stop "Polls stop control"
+  autosprint.app.cli -> autosprint.infra.gates "Reports gate status"
+
+  autosprint.phases.planPhase -> autosprint.infra.dispatch "Queries the planning team"
+  autosprint.phases.implementPhase -> autosprint.infra.dispatch "Queries the implementor"
+  autosprint.phases.implementPhase -> autosprint.infra.gitOps "Reverts on failure"
+  autosprint.phases.testPhase -> autosprint.infra.testRunners "Runs tests"
+  autosprint.phases.testPhase -> autosprint.infra.gitOps "Commits / reverts"
+  autosprint.phases.planPhase -> autosprint.reporting.runLog "Logs plan decisions"
+  autosprint.reporting.runLog -> autosprint.infra.db "Mirrors outcomes"
+
+  autosprint.infra.dispatch -> autosprint.foundation.registry "Reads agent/team defs"
+  autosprint.phases.planPhase -> autosprint.foundation.plan "Reads/writes plan.md"
+  autosprint.foundation.util -> autosprint.foundation.config "Reads LOG_LEVEL etc."
+  autosprint.foundation.config -> autosprint.foundation.registry "Validates team/agent keys"
+}

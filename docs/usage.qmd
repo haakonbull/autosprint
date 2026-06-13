@@ -1,0 +1,67 @@
+---
+title: "Usage"
+---
+
+## First run
+
+Initialise a target repo, describe where you want it to go, then run the loop:
+
+```bash
+cd my-project              # a git repo with its deps installed
+autosprint init           # seeds autosprint/, runs a short config wizard
+# edit autosprint/destination.md to describe the target state
+autosprint run
+```
+
+`autosprint init` seeds an `autosprint/` directory (destination template, ADR
+stub, config, gitignore entries) and copies the bundled Claude skills/agents
+into the target. Open Claude Code and run `/grill-destination` to flesh out the
+spec before the first real run.
+
+## Core commands
+
+| Command                 | What it does                                                          |
+| ----------------------- | --------------------------------------------------------------------- |
+| `autosprint run`        | Run the PIT loop against the reviewed `plan.md`.                      |
+| `autosprint plan`       | Plan phase only — draft `plan.md`, then exit.                         |
+| `autosprint doctor`     | Verify the setup can run (repo, destination, CLIs, agent round-trip). |
+| `autosprint how-far`    | Read-only distance-to-destination report (makes no changes).          |
+| `autosprint stop`       | Soft stop — finish the current sprint, then exit.                     |
+| `autosprint stop --now` | Immediate stop — revert the in-flight sprint and exit.                |
+
+The stop commands are issued from a second terminal pointed at the same target
+repo. The running loop notices the control file, responds, and deletes it, so a
+stale file can never hijack the next run.
+
+## Inspection commands
+
+| Command               | Shows                                                                        |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `autosprint settings` | The effective, fully-resolved configuration.                                 |
+| `autosprint teams`    | Available planning teams and their rosters.                                  |
+| `autosprint agents`   | Available agent definitions.                                                 |
+| `autosprint gates`    | Each per-sprint quality gate and whether it is active, off, or auto-skipped. |
+| `autosprint sprints`  | The recent sprint-outcome history.                                           |
+| `autosprint logs`     | The autosprint log files and their sizes.                                    |
+
+## The waypoint workflow
+
+When you want the loop to focus on a specific feature or sub-goal before
+continuing toward the destination, drop an `autosprint/waypoint.md` file:
+
+1. **Write `autosprint/waypoint.md`** — state-shaped prose with acceptance
+   criteria. It must be reachable without violating the destination or ADRs.
+2. **(Optional) preview** the decomposition with `autosprint plan`. This is
+   preview-only — the real run re-plans.
+3. **Run the loop.** Each sprint header logs `🧭 Waypoint active: <title>`.
+4. **The loop halts when the waypoint is reached.** The team lead appends a
+   `> **Status:** reached` marker to the file with its rationale. You decide
+   what is next: delete the file (done), revise it (not done — remove the
+   marker and continue), or set a new waypoint.
+
+Pause a waypoint without losing it by renaming to `waypoint.md.paused`.
+
+::: {.callout-tip}
+For one-shot work that fits in a single sprint, skip the waypoint and just open
+Claude Code directly — the loop's value is multi-sprint discipline.
+:::

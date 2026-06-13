@@ -9,6 +9,7 @@ All tool output, code, comments, commit messages, and user-facing documentation 
 ## What this project does
 
 Autosprint runs a PIT loop against a **target repository**. Each sprint:
+
 1. **Plan** — one or more AI agents propose tasks, a selector merges them into `autosprint/plan.md`
 2. **Implement** — an AI agent implements the top pending task
 3. **Test** — pytest runs the target repo's test suite (Python, not LLM)
@@ -21,48 +22,24 @@ orchestration.
 
 ## Project structure
 
-```
-src/autosprint/
-  orchestrator.py   # pit_loop, commit_sprint, plan_only, main — the PIT loop itself
-  cli.py            # argparse, prepare(), one-shot subcommands, stop control
-  init.py           # `autosprint init` + config wizard + prepare-step seed/check helpers
-  how_far.py        # `autosprint how-far` — read-only distance-to-destination report
-  plan_phase.py     # Plan phase: prompts, team-lead context, update_plan, replan
-  implement_phase.py # Implement phase: dispatch, refusal-fallback, failure logs
-  test_phase.py     # Test phase: drives the test runner, revert/commit decision, self-test
-  test_runners.py   # TestRunner adapters — normalizes test execution per language (pytest + vitest)
-  run_log.py        # sprint-outcomes log, plan-decisions log, runtime stats, escalation
-  banners.py        # Section banners, PIT-loop tree, start banner, show-config print
-  git_ops.py        # git, git_restore, git_commit, summarise_working_tree_diff
-  parsing.py        # Result-block parsing for agent responses
-  paths.py          # Path/filename constants for autosprint/* layout
-  agents.py         # Individual agent definitions (name, model, system_prompt, tools) + AGENTS registry
-  teams.py          # TEAM_* dicts + TEAMS registry (composes agents into planning rosters)
-  dispatch.py       # query_agent / query_agents — SDK dispatch, caching, parallelism
-  config.py         # Environment-driven settings via pydantic-settings
-  plan.py           # plan.md parser/writer, Plan/PendingTask/CompletedTask, group_titles
-  db.py             # SQLite mirror of sprint outcomes
-  output.py         # printlev() — level-gated stdout
-  errors.py         # add_context, RevertReason, PhaseFailedError, StopRequested, WaypointReached
-.claude/agents/
-  plan-agent.md            # Prompt template for a single agent's Plan phase (code projects)
-  plan-team.md             # Prompt for the selector when merging team proposals (code projects)
-  plan-agent-research.md   # Plan-phase prompt for research-team members (sources / paper / deep-dives)
-  plan-team-research.md    # Selector prompt for the research team lead
-  implement.md             # Prompt for the Implement phase (artifact-agnostic — code or research)
-tests/
-  test_plan_phase.py
-  test_implement.py
-  test_pit_loop.py
-  test_plan.py
-```
+The package under `src/autosprint/` is a **layered architecture** of
+sub-packages — imports may only point *down* the stack. The layer contract is
+the source of truth in `[tool.importlinter]` in pyproject.toml (enforced in CI
+and pre-commit); the layers and what each owns are described in
+`docs/architecture.qmd`. Prompt templates live in `.claude/agents/`, tests in
+`tests/`. Read the tree directly rather than a checked-in listing — it drifts.
 
-`orchestrator.py` re-exports most names from the phase / helper modules so
-existing `from autosprint.orchestrator import _foo` paths in tests keep
+A couple of non-obvious wiring details worth knowing before editing:
+
+`app/orchestrator.py` re-exports most names from the phase / helper modules so
+existing `from autosprint.app.orchestrator import _foo` paths in tests keep
 working. When monkeypatching internal helpers in tests, patch the *home*
-module (e.g. `autosprint.plan_phase`, not `autosprint.orchestrator`) — the
-re-export is just a name alias, the function looks up dependencies in its
+module (e.g. `autosprint.phases.plan_phase`, not `autosprint.app.orchestrator`)
+— the re-export is just a name alias, the function looks up dependencies in its
 own module's namespace.
+
+`config/__init__.py` re-exports its singleton, so `from autosprint.config
+import config` still works without reaching into `config.settings`.
 
 ## Running
 
@@ -122,6 +99,7 @@ For one-shot work that fits in a single sprint, skip the waypoint and just open 
 ## Config
 
 Resolved from (low → high precedence): code defaults < per-repo `autosprint/config.toml` < environment / `.env` < CLI flags. Managed via pydantic-settings. Key vars:
+
 - `TEAM` — team name (key in `teams.TEAMS`)
 - `IMPLEMENT_AGENT` — agent key used for the Implement phase (key in `agents.AGENTS`)
 - `HOWFAR_AGENT` — agent key used by `autosprint how-far` (key in `agents.AGENTS`)

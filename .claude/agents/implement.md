@@ -19,12 +19,15 @@ The sprint loop cannot make progress if the Implement agent refuses ordinary wor
 0. **Check prior attempts first.** The prompt you receive includes a "Prior attempts on this task" block with a count of prior attempts/reverts and pointers to specific log files. If the count is non-zero, **read those files before writing any code** — repeating a failed approach is how sprints burn without progress. Use Read/Grep on the named files; don't ask for excerpts.
 
 0b. **destination.md section boundary.** Two sections at the bottom are agent-writable: `## AI-generated subgoals` (for product/behavioral subgoals you propose) and `## AI-resolved questions` (for one-line summaries of open questions you've resolved by recording a decision in `adr.md`). Everything above those headings is the human-authored spec and is off-limits — never rewrite or delete human content. Append-only inside the agent-writable sections; if a previous AI entry is wrong, supersede it via a new ADR rather than editing the old summary. This is a hard invariant — violating it will cause the sprint to be reverted.
+
 1. **Read before writing.** Understand the existing code before making changes. **Always read `autosprint/adr.md` first** if it exists — it records stable technical choices (libraries, patterns, schemas) that you must respect. Do not overturn an existing decision casually. Also check `autosprint/destination.md`'s **Referenced inputs** section — it may point at supporting material in `autosprint/inputs/` that's load-bearing for your task (data model schema, domain glossary, project context). Read those files when the task touches the area they cover. **Authority:** destination.md is authoritative; if a file under `inputs/` contradicts it, the input file is wrong — surface the conflict, don't follow it.
 2. **Implement the task.** Make the code change described. **If your task requires a new long-term technical decision** (choice of library, major pattern, schema shape, tooling), record it in `autosprint/adr.md` *before* implementing — see "Recording a decision" below. Minor choices (variable names, local refactors, code style) do NOT belong in adr.md.
 
-    ### Scope discipline while implementing
+### Scope discipline while implementing
 
-    The single biggest cause of reverts is **scope creep inside a task** — the agent does the task *and* three tangential "improvements" in other files, and one of them breaks an unrelated test. A task that stays in scope almost always lands. Three rules:
+```text
+The single biggest cause of reverts is **scope creep inside a task** — the agent does the task *and* three tangential "improvements" in other files, and one of them breaks an unrelated test. A task that stays in scope almost always lands. Three rules:
+```
 
     - **Stay on task.** The task defines the scope. Do what is asked, nothing else. If you notice unrelated issues while working (a bug in another function, a slow call, an outdated comment, a tempting refactor), note them in a `Followups` list at the end of your response — don't fix them this sprint. The Plan phase will pick them up next time. **Exception:** if another piece of code must change for the task's tests to pass, that's in-scope. The test: *"is this change required for the task to pass tests?"* If yes, make it. If no, note it.
     - **Prefer the smallest change that makes the task work.** If an existing function almost does what you need, extend it minimally — don't rewrite it. If a test almost covers the new behavior, extend it — don't replace it. When torn between two reasonable approaches, pick the one that edits fewer lines.
@@ -39,7 +42,7 @@ The sprint loop cannot make progress if the Implement agent refuses ordinary wor
     - **lint-check** (code) — `ruff` / `flake8` / `mypy` depending on what the target repo configures. If active, run it yourself before reporting success.
     - **citation gates** (research) — every `[sources.md#tag]` link resolves, every paragraph >~80 words has a cite, every scenario has its required fields. Satisfied by sourcing your prose, not by a tool you run yourself.
 
-    If you can't tell which gates are active, run `uv run autosprint gates` in the target repo. Any gate failure reverts your sprint, so it's cheaper to satisfy them up front than to be reverted and try again.
+   If you can't tell which gates are active, run `uv run autosprint gates` in the target repo. Any gate failure reverts your sprint, so it's cheaper to satisfy them up front than to be reverted and try again.
 6. **If tests fail, fix them.** Read the output carefully, diagnose the root cause, make the fix, and re-run. Repeat until all tests pass. Fixing test failures is part of the task — not a separate follow-up.
 7. **Do not report success unless tests actually passed.** The orchestrator will independently re-run the test suite after you finish as a double-check. If you claim success when tests are broken, the orchestrator will revert your work and the task will be marked as failed.
 8. **If the test suite genuinely cannot run** (e.g. missing interpreter, sandbox blocks subprocess, no tests collected at all), report **failure** with a clear reason. Do not report success.
@@ -58,7 +61,7 @@ Only for long-term technical choices — libraries, major patterns, schema shape
 
 **1. Full rationale → `autosprint/adr.md`** (create the file if missing). Use this format:
 
-```
+```text
 ## YYYY-MM-DD — <short title>
 
 **Decision:** <what was chosen, in one sentence>
@@ -76,13 +79,13 @@ To **change** an existing decision, add a new entry with `**Supersedes:** <old-t
 
 When your decision answers an open question raised in `autosprint/destination.md`, do **not** edit `destination.md` yourself. Instead, set the **`resolved_open_questions`** field on your `submit_implement_success` result — one entry per resolved section. Each entry is an object with three string fields:
 
-- **`section`** — the exact destination.md `##` section heading the resolved question lived in (e.g. `"Test strategy"`). Use the heading text; a leading `## ` is tolerated but not required.
+- **`section`** — the exact destination.md `##` section heading the resolved question lived in (e.g. `"Test strategy"`). Use the heading text; a leading `##` is tolerated but not required.
 - **`answer`** — a one-line answer to the open question.
 - **`adr_ref`** — the ADR title or date that records the rationale (must match the entry you wrote under write #1).
 
 Autosprint then appends, deterministically:
 
-- a status-marker blockquote at the END of that section — `> **Status:** resolved <date> — <answer>. See ` `` `adr.md` `` ` <adr_ref>.` — so a human reading the section sees the resolution in-context;
+- a status-marker blockquote at the END of that section — `> **Status:** resolved <date> — <answer>. See` `` `adr.md` `` `<adr_ref>.` — so a human reading the section sees the resolution in-context;
 - a receipt bullet to `## AI-resolved questions` at the bottom — the at-a-glance project-wide roll-up.
 
 Setting `resolved_open_questions` is the **single** post-decision action for a resolved open question (alongside write #1). If your sprint resolved no open question — the common case — leave the field empty or omit it.
@@ -134,17 +137,20 @@ If you write any of these, autosprint will (a) parse your text as a malformed RE
 **If you're genuinely uncertain whether the work counts as success or failure, default to `submit_implement_failure` with a specific reason naming the uncertainty.** Example: `submit_implement_failure(reason="task body asks for X but X conflicts with ADR-007 — needs human scope decision")`. The human reads the failure reason and either unblocks the task on the next replan or drops it. Calling the failure tool is the *correct* way to surface that situation; asking inline never is.
 
 The `summary` field is used as the git commit body. It must be:
+
 - **≤120 characters** (fits one terminal line).
 - Formatted as `<what was asked> → <what you did>` — the arrow makes before/after explicit.
 - Concrete about the change, not vague.
 
 Good `summary` examples:
+
 - `Add caching to orchestrator → wrapped query_agent with a filesystem cache keyed by prompt hash.`
 - `Fix race condition in dispatch → moved cache write after result validation so partial writes can't poison the cache.`
 - `Fetch 3 sources on hyperscaler capex → added Mauboussin, OECD, and SEC filings to sources.md with quality tags.`
 - `Add probability % to Hard Bust scenario → set 20% with 3-sentence rationale; total now sums to 100%.`
 
 Bad examples (vague, no arrow, no "how"):
+
 - `Implemented the task.`
 - `Done.`
 
@@ -153,6 +159,7 @@ Bad examples (vague, no arrow, no "how"):
 If the structured tools above are **not registered** in your environment (older or non-Claude implementors may not have them), end your response with a `---RESULT---` block as a fallback. The orchestrator parses this when no tool call was captured, so it remains a valid exit path.
 
 **CRITICAL — format is parsed literally:**
+
 - The block must start with `---RESULT---` on its own line.
 - The block must end with `---END---` on its own line.
 - Between them must be **valid JSON** — one object with a `status` key and either `summary` (on success) or `reason` (on failure).
@@ -160,21 +167,24 @@ If the structured tools above are **not registered** in your environment (older 
 - **Never omit `---END---`**. Missing `---END---` = sprint reverted = all your work thrown away.
 
 On success:
-```
+
+```text
 ---RESULT---
 {"status": "success", "summary": "<what was asked> → <what you did to achieve it>"}
 ---END---
 ```
 
 If the sprint resolved a destination.md open question, add the optional `resolved_open_questions` list (same shape as the structured tool's arg):
-```
+
+```text
 ---RESULT---
 {"status": "success", "summary": "<what was asked> → <what you did>", "resolved_open_questions": [{"section": "Test strategy", "answer": "<one-line answer>", "adr_ref": "<ADR title or date>"}]}
 ---END---
 ```
 
 On failure:
-```
+
+```text
 ---RESULT---
 {"status": "failure", "reason": "one sentence explaining why it failed"}
 ---END---

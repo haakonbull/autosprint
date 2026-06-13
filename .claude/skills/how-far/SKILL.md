@@ -34,12 +34,12 @@ For each requirement, search the codebase for the implementing code **and its te
 
 ### 3. Assign a status — categorical, evidence-anchored
 
-| Status | Means | Evidence rule |
-|---|---|---|
-| ✅ **done** | Fully implemented and verifiable — the behavior exists and tests (or another concrete check) cover it. | Must cite the implementing code and its test(s). |
-| 🟡 **partial** | The core path exists but something is missing — an edge case, error handling, a sub-requirement, or test coverage. | Must cite what *is* there and name the specific gap. |
-| ⬜ **not started** | No implementing code found. | — |
-| ❓ **unclear** | The requirement is too vague to assess, or the code state genuinely cannot be determined. | Say which — a vague requirement is a finding in itself. |
+| Status             | Means                                                                                                              | Evidence rule                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| ✅ **done**        | Fully implemented and verifiable — the behavior exists and tests (or another concrete check) cover it.             | Must cite the implementing code and its test(s).        |
+| 🟡 **partial**     | The core path exists but something is missing — an edge case, error handling, a sub-requirement, or test coverage. | Must cite what *is* there and name the specific gap.    |
+| ⬜ **not started** | No implementing code found.                                                                                        | —                                                       |
+| ❓ **unclear**     | The requirement is too vague to assess, or the code state genuinely cannot be determined.                          | Say which — a vague requirement is a finding in itself. |
 
 **The evidence rule is the load-bearing one.** `done` and `partial` are not allowed without a concrete code pointer — a file, a function, a test. A requirement you would *like* to call done but cannot point at code for is not done: mark it ⬜ or ❓. LLM self-assessment drifts optimistic; the code pointer is the anchor that keeps the report honest.
 
@@ -51,12 +51,12 @@ Lead with a one-line headline — an honest **count**, never a percentage:
 
 Then a table, in destination.md's own order so each row maps back to the doc:
 
-> | Requirement (from destination.md) | Status | Evidence / gap |
-> |---|---|---|
-> | Hearing ingest from the source API | ✅ done | `sync/core.py` `_sync_locked`; covered by `tests/unit/test_sync_core.py` |
-> | Vector search over hearing chunks | 🟡 partial | `embeddings.py` upserts vectors, but no query/retrieval path and no test |
-> | On-demand HTTP API | ⬜ not started | no `api/` module, no HTTP framework in dependencies |
-> | "Fast" ingest | ❓ unclear | destination.md states no latency target — too vague to assess against code |
+> | Requirement (from destination.md)  | Status         | Evidence / gap                                                             |
+> | ---------------------------------- | -------------- | -------------------------------------------------------------------------- |
+> | Hearing ingest from the source API | ✅ done        | `sync/core.py` `_sync_locked`; covered by `tests/unit/test_sync_core.py`   |
+> | Vector search over hearing chunks  | 🟡 partial     | `embeddings.py` upserts vectors, but no query/retrieval path and no test   |
+> | On-demand HTTP API                 | ⬜ not started | no `api/` module, no HTTP framework in dependencies                        |
+> | "Fast" ingest                      | ❓ unclear     | destination.md states no latency target — too vague to assess against code |
 
 Close with a 2–4 sentence verdict: what is solid, the biggest remaining gap, and which 🟡 partial is closest to done. If several rows are ❓, say so plainly — that means destination.md needs sharpening before this skill can give a clean read.
 

@@ -28,18 +28,21 @@ Two flows, depending on how the skill is invoked:
 
 - **Direct (`/grill-waypoint-from-issue 42` or with a URL like `…/issues/42`):** parse the number, skip to "Fetch the issue".
 - **No argument:** list open issues so the user can pick:
-  ```
+
+  ```text
   gh issue list --state open --limit 20 --json number,title,labels --template '{{range .}}#{{.number}} — {{.title}} {{range .labels}}[{{.name}}] {{end}}\n{{end}}'
   ```
+
   Display the list, ask the user for the number. Accept just the integer or `#42`. Refuse `closed` issues with a soft warning — closed issues usually mean done, and importing them into a waypoint is rarely what the user wants. If the user insists, proceed.
 
 ## Fetch the issue
 
-```
+```text
 gh issue view <number> --json number,title,body,labels,comments,url,state,author
 ```
 
 Read the JSON. Capture:
+
 - **title** — one-line summary
 - **body** — main spec
 - **labels** — useful context (e.g. `bug`, `enhancement`, `breaking`)

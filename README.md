@@ -1,10 +1,10 @@
-```
+```text
  █████╗ ██╗   ██╗████████╗ ██████╗ ███████╗██████╗ ██████╗ ██╗███╗   ██╗████████╗
 ██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗██╔════╝██╔══██╗██╔══██╗██║████╗  ██║╚══██╔══╝
-███████║██║   ██║   ██║   ██║   ██║███████╗██████╔╝██████╔╝██║██╔██╗ ██║   ██║   
-██╔══██║██║   ██║   ██║   ██║   ██║╚════██║██╔═══╝ ██╔══██╗██║██║╚██╗██║   ██║   
-██║  ██║╚██████╔╝   ██║   ╚██████╔╝███████║██║     ██║  ██║██║██║ ╚████║   ██║   
-╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚══════╝╚═╝     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝   
+███████║██║   ██║   ██║   ██║   ██║███████╗██████╔╝██████╔╝██║██╔██╗ ██║   ██║
+██╔══██║██║   ██║   ██║   ██║   ██║╚════██║██╔═══╝ ██╔══██╗██║██║╚██╗██║   ██║
+██║  ██║╚██████╔╝   ██║   ╚██████╔╝███████║██║     ██║  ██║██║██║ ╚████║   ██║
+╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚══════╝╚═╝     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝
 
               Describe the destination only. Autosprint takes you there.
 ```
@@ -33,7 +33,7 @@ You write down what you want in `destination.md`. Autosprint measures the gap be
 
 By default (reviewed-plan mode), autosprint runs through a human-approved `plan.md` top to bottom and stops when the list empties — `MAX_SPRINTS` and your own `autosprint stop` are the other exit doors. With `--auto-replan`, once the initial plan finishes autosprint re-measures the gap and drafts a fresh plan, repeating sprint after sprint until you stop it or the destination is genuinely reached.
 
-# Prerequisites
+## Prerequisites
 
 Always required:
 
@@ -46,7 +46,7 @@ Plus **one or both** of the AI backends below, depending on which team you'll ru
 - **For Claude/Opus agents** (e.g. `solo`, `solo_opus`, default `council` includes them): [Node.js](https://nodejs.org/en/download) + `npm install -g @anthropic-ai/claude-code && claude login`
 - **For Copilot/GPT-5.5 agents** (e.g. `solo_gpt55`, `trio_gpt55`, default `council` includes them): the [GitHub CLI](https://cli.github.com/) (`gh`), then `gh auth login`
 
-## Installing autosprint
+### Installing autosprint
 
 ```bash
 git clone https://github.com/haakonbull/autosprint.git
@@ -57,7 +57,7 @@ This puts an `autosprint` command on your PATH that always runs the current stat
 
 > **Avoid the alias alternative** (`alias autosprint='uv run --project /path/to/autosprint autosprint'`): it re-syncs autosprint's own venv on every invocation, which is slower and fails with a file-lock error when a loop is already running — e.g. `autosprint stop` from a second terminal dies with *Access is denied* instead of stopping the run.
 
-### Updating autosprint
+#### Updating autosprint
 
 When you pull a newer version of autosprint, code changes take effect immediately (the tool install is editable). If `pyproject.toml` dependencies changed, reinstall; then refresh the bundled skills in any target repo you've already initialised:
 
@@ -74,17 +74,17 @@ autosprint init --update-skills
 
 `init --update-skills` overwrites `.claude/skills/`, `.claude/agents/`, and `.github/skills/` with the autosprint source versions. Other init artefacts (config.toml, destination.md, .gitignore) are left untouched.
 
-# First run
+## First run
 
 **Prerequisite:** finish [Installing autosprint](#installing-autosprint) above first — clone the repo and `uv tool install --editable` it so `autosprint` is callable from any directory.
 
 Two paths below: a **quick start** that runs autosprint against a built-in demo destination (a small 3D action game) so you can see the loop work in ~2 minutes, and a **real project** path where you write your own destination.
 
-## Quick start — see the loop work
+### Quick start — see the loop work
 
 Copy-paste one line at a time (PowerShell doesn't chain with `&&` in older versions). After `autosprint init`, the wizard asks 3 questions (target language, AI backend, enable auto-gates) — accept defaults or pick your backend.
 
-### Python project (uv + pytest)
+#### Python project (uv + pytest)
 
 ```bash
 mkdir my-game
@@ -99,7 +99,7 @@ git commit -m "init"
 autosprint run --auto-replan
 ```
 
-### TypeScript / JavaScript project (npm + vitest)
+#### TypeScript / JavaScript project (npm + vitest)
 
 ```bash
 mkdir my-game
@@ -116,7 +116,7 @@ autosprint run --auto-replan
 
 `autosprint run --auto-replan` starts the loop with autosprint re-planning each sprint as it goes (no hand-review needed). The seeded demo destination is a small 3D action game — concrete enough that the planner can produce real tasks immediately. After ~5–10 sprints you'll have a working baseline.
 
-### Pick a different demo
+#### Pick a different demo
 
 Several destination templates ship in `autosprint/examples/` after init:
 
@@ -131,11 +131,11 @@ To use the research demo instead, replace the `cp` line with:
 cp autosprint/examples/destination_research_ai_bubble.example.md autosprint/destination.md
 ```
 
-## Real project — write your own destination
+### Real project — write your own destination
 
 For an actual project, skip the quick start above. Replace the demo destination with one that describes your repo's target state, and review the plan before running:
 
-### 1. Describe the destination
+#### 1. Describe the destination
 
 **1.1 Make sure you're in a git repo.** `cd` into the repo you want autosprint to work on. If it isn't a git repo yet, run `git init` first — autosprint refuses to start without one (the commit/revert flow depends on it). Your project's own dependencies (`uv sync` / `poetry install` / `npm install` / etc.) should already be installed so the test suite can run.
 
@@ -153,13 +153,13 @@ It then writes `autosprint/config.toml`, seeds `autosprint/examples/` with desti
 
 **1.5 Run the `grill-destination` skill.** It interviews you to make sure `destination.md` has enough for the planner to work from. Two modes: **fresh** (greenfield project) and **mature-repo** (extracts a draft from your existing code, then walks you through validation).
 
-## 2. Plan the route
+### 2. Plan the route
 
 **2.1 Run `autosprint plan`**: A team of 6 agents + team lead reads `destination.md` and your current codebase, then writes `autosprint/plan.md` — a candidate route of ~15–30 ordered tasks. Pick a different team with `autosprint plan --team <name>` (see [Built-in teams](#built-in-teams)).
 
 **2.2 Review `plan.md` by hand**: Prune, reorder, sharpen. The `grill-plan` skill walks you through it.
 
-## 3. Run the sprints
+### 3. Run the sprints
 
 **3.1 Commit any pending work**: `autosprint run` cuts a fresh `autosprint/<timestamp>` branch, and **uncommitted edits carry over** into it (they'll be folded into the first green sprint commit). Commit or stash anything you don't want auto-bundled. autosprint will prompt Y/N if it finds an unclean working tree; pass `--commit-on-start` to skip the prompt.
 
@@ -172,15 +172,15 @@ It then writes `autosprint/config.toml`, seeds `autosprint/examples/` with desti
 
 The run ends when the plan is drained, when `MAX_SPRINTS` is hit (default 100, auto-sized to 2× the plan length in reviewed-plan mode when the default is in effect), or when you stop it (see the [CLI cookbook](#cli-cookbook) for stop commands).
 
-# Run modes
+## Run modes
 
 The three steps above describe a default run — review the plan, then execute it. Two flags vary that behavior.
 
-## Hands-off mode: `--auto-replan`
+### Hands-off mode: `--auto-replan`
 
 `autosprint run --auto-replan` runs the same loop without the human review step. When the current plan is drained, autosprint reads the gap to `destination.md` and generates a new plan automatically — keeping the loop going until `MAX_SPRINTS` is reached or you stop it. Raise the sprint cap with `--max-sprints N`.
 
-## Prioritize a task: `--prioritize`
+### Prioritize a task: `--prioritize`
 
 When you want a specific task surfaced near the top of the next plan — a small thing you want done now, a section of `destination.md` to focus on this run, or a fresh idea you just had — pass a freeform priority hint:
 
@@ -192,7 +192,7 @@ autosprint plan --prioritize "add a dark mode toggle to the settings page"
 
 The Plan phase passes the text into both team-member and team-lead prompts. The planner either looks up an existing `destination.md` section by vague reference, or treats the hint as a fresh one-off priority for this run. Run-scoped — `destination.md` is not modified.
 
-## Aim at a sub-goal: `waypoint.md`
+### Aim at a sub-goal: `waypoint.md`
 
 For a heavier "focus the loop on this one tracked thing until done" need — typically a GitHub issue — drop a `autosprint/waypoint.md` file. The Plan phase aims at the waypoint **exclusively** (not just nudged toward it like `--prioritize`) until the team lead concludes the waypoint state is satisfied, then halts so you can review.
 
@@ -200,7 +200,7 @@ The fastest way to write a waypoint is from a GitHub issue: open Claude Code in 
 
 Pause without losing content: rename to `waypoint.md.paused`. Rename back to re-activate.
 
-# Backtracking
+## Backtracking
 
 **Situation:** autosprint has run all night, but about halfway through it took a choice you don't like. Roll back and continue from the last commit you liked.
 
@@ -214,7 +214,7 @@ That's it. `plan.md`, `adr.md`, `destination.md`, and the three loop-history fil
 
 If you'd rather wipe all gitignored log debris too (clean-slate console + debug output): `autosprint clear-logs` before re-running.
 
-# The sprint loop
+## The sprint loop
 
 Each sprint runs four phases, then loops back for the next pending task in `plan.md`. Tests are the guardrail — the loop can only move in directions that keep the test suite green.
 
@@ -237,7 +237,7 @@ flowchart LR
 
 The loop also halts when `MAX_SPRINTS` is reached or you stop the run. `Replan if needed` is a no-op unless one of its triggers fires — every N sprints, after repeated failures, or when the plan empties — in which case it regenerates `plan.md` with a fresh planning round.
 
-## Plan
+### Plan
 
 A multi-agent Plan phase has two logical steps: parallel proposal, then merge. The diagram exemplifies the default `council` team (6 members + 1 lead):
 
@@ -285,21 +285,21 @@ On an `autosprint plan` run the team lead does extra annotation work: it groups 
 
 When the team has a single agent (`solo`, `solo_gpt55`, `superquick`), that agent plays the team-member role alone — no team-lead synthesis step, no preflight. Intended for debug iteration, not production runs.
 
-## Implement
+### Implement
 
 The implementor agent reads the top pending task, writes the code, and writes tests for what it changed. The prompt includes computed facts about prior attempts on the same task plus pointers to the run-history log files.
 
-## Test
+### Test
 
 `pytest` runs the target repo's tests as a plain Python subprocess — deterministic, no LLM in the loop. A failing test reverts the working tree.
 
-## Commit
+### Commit
 
 On a clean test run the change is committed to the sprint branch with a `[autosprint] <task>` message. On any failure autosprint does `git restore . && git clean -fd`, logs the revert, and the next sprint starts from the same commit.
 
 ---
 
-# Features
+## Features
 
 - **Multi-agent Plan phase.** Run 2–10 specialised personas in parallel (strategist, architect, bug hunter, minimalist, tester, clarifier, guardian, visionary, pragmatist, refactorer). A team lead merges them using a rubric covering consensus, minority-report, small-step bias, decision-detection-into-ADR, stagnation detection, and bug-hunter priority boost.
 - **Two backends, any mix.** Anthropic Claude via `claude-agent-sdk`, OpenAI models via `github-copilot-sdk`. Each agent picks its own backend and model.
@@ -316,9 +316,9 @@ On a clean test run the change is committed to the sprint branch with a `[autosp
 
 ---
 
-# Agents and teams
+## Agents and teams
 
-An **agent** in autosprint is a dictionary describing a single AI worker — its backend, model, role-prompt, and tool preset. Agents are defined in [`src/autosprint/agents.py`](src/autosprint/agents.py):
+An **agent** in autosprint is a dictionary describing a single AI worker — its backend, model, role-prompt, and tool preset. Agents are defined in [`src/autosprint/registry/agents/`](src/autosprint/registry/agents/):
 
 ```python
 AGENT_ARCHITECT_GPT55 = {
@@ -352,49 +352,49 @@ TEAM_POWER = {
 
 The implementor is a separate internal concept from the planning team — you can pair any team with any implementor via `--implement-agent`. Bundled presets (like `--preset solo-gpt55`) are just CLI-layer shortcuts that set both at once.
 
-## Built-in teams
+### Built-in teams
 
-| Team | Composition | Cost | Best for |
-|---|---|---:|---|
-| `builder` | 4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.8) + Opus 4.8 lead | medium-high | lighter balanced team — quality/coverage from GPT-5.5, quick-wins + gap-closing from Opus 4.8; good for the in-loop auto-plan cadence |
-| `hunter` | 4 planners (Bug Hunter Opus 4.8 + Bug Hunter/Guardian/Tester GPT-5.5) + Opus 4.8 lead | medium-high | stabilise-before-next-feature phases — all four voices hunt concrete failure modes |
-| `refiner` | 4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.8) + Opus 4.8 lead | medium-high | cleanup phases — structural cleanliness, naming, subtraction, test consolidation, ADR drift |
-| `quartet` | 5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.8) + Opus 4.8 lead (3 × Opus + 2 × GPT-5.5) | high | mature codebases — adds a Bug Hunter voice with North Star goal-progress bias |
-| `council` *(default)* | 6 planners (North Star + Bug Hunter + Pragmatist Opus 4.8, Tester + Minimalist + Architect GPT-5.5) + Opus 4.8 lead | high | six orthogonal lenses; built for a one-off `autosprint plan` you then hand-curate |
-| `council_gpt55` | 6 planners (North Star + Hunter + Pragmatist + Tester + Minimalist + Architect, all GPT-5.5) + GPT-5.5 lead | medium | all-Copilot mirror of `council` — same six lenses, zero Claude. Pair with `--implement-agent implementor_gpt55` or use `--preset copilot-only` |
-| `council_opus` | 6 planners (North Star + Bug Hunter + Pragmatist + Tester + Minimalist + Architect, all Opus 4.8) + Opus 4.8 lead | high | all-Claude mirror of `council` — same six lenses, zero Copilot. Pair with `--implement-agent implementor_opus48` or use `--preset claude-only` |
-| `power` | 10 planners (5 × Opus 4.8 + 5 × GPT-5.5) + Opus 4.8 lead | high | serious work; deepest, most diverse planning |
-| `mixed` | 5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.8 lead | high | broad perspective diversity |
-| `duo` | 2 planners (Thinker Opus 4.8 + Bug Hunter GPT-5.5) + Opus 4.8 lead | medium-high | lightweight real-work runs |
-| `trio_gpt55` | 3 planners (Innovator + Visionary + Tester GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot GPT-5.5 team; pair with `implementor_gpt55` |
-| `research_council` | 4 planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.8, Editor GPT-5.5) + Research Lead Opus 4.8 | medium-high | **research projects** whose deliverables are markdown documents (sources / paper / deep-dives); four lenses on source coverage, synthesis, argument balance, format discipline |
-| `research_council_opus` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all Opus 4.8) + Opus 4.8 lead | high | all-Claude mirror of `research_council` |
-| `research_council_gpt55` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot mirror of `research_council` |
-| `solo` / `solo_opus` | 1 × Opus 4.8 | medium | single-agent production runs |
-| `solo_sonnet` | 1 × Sonnet 4.6 | medium | cheaper single-agent alternative |
-| `solo_gpt52` | 1 × GPT-5.2 Copilot | low-medium | single-agent Copilot alternative |
-| `solo_gpt55` | 1 × GPT-5.5 Copilot | low-medium | cheap-plan; pair with `implementor_opus48` or use `--preset solo-gpt55` |
-| `solo_haiku_test` | 1 × Haiku 4.5 | low | A/B experiments with Haiku |
-| `solo_lite` | 1 × GPT-4.1 Copilot | very low | cheap/fast debug team |
-| `quick` | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Speed-runner GPT-4.1 lead | low | cheapest/fastest full multi-agent team |
-| `quick_mixed` | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Haiku lead | low | mixed-backend quick runs |
-| `debug_dual_gpt41` | 2 × GPT-4.1 Copilot | low | exercising multi-agent flow cheaply |
-| `superquick` | 1 × GPT-4.1 Copilot | very low | fastest debug iteration, no team lead |
+| Team                     | Composition                                                                                                                     |        Cost | Best for                                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `builder`                | 4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.8) + Opus 4.8 lead                                      | medium-high | lighter balanced team — quality/coverage from GPT-5.5, quick-wins + gap-closing from Opus 4.8; good for the in-loop auto-plan cadence                                          |
+| `hunter`                 | 4 planners (Bug Hunter Opus 4.8 + Bug Hunter/Guardian/Tester GPT-5.5) + Opus 4.8 lead                                           | medium-high | stabilise-before-next-feature phases — all four voices hunt concrete failure modes                                                                                             |
+| `refiner`                | 4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.8) + Opus 4.8 lead                                       | medium-high | cleanup phases — structural cleanliness, naming, subtraction, test consolidation, ADR drift                                                                                    |
+| `quartet`                | 5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.8) + Opus 4.8 lead (3 × Opus + 2 × GPT-5.5) |        high | mature codebases — adds a Bug Hunter voice with North Star goal-progress bias                                                                                                  |
+| `council` *(default)*    | 6 planners (North Star + Bug Hunter + Pragmatist Opus 4.8, Tester + Minimalist + Architect GPT-5.5) + Opus 4.8 lead             |        high | six orthogonal lenses; built for a one-off `autosprint plan` you then hand-curate                                                                                              |
+| `council_gpt55`          | 6 planners (North Star + Hunter + Pragmatist + Tester + Minimalist + Architect, all GPT-5.5) + GPT-5.5 lead                     |      medium | all-Copilot mirror of `council` — same six lenses, zero Claude. Pair with `--implement-agent implementor_gpt55` or use `--preset copilot-only`                                 |
+| `council_opus`           | 6 planners (North Star + Bug Hunter + Pragmatist + Tester + Minimalist + Architect, all Opus 4.8) + Opus 4.8 lead               |        high | all-Claude mirror of `council` — same six lenses, zero Copilot. Pair with `--implement-agent implementor_opus48` or use `--preset claude-only`                                 |
+| `power`                  | 10 planners (5 × Opus 4.8 + 5 × GPT-5.5) + Opus 4.8 lead                                                                        |        high | serious work; deepest, most diverse planning                                                                                                                                   |
+| `mixed`                  | 5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.8 lead                                                          |        high | broad perspective diversity                                                                                                                                                    |
+| `duo`                    | 2 planners (Thinker Opus 4.8 + Bug Hunter GPT-5.5) + Opus 4.8 lead                                                              | medium-high | lightweight real-work runs                                                                                                                                                     |
+| `trio_gpt55`             | 3 planners (Innovator + Visionary + Tester GPT-5.5) + GPT-5.5 lead                                                              |  low-medium | all-Copilot GPT-5.5 team; pair with `implementor_gpt55`                                                                                                                        |
+| `research_council`       | 4 planners (Web Researcher GPT-5.5, Synthesizer + Steelmanner Opus 4.8, Editor GPT-5.5) + Research Lead Opus 4.8                | medium-high | **research projects** whose deliverables are markdown documents (sources / paper / deep-dives); four lenses on source coverage, synthesis, argument balance, format discipline |
+| `research_council_opus`  | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all Opus 4.8) + Opus 4.8 lead                                  |        high | all-Claude mirror of `research_council`                                                                                                                                        |
+| `research_council_gpt55` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all GPT-5.5) + GPT-5.5 lead                                    |  low-medium | all-Copilot mirror of `research_council`                                                                                                                                       |
+| `solo` / `solo_opus`     | 1 × Opus 4.8                                                                                                                    |      medium | single-agent production runs                                                                                                                                                   |
+| `solo_sonnet`            | 1 × Sonnet 4.6                                                                                                                  |      medium | cheaper single-agent alternative                                                                                                                                               |
+| `solo_gpt52`             | 1 × GPT-5.2 Copilot                                                                                                             |  low-medium | single-agent Copilot alternative                                                                                                                                               |
+| `solo_gpt55`             | 1 × GPT-5.5 Copilot                                                                                                             |  low-medium | cheap-plan; pair with `implementor_opus48` or use `--preset solo-gpt55`                                                                                                        |
+| `solo_haiku_test`        | 1 × Haiku 4.5                                                                                                                   |         low | A/B experiments with Haiku                                                                                                                                                     |
+| `solo_lite`              | 1 × GPT-4.1 Copilot                                                                                                             |    very low | cheap/fast debug team                                                                                                                                                          |
+| `quick`                  | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Speed-runner GPT-4.1 lead                                               |         low | cheapest/fastest full multi-agent team                                                                                                                                         |
+| `quick_mixed`            | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Haiku lead                                                              |         low | mixed-backend quick runs                                                                                                                                                       |
+| `debug_dual_gpt41`       | 2 × GPT-4.1 Copilot                                                                                                             |         low | exercising multi-agent flow cheaply                                                                                                                                            |
+| `superquick`             | 1 × GPT-4.1 Copilot                                                                                                             |    very low | fastest debug iteration, no team lead                                                                                                                                          |
 
 Override per run via `--team` and `--implement-agent`, or use `--preset` for bundled pairings. The `power` team's 10 personas: Strategist, Architect, Bug Hunter, Minimalist, Tester, Clarifier, Guardian, Visionary, Pragmatist, Refactorer.
 
-## Bundled CLI presets
+### Bundled CLI presets
 
-| Preset | Expands to |
-|---|---|
-| `claude-only` | `--team council_opus --implement-agent implementor_opus48` (all-Claude six-lens team + Opus implementor) |
-| `copilot-only` | `--team council_gpt55 --implement-agent implementor_gpt55` (all-Copilot six-lens team + GPT-5.5 implementor) |
-| `solo-gpt55` | `--team solo_gpt55 --implement-agent implementor_gpt55` (single GPT-5.5 planner — cheap-plan variant of `copilot-only`) |
-| `quick-debug` | `--team quick --implement-agent implementor_gpt41 --initial-tests none --sp-target 3 --sp-max 3` (fast debug iteration) |
+| Preset         | Expands to                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `claude-only`  | `--team council_opus --implement-agent implementor_opus48` (all-Claude six-lens team + Opus implementor)                |
+| `copilot-only` | `--team council_gpt55 --implement-agent implementor_gpt55` (all-Copilot six-lens team + GPT-5.5 implementor)            |
+| `solo-gpt55`   | `--team solo_gpt55 --implement-agent implementor_gpt55` (single GPT-5.5 planner — cheap-plan variant of `copilot-only`) |
+| `quick-debug`  | `--team quick --implement-agent implementor_gpt41 --initial-tests none --sp-target 3 --sp-max 3` (fast debug iteration) |
 
 Explicit `--team` / `--implement-agent` win over the preset values, so `--preset solo-gpt55 --implement-agent implementor_opus48` uses GPT-5.5 for planning and Opus 4.8 for implementing.
 
-## Backends
+### Backends
 
 **Claude (Anthropic).** Install the Claude CLI and log in — `claude-agent-sdk` picks up the credentials:
 
@@ -409,15 +409,15 @@ claude login
 gh auth login
 ```
 
-**Other backends (OpenAI direct, local Ollama, Codex, Gemini, …).** Not built in yet. Adding one means writing a dispatcher function in [`src/autosprint/dispatch.py`](src/autosprint/dispatch.py); the existing Claude (~15 lines) and Copilot (~25 lines) dispatchers are the templates. PRs welcome.
+**Other backends (OpenAI direct, local Ollama, Codex, Gemini, …).** Not built in yet. Adding one means writing a dispatcher function in [`src/autosprint/infra/dispatch.py`](src/autosprint/infra/dispatch.py); the existing Claude (~15 lines) and Copilot (~25 lines) dispatchers are the templates. PRs welcome.
 
 ---
 
-# Target-repo layout
+## Target-repo layout
 
 Everything autosprint generates lives under a single `autosprint/` folder inside the target repo — nothing is dropped into the root:
 
-```
+```text
 {TARGET_REPO}/
 └── autosprint/
     ├── destination.md           ← committed: THE destination (GPS) — what "done" looks like
@@ -447,52 +447,52 @@ The committed files at the top — `destination.md`, `inputs/`, `plan.md`, `adr.
 
 ---
 
-# Configuration
+## Configuration
 
 Configured via environment variables or `.env` (pydantic-settings, loaded eagerly). A target repo's own `autosprint/config.toml` can also set the project-character knobs below (team, implement agent, story-point band); precedence is code defaults < `config.toml` < env / `.env` < CLI flags.
 
-| Variable | Default | What it does |
-|---|---|---|
-| `TARGET_REPO` | *(cwd)* | Debug/dev fallback for the target-repo path. Normally unset — autosprint operates on the current directory, or the path given to `--target` / `autosprint init <path>`. Only consulted when cwd is not a git repo. |
-| `TEAM` | `council` | Team key from `teams.TEAMS` |
-| `IMPLEMENT_AGENT` | `implementor_opus48` | Agent key from `agents.AGENTS` |
-| `MAX_SPRINTS` | `100` | Hard sprint cap per run. In reviewed-plan mode (`autosprint run` without `--auto-replan`), if left unset it auto-sizes to 2× the pending tasks in `plan.md` (floored at 10) so a short plan doesn't spin all the way to 100 unnecessarily; an explicit value (env or `--max-sprints`) always wins. |
-| `MAX_CONSECUTIVE_FAILURES` | `5` | Stop after N reverts in a row |
-| `REPLAN_EVERY_N_SPRINTS` | `5` | Force a re-plan at least this often |
-| `AUTO_REPLAN` | `false` | If `true`, the Plan phase regenerates `plan.md` as the loop runs — the autonomous self-planning mode, opted into with `autosprint run --auto-replan`. Default `false` is reviewed-plan mode: `autosprint run` executes `plan.md` as-is and never replans. |
-| `HOWFAR_HEARTBEAT_EVERY_N_SPRINTS` | `10` | Run `autosprint how-far` automatically every N sprints from inside the PIT loop as a passive progress sensor. Full report appended to `autosprint/logs/howfar-heartbeat.log`; a compact headline + verdict prints inline so a watching human (or returning AFK user reading the log) can spot "progress has been flat for 30 sprints" without re-running how-far by hand. Read-only, never feeds back into planning (Goodhart-safe). `0` disables. Cost: ~1 LLM dispatch per N sprints. |
-| `PRIORITIZE` | `""` | Freeform priority hint passed into the Plan phase. When non-empty, the team-member and team-lead prompts carry a "User priority for this run" section asking the planner to surface tasks addressing the hint near the top of `plan.md`. Typically set per-invocation via `--prioritize TEXT` rather than in `.env` — the priority is run-scoped. |
-| `SPRINT_STORY_POINT_MIN` | `2` | Lower end of the preferred story-point band. Soft: a single `(1)` task passes freely; a *pattern* of sub-min tasks gets bundled by the team lead. |
-| `SPRINT_STORY_POINT_MAX` | `20` | Upper end of the preferred story-point band. Team lead splits anything above this. Intentionally high so the dashboard can surface whether very large tasks actually ship; tune down in `.env` if revert rate exceeds ~35%. |
-| `SPRINT_STORY_POINT_TARGET` | `8` | Task-grouping aim. When `> 0`, the orchestrator greedily bundles the top pending tasks into one sprint (without exceeding `MAX`) to amortise per-sprint test overhead. `0` disables grouping (one task per sprint). |
-| `INITIAL_TESTS` | `"quick"` | Startup test scope: `quick` (pytest -m 'not slow'), `all` (full suite), `none` (skip). On failure, autosprint terminates — fix the repo first. |
-| `TEST_PHASE_QUICK_ONLY` | `false` | If `true`, Test phase runs only `-m "not slow"` every sprint. Default `false` = full suite every sprint. |
-| `SMOKE_TEST` | `"auto"` | Per-sprint smoke test that runs after pytest passes — verifies the target app actually starts via `python -m <package>`. Catches `ImportError` in `__main__.py`, missing deps mocked in tests, wiring bugs that pytest doesn't see. `auto` auto-detects the package name + tries `--help` then a 3s spawn-and-survive fallback. `off` disables it. Any other value is treated as a literal smoke command. A failed smoke test reverts the sprint (same gate as a failed test). |
-| `SMOKE_TEST_TIMEOUT` | `5` | Seconds to wait for the smoke test's `--help` form before giving up. The spawn-and-survive fallback uses its own 3s window. |
-| `IMPORT_CHECK` | `true` | Pre-smoke import check (`python -c 'import <pkg>'`) that runs before the `-m <pkg>` smoke. Catches package-level `ImportError`, top-level exceptions in `__init__.py`, missing deps that mocking hid. Cheap (~50ms) and works for library projects too (no `__main__.py` required). Auto-skips when the target has no `pyproject.toml [project].name`. |
-| `FORMAT_CHECK` | `"off"` | Pre-test format gate. `auto` runs `black --check src tests` for Python (silently skips if black isn't installed). Any other value is a literal command, e.g. `"black --check ."` or `"npx prettier --check ."`. A failed format check reverts the sprint. Opt-in to avoid surprising projects that don't use a formatter. |
-| `LINT_CHECK` | `"off"` | Pre-test lint gate. `auto` detects from target config files: ruff (`[tool.ruff]` in pyproject) > flake8 (`.flake8` or `setup.cfg [flake8]`) > mypy (`mypy.ini` or `[tool.mypy]`). Any other value is a literal command. A failed lint check reverts the sprint — catches subtle bugs pytest doesn't see (unused imports, mutable defaults, broad excepts). Opt-in. |
-| `PYTEST_COLLECT_GATE` | `false` | If `true`, runs `pytest --collect-only -q` as a pre-test gate before the real pytest invocation. Fails fast on collection errors (broken conftest.py, import errors in test files) with a cleaner error than letting pytest abort mid-suite. Marginal value over plain pytest's collection-error handling — opt-in. |
-| `COVERAGE_TRACK` | `false` | If `true`, runs pytest with `--cov=<pkg> --cov-report=term-missing` after the main test pass and appends the coverage % to `autosprint/logs/coverage-history.log`. Warn-only — a drop in coverage prints a console warning but does NOT revert the sprint. Future v2 will gate on regression. Requires `pytest-cov` in the target repo. |
-| `IMPLEMENT_TESTS_FAST_MARKER` | `"not slow"` | Marker expr the Implement agent uses for its inline self-check |
-| `FAKE_IMPLEMENT_FAILURE_RATE` | `0.2` | Probability that fake-implement simulates a failure (0.0–1.0) |
-| `LOG_LEVEL` | `50` | Lower is more verbose (100 = prod-quiet, 10 = full debug) |
-| `COMMIT_SUCCESSFUL_SPRINTS` | `true` | Set `false` to dry-run the full loop without commits |
-| `COMMIT_ON_START` | `false` | Commit pre-existing uncommitted changes at startup without the Y/N prompt |
-| `SPEAK_LEVEL` | `run` | How much to speak via pyttsx3 — cumulative: `off` / `run` / `reverts` / `sprints` / `all` |
-| `SAVE_CONSOLE_LOG` | `true` | Tee terminal output to `autosprint/logs/console-verbose.log` |
-| `USE_CACHE` | `false` | Read cached agent responses when available (dev only) |
-| `CACHE_MAX_ENTRIES` | `500` | Cap on cached response files; oldest evicted on startup. `0` disables. |
-| `LLM_RETRY_ATTEMPTS` | `3` | Retry transient dispatch failures this many times before giving up. With the default `LLM_RETRY_BACKOFF_SECONDS=5` this gives a 5s/15s/45s schedule (~65s total tolerance) — tuned for the typical 30-120s network blip seen on overnight `--auto-replan` runs. |
-| `LLM_RETRY_BACKOFF_SECONDS` | `5.0` | Initial backoff before first retry; **triples** each attempt (not doubles). Triple is tuned for real network outages where doubling burned the budget too fast. |
-| `LLM_SESSION_TIMEOUT_SECONDS` | `900` | Max wall-clock per LLM session (Copilot `send_and_wait`). 15 min default leaves room for heavy package installs. |
-| `SELF_TEST_BEFORE_START` | `false` | Run autosprint's own pytest + black --check before each PIT loop |
-| `CREATE_BRANCH` | `true` | Cut a fresh `autosprint/<ts>` branch on start. Disable with `--no-branch`. |
-| `DEBUG_TRACEBACK` | `false` | Print full Python traceback alongside breadcrumb chain on errors |
+| Variable                           | Default              | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TARGET_REPO`                      | *(cwd)*              | Debug/dev fallback for the target-repo path. Normally unset — autosprint operates on the current directory, or the path given to `--target` / `autosprint init <path>`. Only consulted when cwd is not a git repo.                                                                                                                                                                                                                                                                      |
+| `TEAM`                             | `council`            | Team key from `teams.TEAMS`                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `IMPLEMENT_AGENT`                  | `implementor_opus48` | Agent key from `agents.AGENTS`                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `MAX_SPRINTS`                      | `100`                | Hard sprint cap per run. In reviewed-plan mode (`autosprint run` without `--auto-replan`), if left unset it auto-sizes to 2× the pending tasks in `plan.md` (floored at 10) so a short plan doesn't spin all the way to 100 unnecessarily; an explicit value (env or `--max-sprints`) always wins.                                                                                                                                                                                      |
+| `MAX_CONSECUTIVE_FAILURES`         | `5`                  | Stop after N reverts in a row                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `REPLAN_EVERY_N_SPRINTS`           | `5`                  | Force a re-plan at least this often                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `AUTO_REPLAN`                      | `false`              | If `true`, the Plan phase regenerates `plan.md` as the loop runs — the autonomous self-planning mode, opted into with `autosprint run --auto-replan`. Default `false` is reviewed-plan mode: `autosprint run` executes `plan.md` as-is and never replans.                                                                                                                                                                                                                               |
+| `HOWFAR_HEARTBEAT_EVERY_N_SPRINTS` | `10`                 | Run `autosprint how-far` automatically every N sprints from inside the PIT loop as a passive progress sensor. Full report appended to `autosprint/logs/howfar-heartbeat.log`; a compact headline + verdict prints inline so a watching human (or returning AFK user reading the log) can spot "progress has been flat for 30 sprints" without re-running how-far by hand. Read-only, never feeds back into planning (Goodhart-safe). `0` disables. Cost: ~1 LLM dispatch per N sprints. |
+| `PRIORITIZE`                       | `""`                 | Freeform priority hint passed into the Plan phase. When non-empty, the team-member and team-lead prompts carry a "User priority for this run" section asking the planner to surface tasks addressing the hint near the top of `plan.md`. Typically set per-invocation via `--prioritize TEXT` rather than in `.env` — the priority is run-scoped.                                                                                                                                       |
+| `SPRINT_STORY_POINT_MIN`           | `2`                  | Lower end of the preferred story-point band. Soft: a single `(1)` task passes freely; a *pattern* of sub-min tasks gets bundled by the team lead.                                                                                                                                                                                                                                                                                                                                       |
+| `SPRINT_STORY_POINT_MAX`           | `20`                 | Upper end of the preferred story-point band. Team lead splits anything above this. Intentionally high so the dashboard can surface whether very large tasks actually ship; tune down in `.env` if revert rate exceeds ~35%.                                                                                                                                                                                                                                                             |
+| `SPRINT_STORY_POINT_TARGET`        | `8`                  | Task-grouping aim. When `> 0`, the orchestrator greedily bundles the top pending tasks into one sprint (without exceeding `MAX`) to amortise per-sprint test overhead. `0` disables grouping (one task per sprint).                                                                                                                                                                                                                                                                     |
+| `INITIAL_TESTS`                    | `"quick"`            | Startup test scope: `quick` (pytest -m 'not slow'), `all` (full suite), `none` (skip). On failure, autosprint terminates — fix the repo first.                                                                                                                                                                                                                                                                                                                                          |
+| `TEST_PHASE_QUICK_ONLY`            | `false`              | If `true`, Test phase runs only `-m "not slow"` every sprint. Default `false` = full suite every sprint.                                                                                                                                                                                                                                                                                                                                                                                |
+| `SMOKE_TEST`                       | `"auto"`             | Per-sprint smoke test that runs after pytest passes — verifies the target app actually starts via `python -m <package>`. Catches `ImportError` in `__main__.py`, missing deps mocked in tests, wiring bugs that pytest doesn't see. `auto` auto-detects the package name + tries `--help` then a 3s spawn-and-survive fallback. `off` disables it. Any other value is treated as a literal smoke command. A failed smoke test reverts the sprint (same gate as a failed test).          |
+| `SMOKE_TEST_TIMEOUT`               | `5`                  | Seconds to wait for the smoke test's `--help` form before giving up. The spawn-and-survive fallback uses its own 3s window.                                                                                                                                                                                                                                                                                                                                                             |
+| `IMPORT_CHECK`                     | `true`               | Pre-smoke import check (`python -c 'import <pkg>'`) that runs before the `-m <pkg>` smoke. Catches package-level `ImportError`, top-level exceptions in `__init__.py`, missing deps that mocking hid. Cheap (~50ms) and works for library projects too (no `__main__.py` required). Auto-skips when the target has no `pyproject.toml [project].name`.                                                                                                                                  |
+| `FORMAT_CHECK`                     | `"off"`              | Pre-test format gate. `auto` runs `black --check src tests` for Python (silently skips if black isn't installed). Any other value is a literal command, e.g. `"black --check ."` or `"npx prettier --check ."`. A failed format check reverts the sprint. Opt-in to avoid surprising projects that don't use a formatter.                                                                                                                                                               |
+| `LINT_CHECK`                       | `"off"`              | Pre-test lint gate. `auto` detects from target config files: ruff (`[tool.ruff]` in pyproject) > flake8 (`.flake8` or `setup.cfg [flake8]`) > mypy (`mypy.ini` or `[tool.mypy]`). Any other value is a literal command. A failed lint check reverts the sprint — catches subtle bugs pytest doesn't see (unused imports, mutable defaults, broad excepts). Opt-in.                                                                                                                      |
+| `PYTEST_COLLECT_GATE`              | `false`              | If `true`, runs `pytest --collect-only -q` as a pre-test gate before the real pytest invocation. Fails fast on collection errors (broken conftest.py, import errors in test files) with a cleaner error than letting pytest abort mid-suite. Marginal value over plain pytest's collection-error handling — opt-in.                                                                                                                                                                     |
+| `COVERAGE_TRACK`                   | `false`              | If `true`, runs pytest with `--cov=<pkg> --cov-report=term-missing` after the main test pass and appends the coverage % to `autosprint/logs/coverage-history.log`. Warn-only — a drop in coverage prints a console warning but does NOT revert the sprint. Future v2 will gate on regression. Requires `pytest-cov` in the target repo.                                                                                                                                                 |
+| `IMPLEMENT_TESTS_FAST_MARKER`      | `"not slow"`         | Marker expr the Implement agent uses for its inline self-check                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `FAKE_IMPLEMENT_FAILURE_RATE`      | `0.2`                | Probability that fake-implement simulates a failure (0.0–1.0)                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `LOG_LEVEL`                        | `50`                 | Lower is more verbose (100 = prod-quiet, 10 = full debug)                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `COMMIT_SUCCESSFUL_SPRINTS`        | `true`               | Set `false` to dry-run the full loop without commits                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `COMMIT_ON_START`                  | `false`              | Commit pre-existing uncommitted changes at startup without the Y/N prompt                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `SPEAK_LEVEL`                      | `run`                | How much to speak via pyttsx3 — cumulative: `off` / `run` / `reverts` / `sprints` / `all`                                                                                                                                                                                                                                                                                                                                                                                               |
+| `SAVE_CONSOLE_LOG`                 | `true`               | Tee terminal output to `autosprint/logs/console-verbose.log`                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `USE_CACHE`                        | `false`              | Read cached agent responses when available (dev only)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `CACHE_MAX_ENTRIES`                | `500`                | Cap on cached response files; oldest evicted on startup. `0` disables.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `LLM_RETRY_ATTEMPTS`               | `3`                  | Retry transient dispatch failures this many times before giving up. With the default `LLM_RETRY_BACKOFF_SECONDS=5` this gives a 5s/15s/45s schedule (~65s total tolerance) — tuned for the typical 30-120s network blip seen on overnight `--auto-replan` runs.                                                                                                                                                                                                                         |
+| `LLM_RETRY_BACKOFF_SECONDS`        | `5.0`                | Initial backoff before first retry; **triples** each attempt (not doubles). Triple is tuned for real network outages where doubling burned the budget too fast.                                                                                                                                                                                                                                                                                                                         |
+| `LLM_SESSION_TIMEOUT_SECONDS`      | `900`                | Max wall-clock per LLM session (Copilot `send_and_wait`). 15 min default leaves room for heavy package installs.                                                                                                                                                                                                                                                                                                                                                                        |
+| `SELF_TEST_BEFORE_START`           | `false`              | Run autosprint's own pytest + black --check before each PIT loop                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `CREATE_BRANCH`                    | `true`               | Cut a fresh `autosprint/<ts>` branch on start. Disable with `--no-branch`.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `DEBUG_TRACEBACK`                  | `false`              | Print full Python traceback alongside breadcrumb chain on errors                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ---
 
-# CLI cookbook
+## CLI cookbook
 
 Most-used commands first. Run `autosprint --help` for the live exhaustive list.
 
@@ -569,9 +569,9 @@ autosprint run --auto-replan --fake-plan "Add hello" --fake-implement --commit-o
 
 ---
 
-# CLI reference
+## CLI reference
 
-```
+```text
 autosprint                       # no subcommand — print this help
 autosprint init [PATH]           # bootstrap the autosprint/ folder (default: the current repo)
 autosprint init --update-skills  # refresh .claude/skills, .claude/agents, .github/skills from autosprint source (overwrite)
@@ -590,38 +590,38 @@ autosprint clear-logs            # delete generated logs + cache/, keep committe
 
 **Run-modifying options** (apply to `run`, `plan`, `show-config`):
 
-| Flag | Effect |
-|---|---|
-| `--branch NAME` | Override the branch name (default: `autosprint/<timestamp>`) |
-| `--target PATH` | Point autosprint at this repo instead of the current directory |
-| `--team NAME` | Override `TEAM` for this invocation |
-| `--implement-agent KEY` | Override `IMPLEMENT_AGENT` for this invocation |
-| `--preset NAME` | Bundled preset — sets several flags at once (`claude-only`, `copilot-only`, `solo-gpt55`, `quick-debug`). Explicit flags win over preset values. |
-| `--claude-only` | Shortcut for `--preset claude-only` (council_opus + Opus implementor). |
-| `--copilot-only` | Shortcut for `--preset copilot-only` (council_gpt55 + GPT-5.5 implementor). |
-| `--max-sprints N` | Override `MAX_SPRINTS` |
-| `--commit-on-start` | Commit uncommitted target-repo changes without Y/N prompt |
-| `--manual-review` | Pause after Plan for approval of the chosen task |
-| `--no-branch` | Run on the current git branch instead of cutting a fresh one |
-| `--use-cache` | Read cached agent responses from `autosprint/cache/` (writes always happen) |
-| `--debug-traceback` | Print full Python traceback on top-level errors |
-| `--initial-tests {quick,all,none}` | Override `INITIAL_TESTS`. On failure, autosprint terminates. |
-| `--test-phase-quick-only` | Run only the `-m "not slow"` subset in the Test phase (default: full suite) |
-| `--fake-plan TITLE` | Skip the Plan LLM call; inject this task title |
-| `--fake-desc DESC` | Description for the `--fake-plan` task (ignored without `--fake-plan`) |
-| `--fake-implement` | Skip the Implement LLM call; simulate success/failure at `FAKE_IMPLEMENT_FAILURE_RATE` |
-| `--skip-first-plan` | Do NOT force a replan on sprint 1 — reuse the existing `plan.md`. Default is to always replan first sprint; this flag is a debug escape hatch that lets you iterate on Implement/Test without paying for a fresh planning LLM call each run. Falls back to a real plan if `plan.md` is empty. |
-| `--auto-replan` | Autonomous self-planning loop — the Plan phase regenerates `plan.md` as the run proceeds. Without it, `autosprint run` executes the reviewed `plan.md` as-is and exits when it drains. |
-| `--sp-target N` | Override `SPRINT_STORY_POINT_TARGET` (task-grouping aim, default 8). Lower (e.g. 2–3) for faster debug sprints with smaller bundles; 0 disables grouping (one task per sprint). |
-| `--sp-min N` | Override `SPRINT_STORY_POINT_MIN` (soft lower bound of preferred task-size band, default 2). |
-| `--sp-max N` | Override `SPRINT_STORY_POINT_MAX` (hard upper bound the team lead must split above, default 20). Lower (e.g. 5) for debug runs so the planner produces small tasks you can iterate on fast. |
-| `--prioritize TEXT` | Freeform priority hint for this run. Surfaces in both team-member and team-lead prompts; the planner puts tasks addressing the hint near the top of `plan.md`. Accepts a fresh request (`"add dark mode toggle"`) or a vague reference into `destination.md` (`"see the section about auth"`); the planner resolves the reference itself. |
+| Flag                               | Effect                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch NAME`                    | Override the branch name (default: `autosprint/<timestamp>`)                                                                                                                                                                                                                                                                              |
+| `--target PATH`                    | Point autosprint at this repo instead of the current directory                                                                                                                                                                                                                                                                            |
+| `--team NAME`                      | Override `TEAM` for this invocation                                                                                                                                                                                                                                                                                                       |
+| `--implement-agent KEY`            | Override `IMPLEMENT_AGENT` for this invocation                                                                                                                                                                                                                                                                                            |
+| `--preset NAME`                    | Bundled preset — sets several flags at once (`claude-only`, `copilot-only`, `solo-gpt55`, `quick-debug`). Explicit flags win over preset values.                                                                                                                                                                                          |
+| `--claude-only`                    | Shortcut for `--preset claude-only` (council_opus + Opus implementor).                                                                                                                                                                                                                                                                    |
+| `--copilot-only`                   | Shortcut for `--preset copilot-only` (council_gpt55 + GPT-5.5 implementor).                                                                                                                                                                                                                                                               |
+| `--max-sprints N`                  | Override `MAX_SPRINTS`                                                                                                                                                                                                                                                                                                                    |
+| `--commit-on-start`                | Commit uncommitted target-repo changes without Y/N prompt                                                                                                                                                                                                                                                                                 |
+| `--manual-review`                  | Pause after Plan for approval of the chosen task                                                                                                                                                                                                                                                                                          |
+| `--no-branch`                      | Run on the current git branch instead of cutting a fresh one                                                                                                                                                                                                                                                                              |
+| `--use-cache`                      | Read cached agent responses from `autosprint/cache/` (writes always happen)                                                                                                                                                                                                                                                               |
+| `--debug-traceback`                | Print full Python traceback on top-level errors                                                                                                                                                                                                                                                                                           |
+| `--initial-tests {quick,all,none}` | Override `INITIAL_TESTS`. On failure, autosprint terminates.                                                                                                                                                                                                                                                                              |
+| `--test-phase-quick-only`          | Run only the `-m "not slow"` subset in the Test phase (default: full suite)                                                                                                                                                                                                                                                               |
+| `--fake-plan TITLE`                | Skip the Plan LLM call; inject this task title                                                                                                                                                                                                                                                                                            |
+| `--fake-desc DESC`                 | Description for the `--fake-plan` task (ignored without `--fake-plan`)                                                                                                                                                                                                                                                                    |
+| `--fake-implement`                 | Skip the Implement LLM call; simulate success/failure at `FAKE_IMPLEMENT_FAILURE_RATE`                                                                                                                                                                                                                                                    |
+| `--skip-first-plan`                | Do NOT force a replan on sprint 1 — reuse the existing `plan.md`. Default is to always replan first sprint; this flag is a debug escape hatch that lets you iterate on Implement/Test without paying for a fresh planning LLM call each run. Falls back to a real plan if `plan.md` is empty.                                             |
+| `--auto-replan`                    | Autonomous self-planning loop — the Plan phase regenerates `plan.md` as the run proceeds. Without it, `autosprint run` executes the reviewed `plan.md` as-is and exits when it drains.                                                                                                                                                    |
+| `--sp-target N`                    | Override `SPRINT_STORY_POINT_TARGET` (task-grouping aim, default 8). Lower (e.g. 2–3) for faster debug sprints with smaller bundles; 0 disables grouping (one task per sprint).                                                                                                                                                           |
+| `--sp-min N`                       | Override `SPRINT_STORY_POINT_MIN` (soft lower bound of preferred task-size band, default 2).                                                                                                                                                                                                                                              |
+| `--sp-max N`                       | Override `SPRINT_STORY_POINT_MAX` (hard upper bound the team lead must split above, default 20). Lower (e.g. 5) for debug runs so the planner produces small tasks you can iterate on fast.                                                                                                                                               |
+| `--prioritize TEXT`                | Freeform priority hint for this run. Surfaces in both team-member and team-lead prompts; the planner puts tasks addressing the hint near the top of `plan.md`. Accepts a fresh request (`"add dark mode toggle"`) or a vague reference into `destination.md` (`"see the section about auth"`); the planner resolves the reference itself. |
 
 Full live help is always `autosprint --help` (and `autosprint <subcommand> --help`).
 
 ---
 
-# The destination doc
+## The destination doc
 
 `autosprint/destination.md` is the single most important file you write for this tool. It is the destination pin on the map. A vague destination produces vague sprints.
 
@@ -647,7 +647,7 @@ The `destination.md` file itself answers **what** and **why**. Technical choices
 
 ---
 
-# MCP servers
+## MCP servers
 
 **Claude-facing audio MCP now lives in [`sound-for-claude`](https://github.com/haakonbull/sound-for-claude).** Clone it anywhere locally. That package ships one MCP server with three tools: `read_aloud(text)`, `play_wav(file, device)`, and `list_devices()`. Register it once in `~/.claude/mcp.json` and every Claude Code project picks it up:
 
@@ -667,10 +667,9 @@ Claude then sees `mcp__sound__read_aloud`, `mcp__sound__play_wav`, `mcp__sound__
 
 autosprint's internal `speak()` helper in `src/autosprint/output.py` stays — it's gated by `config.SPEAK_LEVEL` and drives the orchestrator's own sprint-start/finish/revert audio cues. Only the MCP-facing layer moved out.
 
-
 ---
 
-# How it stays safe
+## How it stays safe
 
 - **Branch isolation.** Every run cuts a fresh `autosprint/<timestamp>` branch. Your main branch is never touched unless you merge the PR yourself.
 - **Revert on failure.** `git restore . && git clean -fd` rewinds any failed step before the next sprint starts. The working tree always matches the last green commit.
@@ -683,7 +682,7 @@ autosprint's internal `speak()` helper in `src/autosprint/output.py` stays — i
 
 ---
 
-# Development
+## Development
 
 ```bash
 # Full test suite (fast + slow)
@@ -703,9 +702,9 @@ See [`CLAUDE.md`](CLAUDE.md) for architectural notes, and [`src/autosprint/`](sr
 
 ---
 
-# What a run looks like
+## What a run looks like
 
-```
+```text
 ================================= 🚀 AUTOSPRINT =================================
    Target repo:  /path/to/my-project
    Max sprints:  10
@@ -774,7 +773,7 @@ Each committed sprint is a clean, tested step. Each reverted sprint leaves the w
 
 ---
 
-# FAQ / troubleshooting
+## FAQ / troubleshooting
 
 **How do I stop a long unattended run?**
 From another terminal pointed at the same target repo, run `autosprint stop` (finish current sprint, then exit) or `autosprint stop --now` (revert + exit immediately). The live loop deletes the control file on consumption, so stale files can't auto-stop the next run.
@@ -825,7 +824,7 @@ Yes. `autosprint init` (and every normal run) migrates `autosprint/ai-run.log` �
 
 ---
 
-# Status
+## Status
 
 Early but real. The orchestration loop works end-to-end. The test suite is green. The agent rubric is solid. Expect rough edges in:
 

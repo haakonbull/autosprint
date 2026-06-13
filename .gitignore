@@ -55,3 +55,12 @@ Desktop.ini
 .claude/scheduled_tasks.lock
 todos.md
 .data/
+
+# Quarto build output
+docs/_site/
+docs/.quarto/
+docs/likec4/dist/
+
+.rumdl_cache/
+.import_linter_cache/
+.ty_cache/

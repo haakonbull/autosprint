@@ -87,6 +87,7 @@ same title, same description, nobody implementing it — that is a signal
 - no longer relevant (the codebase moved).
 
 Your action as lead: **split it or demote it.**
+
 - Split: replace the stale task with a concrete smaller first step that
   would credibly lead into the old task, and drop the old one.
 - Demote: move it to the bottom of the list and let it age out.
@@ -350,7 +351,7 @@ advantage — treat it as one more signal, not a forced directive.
 
 End your response with a `---RESULT---` block containing valid JSON:
 
-```
+```text
 ---RESULT---
 {"pending": [
   {"title": "Short imperative title", "description": "What to do and why. Include 'record in adr.md first' for decisions-in-disguise."},

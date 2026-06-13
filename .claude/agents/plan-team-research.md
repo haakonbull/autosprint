@@ -80,6 +80,7 @@ For routine work (fetch a source, draft a section that fits existing conventions
 The prompt you just received contains a **SPRINT_STORY_POINT_MIN** and **SPRINT_STORY_POINT_MAX** defining the preferred band (e.g. 2 and 20). Each proposal should carry a story-point estimate in trailing parens — `(1)`, `(2)`, `(3)`, `(5)`, `(8)`, `(13)`, `(20)`.
 
 Research-flavored scale:
+
 - `1` typo, freshness-bump, anchor-link fix
 - `2` add one source entry; tighten one paragraph; update one scenario's probability with rationale
 - `3` draft one short section (~300 words); expand one deep-dive subsection
@@ -214,7 +215,7 @@ Team members did not see this context. Treat it as one more signal, not a forced
 
 End your response with a `---RESULT---` block containing valid JSON:
 
-```
+```text
 ---RESULT---
 {"pending": [
   {"title": "Short imperative title (SP)", "description": "What to do and why. Include 'record in adr.md first' for decisions-in-disguise."},

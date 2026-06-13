@@ -43,6 +43,7 @@ Then check the list **as a whole**:
 Go **task by task**, in plan order. For each, give a one-line verdict; for anything below "ready", a concrete recommendation. Lead with the verdict:
 
 > **grill-plan — `plan.md` review**
+>
 > 1. Split the 400-line `run_implement` (5) — **ready**.
 > 2. Improve error handling (3) — **weak: vague.** Which module? Recommend: *"Replace the bare `except Exception` in `dispatch.py` `_connect` with a typed handler that logs and re-raises."*
 > 3. Add caching layer (8) — **decision in disguise.** Hides "do we want a caching layer, and where?". Recommend: convert to *"Decide whether to add response caching (record in adr.md); implement if yes."*

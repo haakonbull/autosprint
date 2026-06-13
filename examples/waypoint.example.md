@@ -4,7 +4,7 @@ _Optional sub-destination that the autosprint loop will aim at **exclusively**, 
 
 ## How to use this file
 
-A waypoint is a user-set intermediate target — a state you want the codebase to reach *before* the loop continues toward the broader destination. Think of it as a route waypoint in Google Maps: the destination doesn't move, but the next several sprints route via this point first.
+A waypoint is a user-set intermediate target — a state you want the codebase to reach _before_ the loop continues toward the broader destination. Think of it as a route waypoint in Google Maps: the destination doesn't move, but the next several sprints route via this point first.
 
 Authoring conventions (same shape as `destination.md`):
 

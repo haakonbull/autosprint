@@ -1,0 +1,34 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Autosprint"
+  description: "Automated sprint loop — Plan, Implement, Test, Commit."
+  repo-url: https://github.com/haakonbull/autosprint
+  navbar:
+    left:
+      - href: index.qmd
+        text: Overview
+      - href: installation.qmd
+        text: Installation
+      - href: usage.qmd
+        text: Usage
+      - href: configuration.qmd
+        text: Configuration
+      - href: architecture.qmd
+        text: Architecture
+      - href: backends.qmd
+        text: Backends
+      - href: glossary.qmd
+        text: Glossary
+  page-footer:
+    center: "Autosprint — descend toward the destination, one sprint at a time."
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    code-copy: true
+    code-overflow: wrap

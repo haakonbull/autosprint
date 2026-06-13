@@ -1,0 +1,16 @@
+# Documentation: the Quarto site, with the LikeC4 model as a nested module.
+# Quarto recipes run from docs/ (the Quarto project root).
+# C4 recipes live under `just docs likec4 ...`.
+
+mod likec4
+
+_default:
+    @just --list
+
+# Render the Quarto site to docs/_site.
+build:
+    quarto render
+
+# Live-preview the Quarto site with reload.
+dev:
+    quarto preview

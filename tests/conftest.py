@@ -10,12 +10,48 @@ the duration of the suite — log tee + SQLite mirror — so a stray
 ``autosprint/runs.db``.
 """
 
-from __future__ import annotations
+from pathlib import Path
 
 import pytest
 
-from autosprint import db
 from autosprint.config import config
+from autosprint.infra import db
+from autosprint.util.paths import AUTOSPRINT_DIR_NAME
+
+# ---------------------------------------------------------------------------
+# Target-repo scaffolding
+#
+# The vast majority of tests point the config singleton's TARGET_REPO at a
+# throwaway tmp_path and, depending on the code path, need that directory to
+# look like a git repo and/or an autosprint-initialised repo. These three
+# fixtures layer those states so a test asks for exactly the tier it needs:
+#   target_repo            -> TARGET_REPO set, empty dir
+#   git_target_repo        -> + a .git directory
+#   initialised_target_repo -> + autosprint/config.toml (autosprint-init'd)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def target_repo(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """A tmp_path registered as the active TARGET_REPO. Base for most tests."""
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    return tmp_path
+
+
+@pytest.fixture
+def git_target_repo(target_repo: Path) -> Path:
+    """A target repo that is a git repository but not yet autosprint-initialised."""
+    (target_repo / ".git").mkdir()
+    return target_repo
+
+
+@pytest.fixture
+def initialised_target_repo(git_target_repo: Path) -> Path:
+    """A fully autosprint-initialised target repo: git + autosprint/config.toml."""
+    autosprint_dir = git_target_repo / AUTOSPRINT_DIR_NAME
+    autosprint_dir.mkdir()
+    (autosprint_dir / "config.toml").write_text("", encoding="utf-8")
+    return git_target_repo
 
 
 @pytest.fixture(autouse=True)

@@ -1,0 +1,17 @@
+specification {
+  element person {
+    style {
+      shape person
+      color secondary
+    }
+  }
+  element system
+  element container
+  element component {
+    style {
+      color muted
+    }
+  }
+
+  relationship uses
+}

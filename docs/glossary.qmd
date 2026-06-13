@@ -1,0 +1,248 @@
+---
+title: "Glossary"
+---
+
+The controlled vocabulary for autosprint — one canonical name per concept, so
+the code, the prompts, and the docs all use terms consistently. Entries are
+alphabetized. Each lists the canonical term, its kind, a one-line definition,
+and distinguishability notes where a term is easily confused with a neighbour.
+
+When a concept crosses into the user's repo it names the file (e.g.
+`autosprint/plan.md`); when it is a setting it names the config var (e.g.
+`TARGET_REPO`); when it is code it names the symbol.
+
+## ADR
+
+**Canonical:** `autosprint/adr.md` · **Type:** file (user-facing)
+An Architecture Decision Record — a stable, recorded choice the loop must
+respect and not overturn casually. The Implement and Plan phases read it as
+context; decisions-in-disguise are converted into ADR entries rather than
+silently re-litigated each sprint.
+
+- **Not to be confused with:** the [changelog](#changelog), which records *what
+  happened*, not *what was decided*.
+
+## Agent
+
+**Canonical:** `agent` · **Type:** concept (dict in `registry/agents/`)
+A single AI participant: a dict with `name`, `assistant`, `model`,
+`system_prompt`, and `tools`. The `assistant` field selects the
+[backend](#backend).
+
+- **Not to be confused with:** [backend](#backend) (the provider an agent
+  dispatches to) or [team](#team) (a group of agents).
+
+## Backend
+
+**Canonical:** `backend` · **Type:** concept (field name `assistant`)
+The AI provider an agent dispatches to — `claude` or `copilot`. In the agent
+dict this is the `assistant` field; "backend" is the concept the docs and
+tooling use (e.g. "the backends a team uses"). See [Backends](backends.qmd).
+
+- **Use instead of:** provider, vendor.
+- **Not to be confused with:** [model](#model) (a specific model id within a
+  backend, e.g. `claude-opus-4-8`).
+
+## Changelog
+
+**Canonical:** `autosprint/changelog.md` · **Type:** file (autosprint-authored)
+An append-only record of what each committed sprint changed. Written by
+autosprint, not the user.
+
+- **Not to be confused with:** the [ADR](#adr) (recorded decisions) or
+  `sprint-outcomes.log` (the machine-readable per-task outcome log).
+
+## Commit
+
+**Canonical:** `Commit` · **Type:** phase (the **T** … C of PIT)
+The final phase of a sprint: when the Test phase is green, the task group's
+changes are committed to the working branch. Gated by `COMMIT_SUCCESSFUL_SPRINTS`.
+
+## Destination
+
+**Canonical:** `autosprint/destination.md` · **Type:** file (user-facing)
+The user-authored description of where the code should end up — the spec the
+loop descends toward. The loop repeatedly measures the gap between the current
+state and the destination and closes it one sprint at a time.
+
+- **Not to be confused with:** a [waypoint](#waypoint), which is an
+  *intermediate* target reached on the way to the destination.
+
+## Dispatch
+
+**Canonical:** `query_agent` / `query_agents` · **Type:** concept (`infra/dispatch.py`)
+Sending a prompt to an agent's backend and returning its output text.
+`query_agent` is a single call; `query_agents` fans out a list concurrently.
+The per-backend implementations are *dispatchers* (`_run_claude`,
+`_run_copilot`) held in the `DISPATCHERS` registry.
+
+## Escalation
+
+**Canonical:** `escalation` · **Type:** concept
+The safety brake that raises and stops the loop when the same task has failed
+3× within the recent run-log window — a signal that human input is needed
+rather than another automated retry.
+
+- **Not to be confused with:** the [refusal fallback](#refusal-fallback)
+  (re-dispatch to a different model within one sprint).
+
+## Gate
+
+**Canonical:** `gate` · **Type:** concept (`infra/gates.py`)
+An optional per-sprint quality check (e.g. import-check) that can be `active`,
+`off`, or `auto-skipped` when its tooling is absent. Inspected by the `gates`
+command and the startup banner.
+
+## How-far
+
+**Canonical:** `how-far` · **Type:** command / report (`app/how_far.py`)
+A read-only distance-to-destination report. Makes no changes; can also run as a
+periodic heartbeat during a loop (`HOWFAR_HEARTBEAT_EVERY_N_SPRINTS`).
+
+## Implement
+
+**Canonical:** `Implement` · **Type:** phase (the **I** of PIT)
+The phase where one agent implements the current task group. Terminates by
+calling a [structured-exit tool](#structured-exit-tool); a refusal can trigger
+the [refusal fallback](#refusal-fallback).
+
+## Model
+
+**Canonical:** `model` · **Type:** field
+The specific model id an agent uses within its backend (e.g. `claude-opus-4-8`,
+`gpt-5.2`). A field on the agent dict.
+
+- **Not to be confused with:** [backend](#backend) (the provider).
+
+## Open question
+
+**Canonical:** `open question` · **Type:** concept (`destination.md` section)
+An unresolved point in the destination. When a sprint resolves one, the
+implementor names it (`resolved_open_questions`) and *autosprint* — not the
+agent — appends the status marker and receipt to `destination.md`.
+
+## PIT loop
+
+**Canonical:** `PIT loop` · **Type:** concept
+The core loop: **P**lan → **I**mplement → **T**est → **C**ommit, repeated each
+sprint until a stop condition fires. (The "C" rides along with PIT by
+convention.)
+
+- **Use instead of:** sprint loop, main loop.
+
+## Plan
+
+**Canonical:** `Plan` · **Type:** phase (the **P** of PIT)
+The phase where team members propose tasks and the [selector](#selector) merges
+them into `autosprint/plan.md`. See also [replan](#replan).
+
+## Plan file
+
+**Canonical:** `autosprint/plan.md` · **Type:** file
+The task list the loop executes — `PendingTask` entries (not yet done) and
+`CompletedTask` entries (done, with commit hash). Modelled by `Plan` in
+`core/plan.py`.
+
+## Preset
+
+**Canonical:** `tools preset` · **Type:** concept (`TOOLS_READ_ONLY` etc.)
+A named tool-permission set — `TOOLS_READ_ONLY`, `TOOLS_FULL`,
+`TOOLS_RESEARCH` — that each backend maps to its own native tool names. The
+*effective* preset is the more restrictive of the agent's declared preset and
+the caller's override.
+
+## Refusal fallback
+
+**Canonical:** `refusal fallback` · **Type:** concept (`IMPLEMENT_FALLBACK_AGENT`)
+When the primary implementor returns a refusal-pattern failure, the same task
+group is re-dispatched to a configured fallback agent before reverting. Only
+fires on refusals, not on genuine test failures or bugs.
+
+## Replan
+
+**Canonical:** `replan` · **Type:** concept
+Re-running the Plan phase mid-loop to refresh `plan.md` (rather than executing a
+fixed reviewed plan). Cadence is tracked by `sprints_since_replan`;
+`AUTO_REPLAN` controls whether the loop replans at all.
+
+- **Not to be confused with:** *reviewed-plan mode* (`AUTO_REPLAN` off), which
+  runs a human-curated `plan.md` and never refills it.
+
+## Revert
+
+**Canonical:** `revert` · **Type:** concept (`RevertReason`)
+Restoring the working tree when a sprint fails, so the branch only moves forward
+through green states. Each revert carries a `RevertReason`
+(`test_failure`, `implement_malformed`, `implement_refused`, `implement_failed`,
+`other`).
+
+## Selector
+
+**Canonical:** `selector` · **Type:** concept (agent role)
+The designated agent that merges team members' proposals into the final task
+list during the Plan phase. Called the **team lead** in prompt-facing language.
+
+- **Use instead of:** team lead (treat as the same role).
+- **Not to be confused with:** a [team member](#team), which proposes tasks but
+  does not merge. In code, "team members" *excludes* the selector.
+
+## Sprint
+
+**Canonical:** `sprint` · **Type:** concept
+One full pass of the [PIT loop](#pit-loop) — plan, implement, test, and commit
+or revert as a single transaction over a task group.
+
+- **Use instead of:** iteration (the banner code says "iteration"; prefer
+  "sprint" in docs and prose).
+
+## Stop control file
+
+**Canonical:** `autosprint/stop` (soft) · `autosprint/stop-now` (immediate) · **Type:** file
+A control file that halts a running loop from another terminal. **Soft stop**
+(`autosprint/stop`) finishes the current sprint, then exits; **stop-now**
+(`autosprint/stop-now`) reverts and exits immediately, even mid-LLM-call.
+
+## Structured-exit tool
+
+**Canonical:** `structured-exit tool` · **Type:** concept (`infra/dispatch.py`)
+The pair of tools the Implement agent calls to terminate with typed output —
+`submit_implement_success(summary, …)` or `submit_implement_failure(reason)`.
+Handlers write the agent's typed args into a caller-owned *result-capture* dict.
+The legacy `---RESULT---` text block is the fallback when the agent answers in
+prose.
+
+- **Use instead of:** result tool, exit tool.
+
+## Target repository
+
+**Canonical:** `target repository` · **Type:** concept (`TARGET_REPO`)
+The repo autosprint operates on. All file changes happen here — autosprint never
+modifies itself and refuses to run if `TARGET_REPO` points at the autosprint
+repo.
+
+- **Use instead of:** target repo (short form is fine in prose).
+
+## Team
+
+**Canonical:** `team` · **Type:** concept (`registry/teams.py`, `TEAM`)
+A group of agents for the Plan phase — an `agents` list plus an optional
+[selector](#selector). Selected with the `TEAM` config var.
+
+- **Not to be confused with:** an individual [agent](#agent).
+
+## Test
+
+**Canonical:** `Test` · **Type:** phase (the **T** of PIT)
+The phase that runs the target repo's real test suite (pytest or vitest) — not
+an LLM judging itself. A non-zero exit triggers a [revert](#revert).
+
+## Waypoint
+
+**Canonical:** `autosprint/waypoint.md` · **Type:** file (optional, user-set)
+An optional *intermediate* target the loop aims at exclusively until reached.
+When the selector judges it satisfied it sets `waypoint_reached: true`, the loop
+appends a status marker and halts for user review.
+
+- **Not to be confused with:** the [destination](#destination), the final
+  target. A waypoint must be reachable without violating the destination or any
+  [ADR](#adr).

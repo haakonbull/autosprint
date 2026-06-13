@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-import autosprint.plan_phase as plan_phase_mod
-from autosprint.agents import AGENT_QUICK_A_GPT41_COPILOT
+import autosprint.phases.plan_phase as plan_phase_mod
 from autosprint.config import config
-from autosprint.errors import PhaseFailedError
-from autosprint.plan import PendingTask, Plan
-from autosprint.plan_phase import should_replan, update_plan
+from autosprint.domain.plan import PendingTask, Plan
+from autosprint.phases.plan_phase import should_replan, update_plan
+from autosprint.registry.agents import AGENT_QUICK_A_GPT41_COPILOT
+from autosprint.util.errors import PhaseFailedError
 
 VALID_PLAN_RESPONSE = '---RESULT---\n{"pending": [{"title": "Do thing", "description": "Do the first thing."}, {"title": "Do other", "description": "Do the second thing."}]}\n---END---'
 PLAN_RESPONSE_WITH_SUMMARY = '---RESULT---\n{"pending": [{"title": "Do thing", "description": "Do the first thing."}], "plan_summary": "Merged 8 proposals into 1 task."}\n---END---'
@@ -31,7 +31,7 @@ PLAN_RESPONSE_WITH_SUMMARY = '---RESULT---\n{"pending": [{"title": "Do thing", "
 
 def test_research_council_teams_registered() -> None:
     """All three research_council variants resolve in TEAMS and have a selector."""
-    from autosprint.teams import TEAMS
+    from autosprint.registry.teams import TEAMS
 
     for key in ("research_council", "research_council_opus", "research_council_gpt55"):
         team = TEAMS[key]
@@ -42,7 +42,7 @@ def test_research_council_teams_registered() -> None:
 
 def test_research_agents_declare_research_prompt_files() -> None:
     """Every research-role agent points at the research-flavored plan-agent prompt; the research-lead agents point at the research team-lead prompt."""
-    from autosprint.agents import (
+    from autosprint.registry.agents import (
         AGENT_EDITOR_GPT55,
         AGENT_EDITOR_OPUS48,
         AGENT_RESEARCH_LEAD_GPT55,
@@ -64,7 +64,7 @@ def test_research_agents_declare_research_prompt_files() -> None:
 
 def test_web_researcher_has_research_tools_preset() -> None:
     """Web Researcher needs web access — declares TOOLS_RESEARCH so its preset survives the Plan-phase TOOLS_READ_ONLY override."""
-    from autosprint.agents import AGENT_WEB_RESEARCHER_GPT55, AGENT_WEB_RESEARCHER_OPUS48, TOOLS_RESEARCH
+    from autosprint.registry.agents import AGENT_WEB_RESEARCHER_GPT55, AGENT_WEB_RESEARCHER_OPUS48, TOOLS_RESEARCH
 
     assert AGENT_WEB_RESEARCHER_OPUS48["tools"] == TOOLS_RESEARCH
     assert AGENT_WEB_RESEARCHER_GPT55["tools"] == TOOLS_RESEARCH
@@ -132,8 +132,8 @@ def test_assemble_prompt_for_team_lead_routes_to_research_prompt_when_selector_d
 
 def test_tools_research_preset_survives_read_only_override() -> None:
     """A TOOLS_RESEARCH agent overridden to TOOLS_READ_ONLY keeps its preset — Plan phase passes TOOLS_READ_ONLY but we don't want to neuter Web Researcher's web access."""
-    from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH
-    from autosprint.dispatch import _effective_preset
+    from autosprint.infra.dispatch import _effective_preset
+    from autosprint.registry.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH
 
     research_agent = {"tools": TOOLS_RESEARCH}
     assert _effective_preset(research_agent, TOOLS_READ_ONLY) == TOOLS_RESEARCH
@@ -147,8 +147,8 @@ def test_tools_research_preset_survives_read_only_override() -> None:
 
 def test_claude_research_tool_preset_includes_web_and_write() -> None:
     """Dispatch maps TOOLS_RESEARCH to a Claude allowlist that includes WebFetch/WebSearch (for fetching new sources) and Write/Edit (for landing them in `results/sources.md`), but NOT Bash (research agents don't shell out)."""
-    from autosprint.agents import TOOLS_RESEARCH
-    from autosprint.dispatch import _CLAUDE_TOOLS
+    from autosprint.infra.dispatch import _CLAUDE_TOOLS
+    from autosprint.registry.agents import TOOLS_RESEARCH
 
     tools = set(_CLAUDE_TOOLS[TOOLS_RESEARCH])
     assert {"WebFetch", "WebSearch", "Read", "Write", "Edit", "Glob", "Grep"}.issubset(tools)

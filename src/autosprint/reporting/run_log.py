@@ -23,12 +23,14 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 
-from autosprint import db
 from autosprint.config import config
-from autosprint.dispatch import get_claude_usage_estimate
-from autosprint.errors import add_context
-from autosprint.output import printlev
-from autosprint.paths import (
+from autosprint.domain.plan import Plan, group_titles
+from autosprint.infra import db
+from autosprint.infra.dispatch import get_claude_usage_estimate
+from autosprint.util.errors import add_context
+from autosprint.util.output import printlev
+from autosprint.util.parsing import detect_refusal_pattern
+from autosprint.util.paths import (
     CHANGELOG_FILENAME,
     DESTINATION_FILENAME,
     LAST_RUN_SUMMARY_FILENAME,
@@ -36,7 +38,6 @@ from autosprint.paths import (
     RUNTIME_STATS_FILENAME,
     SPRINT_LOG_FILENAME,
 )
-from autosprint.plan import Plan, group_titles
 
 STORY_POINT_PATTERN = re.compile(r"\((\d+)\)\s*$")
 
@@ -327,7 +328,7 @@ def trim_console_verbose_log() -> None:
     cap = config.CONSOLE_LOG_MAX_BYTES
     if cap <= 0:
         return
-    from autosprint.output import CONSOLE_LOG_FILENAME
+    from autosprint.util.output import CONSOLE_LOG_FILENAME
 
     log_path = config.TARGET_REPO_PATH / CONSOLE_LOG_FILENAME
     if not log_path.exists():
@@ -475,11 +476,6 @@ def check_escalation() -> None:
     The log schema is ``sprint | ts | sp | task | implement | test | outcome``;
     the task title lives at column index 3, the outcome at index 6.
     """
-    # Lazy import: detect_refusal_pattern lives in implement_phase, which is
-    # downstream of run_log in module dependency order. By the time
-    # check_escalation runs, implement_phase is fully loaded.
-    from autosprint.implement_phase import detect_refusal_pattern
-
     log_path = config.TARGET_REPO_PATH / SPRINT_LOG_FILENAME
     try:
         if config.FAKE_IMPLEMENT:

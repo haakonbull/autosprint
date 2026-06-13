@@ -1,4 +1,4 @@
-"""Tests for autosprint.dispatch — focused unit tests on the retry/capture plumbing.
+"""Tests for autosprint.infra.dispatch — focused unit tests on the retry/capture plumbing.
 
 The bulk of dispatch behaviour is exercised end-to-end through test_implement.py
 (via mocked query_agent). The tests here target the narrow contracts that live
@@ -17,8 +17,8 @@ import asyncio
 import pytest
 
 from autosprint.config import config
-from autosprint.dispatch import _build_copilot_result_tools, _copilot_send_with_stop_check, _CopilotFailureParams, _CopilotSuccessParams, _dispatch_with_retry
-from autosprint.errors import StopSignalDetected
+from autosprint.infra.dispatch import _build_copilot_result_tools, _copilot_send_with_stop_check, _CopilotFailureParams, _CopilotSuccessParams, _dispatch_with_retry
+from autosprint.util.errors import StopSignalDetected
 
 
 def _invocation(tool_name: str, arguments: dict):
@@ -244,7 +244,7 @@ class _FakeSession:
 
 async def test_send_with_stop_check_outer_hard_timeout_fires_when_sdk_hangs(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     """The reproduction of sprint 24's bug: the SDK swallows or ignores its `timeout=` arg and `send_and_wait` runs forever. The outer asyncio guard must fire at our `timeout` deadline and raise `TimeoutError` so the orchestrator can revert and continue. Without this guard the loop would hang indefinitely (observed: ~2h before manual kill)."""
-    import autosprint.dispatch as dispatch_mod
+    import autosprint.infra.dispatch as dispatch_mod
 
     monkeypatch.setattr(dispatch_mod, "_STOP_CHECK_POLL_INTERVAL_SECONDS", 0.05)
     session = _FakeSession("hang")
@@ -257,7 +257,7 @@ async def test_send_with_stop_check_outer_hard_timeout_fires_when_sdk_hangs(monk
 
 async def test_send_with_stop_check_passes_larger_timeout_to_sdk(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     """Defence-in-depth: the SDK's own timeout is the backstop in case our cancellation doesn't propagate (buggy SDK, blocked C extension). It must be set strictly larger than our outer guard so the outer always fires first; if they were equal, races would let either fire first and surface inconsistent error types."""
-    import autosprint.dispatch as dispatch_mod
+    import autosprint.infra.dispatch as dispatch_mod
 
     monkeypatch.setattr(dispatch_mod, "_STOP_CHECK_POLL_INTERVAL_SECONDS", 0.05)
     seen_timeouts: list[float] = []
@@ -274,7 +274,7 @@ async def test_send_with_stop_check_passes_larger_timeout_to_sdk(monkeypatch: py
 
 async def test_send_with_stop_check_returns_value_on_normal_completion(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     """Sanity: when the SDK returns within the deadline, the helper must surface its value unchanged. Guards against the new elapsed-time check accidentally raising on fast paths."""
-    import autosprint.dispatch as dispatch_mod
+    import autosprint.infra.dispatch as dispatch_mod
 
     monkeypatch.setattr(dispatch_mod, "_STOP_CHECK_POLL_INTERVAL_SECONDS", 0.05)
     sentinel = object()
@@ -284,7 +284,7 @@ async def test_send_with_stop_check_returns_value_on_normal_completion(monkeypat
 
 async def test_send_with_stop_check_stop_file_still_wins_over_hard_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     """The stop-now signal must remain the user's authoritative kill switch and surface as `StopSignalDetected` — not get masked as a `TimeoutError` if the user happens to drop the file near the deadline. Stop-file is checked before the elapsed-time check inside the loop, so this ordering is preserved."""
-    import autosprint.dispatch as dispatch_mod
+    import autosprint.infra.dispatch as dispatch_mod
 
     monkeypatch.setattr(dispatch_mod, "_STOP_CHECK_POLL_INTERVAL_SECONDS", 0.05)
     stop_file = tmp_path / "stop-now"

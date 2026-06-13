@@ -22,16 +22,12 @@ import re
 import shutil
 import sys
 import tomllib
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from autosprint.banners import print_effective_config, print_start_banner, section_banner
-from autosprint.config import ENV_SET_FIELDS, _project_root, config
-from autosprint.errors import StopRequested, add_context
-from autosprint.git_ops import git
-from autosprint.how_far import run_how_far
-from autosprint.init import (
+from autosprint.app.how_far import run_how_far
+from autosprint.app.init import (
     _assert_target_repo_not_self,
     _ensure_adr_stub,
     _ensure_destination_or_abort,
@@ -42,12 +38,18 @@ from autosprint.init import (
     probe_backends,
     run_doctor,
 )
-from autosprint.output import printlev
-from autosprint.paths import AUTOSPRINT_DIR_NAME, STOP_CONTROL_FILENAME, STOP_NOW_CONTROL_FILENAME
-from autosprint.plan import read_plan_md
-from autosprint.run_log import trim_console_verbose_log, trim_plan_decisions_log
-from autosprint.teams import TEAMS
-from autosprint.test_phase import check_initial_tests, run_self_test
+from autosprint.config import ENV_SET_FIELDS, _project_root, config
+from autosprint.domain.plan import read_plan_md
+from autosprint.infra.gates import describe_gates
+from autosprint.infra.git_ops import git
+from autosprint.infra.stop import run_stop
+from autosprint.phases.test_phase import check_initial_tests, run_self_test
+from autosprint.registry.teams import TEAMS
+from autosprint.reporting.banners import print_effective_config, print_start_banner, section_banner
+from autosprint.reporting.run_log import trim_console_verbose_log, trim_plan_decisions_log
+from autosprint.util.errors import add_context
+from autosprint.util.output import printlev
+from autosprint.util.paths import AUTOSPRINT_DIR_NAME
 
 # Bundled CLI presets: a single flag that expands to a (team, implement_agent)
 # pair. Kept at the CLI layer — the planning_team and implement_agent concepts
@@ -482,7 +484,7 @@ def prepare() -> argparse.Namespace:
 
         if args.command == "init":
             if getattr(args, "update_skills", False):
-                from autosprint.init import _run_init_update_skills
+                from autosprint.app.init import _run_init_update_skills
 
                 _run_init_update_skills()
             else:
@@ -549,7 +551,7 @@ def run_show_teams() -> None:
 
 def run_show_agents() -> None:
     """Print every agent in `agents.AGENTS` with its backend and model so the user can pick one for `--implement-agent` (or for `HOWFAR_AGENT` in config). Default IMPLEMENT_AGENT and HOWFAR_AGENT are marked. Alphabetised by key."""
-    from autosprint.agents import AGENTS
+    from autosprint.registry.agents import AGENTS
 
     try:
         default_implement = config.IMPLEMENT_AGENT
@@ -599,74 +601,6 @@ def run_show_presets() -> None:
         raise add_context(e, "Failed to print presets list") from e
 
 
-def describe_gates() -> list[dict[str, str]]:
-    """Inspect the live config and return one row per per-sprint gate: `{name, config_value, status, detail}`. `status` is one of `active` (will fire), `off` (user-disabled), or `auto-skipped` (enabled but missing tooling/config so the gate is a no-op). `detail` carries the why for the skip. Used by both `run_show_gates` (the dedicated subcommand) and the startup banner so the two stay consistent."""
-    rows: list[dict[str, str]] = []
-    # IMPORT_CHECK — Python-only, auto-skips for non-Python (no pyproject [project].name).
-    if config.IMPORT_CHECK:
-        try:
-            from autosprint.test_runners import PytestRunner
-
-            pkg = PytestRunner()._detect_package_name() if config.TARGET_REPO_PATH.exists() else None
-            if pkg:
-                rows.append({"name": "import-check", "config_value": "true", "status": "active", "detail": f'`python -c "import {pkg.replace("-", "_")}"`'})
-            else:
-                rows.append({"name": "import-check", "config_value": "true", "status": "auto-skipped", "detail": "no pyproject.toml [project].name in target"})
-        except Exception:
-            rows.append({"name": "import-check", "config_value": "true", "status": "active", "detail": "(target inspection failed; will retry per-sprint)"})
-    else:
-        rows.append({"name": "import-check", "config_value": "false", "status": "off", "detail": "IMPORT_CHECK=false"})
-    # SMOKE_TEST
-    if config.SMOKE_TEST == "off":
-        rows.append({"name": "smoke-test", "config_value": "off", "status": "off", "detail": "SMOKE_TEST=off"})
-    elif config.SMOKE_TEST != "auto":
-        rows.append({"name": "smoke-test", "config_value": config.SMOKE_TEST, "status": "active", "detail": f"literal command: {config.SMOKE_TEST}"})
-    else:
-        try:
-            from autosprint.test_runners import PytestRunner
-
-            r = PytestRunner()
-            pkg = r._detect_package_name() if config.TARGET_REPO_PATH.exists() else None
-            if pkg and r._find_main_module(pkg):
-                rows.append({"name": "smoke-test", "config_value": "auto", "status": "active", "detail": f"`python -m {pkg} --help` → spawn-survive fallback"})
-            else:
-                rows.append({"name": "smoke-test", "config_value": "auto", "status": "auto-skipped", "detail": "no `__main__.py` in target package"})
-        except Exception:
-            rows.append({"name": "smoke-test", "config_value": "auto", "status": "active", "detail": "(target inspection failed; will retry per-sprint)"})
-    # FORMAT_CHECK
-    if config.FORMAT_CHECK == "off":
-        rows.append({"name": "format-check", "config_value": "off", "status": "off", "detail": "FORMAT_CHECK=off (opt-in)"})
-    elif config.FORMAT_CHECK == "auto":
-        if shutil.which("black") is not None:
-            rows.append({"name": "format-check", "config_value": "auto", "status": "active", "detail": "`black --check src tests`"})
-        else:
-            rows.append({"name": "format-check", "config_value": "auto", "status": "auto-skipped", "detail": "black not on PATH"})
-    else:
-        rows.append({"name": "format-check", "config_value": config.FORMAT_CHECK, "status": "active", "detail": f"literal: {config.FORMAT_CHECK}"})
-    # LINT_CHECK
-    if config.LINT_CHECK == "off":
-        rows.append({"name": "lint-check", "config_value": "off", "status": "off", "detail": "LINT_CHECK=off (opt-in)"})
-    elif config.LINT_CHECK == "auto":
-        try:
-            from autosprint.test_runners import PytestRunner
-
-            cmd = PytestRunner()._detect_lint_command() if config.TARGET_REPO_PATH.exists() else None
-            if cmd:
-                rows.append({"name": "lint-check", "config_value": "auto", "status": "active", "detail": " ".join(cmd[-2:])})
-            else:
-                rows.append({"name": "lint-check", "config_value": "auto", "status": "auto-skipped", "detail": "no ruff/flake8/mypy config detected, or linter not on PATH"})
-        except Exception:
-            rows.append({"name": "lint-check", "config_value": "auto", "status": "active", "detail": "(target inspection failed; will retry per-sprint)"})
-    else:
-        rows.append({"name": "lint-check", "config_value": config.LINT_CHECK, "status": "active", "detail": f"literal: {config.LINT_CHECK}"})
-    # PYTEST_COLLECT_GATE
-    rows.append({"name": "collect-only", "config_value": str(config.PYTEST_COLLECT_GATE).lower(), "status": "active" if config.PYTEST_COLLECT_GATE else "off", "detail": "`pytest --collect-only -q`" if config.PYTEST_COLLECT_GATE else "PYTEST_COLLECT_GATE=false (opt-in)"})
-    # COVERAGE_TRACK
-    rows.append({"name": "coverage-track", "config_value": str(config.COVERAGE_TRACK).lower(), "status": "active (warn-only)" if config.COVERAGE_TRACK else "off", "detail": "`pytest --cov=<pkg>` → autosprint/logs/coverage-history.log" if config.COVERAGE_TRACK else "COVERAGE_TRACK=false (opt-in)"})
-    # TS_TYPECHECK (vitest-only — skip mention when runner is pytest)
-    return rows
-
-
 def run_show_gates() -> None:
     """Print every per-sprint gate with its config value + whether it's active, off, or auto-skipped (and why). Lets the user see at a glance what protection is actually in effect for the configured target — answers the recurring question 'is FORMAT_CHECK=auto actually doing anything?'."""
     try:
@@ -687,7 +621,7 @@ def run_show_gates() -> None:
 
 def run_show_sprints() -> None:
     """Print the last ~20 sprint outcomes from `autosprint/logs/sprint-outcomes.log`. Uses `recent_sprint_history()` so the dual-write pattern (REVERTED + SPRINT_REVERTED for the same sprint) gets dedup'd just like the team-lead prompt sees it. Empty log → friendly note rather than blank output."""
-    from autosprint.run_log import recent_sprint_history
+    from autosprint.reporting.run_log import recent_sprint_history
 
     try:
         history = recent_sprint_history(n=20)
@@ -709,7 +643,7 @@ def run_show_sprints() -> None:
 
 def run_show_logs() -> None:
     """List every file in `autosprint/logs/` with its size and last-modified timestamp, so you can see what's been logged without filesystem-browsing. Subfolders (e.g. nested log dirs) are listed by name. Empty/missing dir → friendly note."""
-    from autosprint.paths import LOGS_SUBDIR
+    from autosprint.util.paths import LOGS_SUBDIR
 
     try:
         logs_dir = config.TARGET_REPO_PATH / LOGS_SUBDIR
@@ -850,48 +784,5 @@ def run_clear_logs() -> None:
         raise add_context(e, f"Failed to clear logs in {config.TARGET_REPO_PATH}") from e
 
 
-def run_stop(immediate: bool) -> None:
-    """Drop a small control file under TARGET_REPO/autosprint/ so a running PIT loop pointed at the same repo notices and exits. 'stop' means finish the current sprint and exit cleanly; 'stop-now' means stop mid-sprint and revert uncommitted changes. The live loop deletes the file on consumption, so a stale file can never hijack the next run."""
-    try:
-        autosprint_dir = config.TARGET_REPO_PATH / AUTOSPRINT_DIR_NAME
-        autosprint_dir.mkdir(parents=True, exist_ok=True)
-        filename = STOP_NOW_CONTROL_FILENAME if immediate else STOP_CONTROL_FILENAME
-        control_file = config.TARGET_REPO_PATH / filename
-        control_file.write_text(datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ\n"), encoding="utf-8")
-        mode = "stop-now (immediate + revert)" if immediate else "stop (soft — finish current sprint, then exit)"
-        printlev(f"\n[stop] Wrote {filename} in {config.TARGET_REPO_PATH}.", level=100)
-        printlev(f"[stop] Mode: {mode}", level=100)
-        printlev("[stop] The live run deletes the control file once it responds, so no cleanup is needed.", level=100)
-    except Exception as e:
-        raise add_context(e, f"Failed to write stop control file (immediate={immediate})") from e
-
-
-# ---------------------------------------------------------------------------
-# Stop-control file polling (used by pit_loop)
-# ---------------------------------------------------------------------------
-
-
-def check_stop_request(immediate_only: bool = False) -> str | None:
-    """Return 'immediate', 'soft', or None depending on which stop control file (if any) is present in TARGET_REPO. Deletes the file on detection. Between-phase callers pass immediate_only=True so soft stops don't interrupt an Implement/Test that's already in motion — soft stops only fire at sprint boundaries."""
-    try:
-        target = config.TARGET_REPO_PATH
-        immediate_path = target / STOP_NOW_CONTROL_FILENAME
-        if immediate_path.exists():
-            immediate_path.unlink()
-            return "immediate"
-        if immediate_only:
-            return None
-        soft_path = target / STOP_CONTROL_FILENAME
-        if soft_path.exists():
-            soft_path.unlink()
-            return "soft"
-        return None
-    except Exception as e:
-        raise add_context(e, "Failed to check stop request") from e
-
-
-def raise_if_stop_between_phases() -> None:
-    """Between-phase stop check — only fires for 'stop-now'. Raises StopRequested('immediate') so the current sprint aborts cleanly. Soft stops are deliberately ignored here; the live loop catches them at the sprint boundary."""
-    kind = check_stop_request(immediate_only=True)
-    if kind == "immediate":
-        raise StopRequested(kind)
+# Stop-control lives in autosprint.infra.stop so the Plan phase can poll for an
+# immediate stop without importing the CLI; re-exported via the imports above.

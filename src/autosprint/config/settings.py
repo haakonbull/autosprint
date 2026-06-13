@@ -13,12 +13,14 @@ from typing import Any
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from autosprint.agents import AGENTS
-from autosprint.teams import TEAMS
+from autosprint.registry.agents import AGENTS
+from autosprint.registry.teams import TEAMS
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    # This file lives at src/autosprint/config/settings.py; the autosprint repo
+    # root (which holds .claude/agents, examples, .env) is four levels up.
+    return Path(__file__).resolve().parents[3]
 
 
 def _default_env_file() -> str:

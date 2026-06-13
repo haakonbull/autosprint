@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-import autosprint.init as init_mod
+import autosprint.app.init as init_mod
+from autosprint.app.init import _copy_claude_assets_to_target, _ensure_adr_stub, _ensure_destination_or_abort, _ensure_examples_dir_seeded, _ensure_gitignore_entries
 from autosprint.config import config
-from autosprint.init import _copy_claude_assets_to_target, _ensure_adr_stub, _ensure_destination_or_abort, _ensure_examples_dir_seeded, _ensure_gitignore_entries
-from autosprint.paths import ADR_FILENAME, AUTOSPRINT_DIR_NAME, DESTINATION_FILENAME
+from autosprint.util.paths import ADR_FILENAME, AUTOSPRINT_DIR_NAME, DESTINATION_FILENAME
 
 # ---------------------------------------------------------------------------
 # _ensure_adr_stub

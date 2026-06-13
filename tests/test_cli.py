@@ -23,7 +23,7 @@ def test_claude_only_flag_expands_to_council_opus(monkeypatch: pytest.MonkeyPatc
     (tmp_path / "autosprint" / "config.toml").write_text("", encoding="utf-8")
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["autosprint", "show-config", "--claude-only"])
-    from autosprint.cli import parse_cli_args
+    from autosprint.app.cli import parse_cli_args
 
     parse_cli_args()
     assert config.TEAM == "council_opus"
@@ -37,7 +37,7 @@ def test_copilot_only_flag_expands_to_council_gpt55(monkeypatch: pytest.MonkeyPa
     (tmp_path / "autosprint" / "config.toml").write_text("", encoding="utf-8")
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["autosprint", "show-config", "--copilot-only"])
-    from autosprint.cli import parse_cli_args
+    from autosprint.app.cli import parse_cli_args
 
     parse_cli_args()
     assert config.TEAM == "council_gpt55"
@@ -51,7 +51,7 @@ def test_claude_only_and_copilot_only_are_mutually_exclusive(monkeypatch: pytest
     (tmp_path / "autosprint" / "config.toml").write_text("", encoding="utf-8")
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["autosprint", "show-config", "--claude-only", "--copilot-only"])
-    from autosprint.cli import parse_cli_args
+    from autosprint.app.cli import parse_cli_args
 
     with pytest.raises(SystemExit) as exc_info:
         parse_cli_args()
@@ -65,7 +65,7 @@ def test_explicit_team_wins_over_claude_only(monkeypatch: pytest.MonkeyPatch, tm
     (tmp_path / "autosprint" / "config.toml").write_text("", encoding="utf-8")
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr("sys.argv", ["autosprint", "show-config", "--claude-only", "--team", "power"])
-    from autosprint.cli import parse_cli_args
+    from autosprint.app.cli import parse_cli_args
 
     parse_cli_args()
     assert config.TEAM == "power"
@@ -78,7 +78,7 @@ def test_explicit_team_wins_over_claude_only(monkeypatch: pytest.MonkeyPatch, tm
 
 def test_council_gpt55_is_all_copilot() -> None:
     """council_gpt55 must be 100% Copilot — every planner + the team lead. Drift here breaks the Copilot-only preset's promise."""
-    from autosprint.teams import TEAMS
+    from autosprint.registry.teams import TEAMS
 
     team = TEAMS["council_gpt55"]
     for agent in team["agents"]:
@@ -88,7 +88,7 @@ def test_council_gpt55_is_all_copilot() -> None:
 
 def test_council_opus_is_all_claude() -> None:
     """council_opus must be 100% Claude — every planner + the team lead. Drift here breaks the Claude-only preset's promise."""
-    from autosprint.teams import TEAMS
+    from autosprint.registry.teams import TEAMS
 
     team = TEAMS["council_opus"]
     for agent in team["agents"]:
@@ -98,7 +98,7 @@ def test_council_opus_is_all_claude() -> None:
 
 def test_council_default_is_mixed() -> None:
     """The default `council` team is deliberately mixed (3 Claude + 3 Copilot); a drift toward all-one-backend would lose the cost-sharing rationale."""
-    from autosprint.teams import TEAMS
+    from autosprint.registry.teams import TEAMS
 
     team = TEAMS["council"]
     backends = {agent["assistant"] for agent in team["agents"]}
@@ -107,7 +107,7 @@ def test_council_default_is_mixed() -> None:
 
 def test_council_family_has_same_six_lenses() -> None:
     """All three council variants must have the same six role names (North Star, Bug Hunter, Pragmatist, Tester, Minimalist, Architect) — that's the family-resemblance contract. Backend suffix in the display name is ignored."""
-    from autosprint.teams import TEAMS
+    from autosprint.registry.teams import TEAMS
 
     def lens(name: str) -> str:
         # Strip a trailing backend-tag like " (Opus 4.8)" / " (GPT-5.5)".
@@ -126,7 +126,7 @@ def test_council_family_has_same_six_lenses() -> None:
 
 def test_terse_argparser_handles_subcommand_typo(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """A typo'd subcommand should yield a compact 'did you mean?' message, not the giant usage banner."""
-    from autosprint.cli import parse_cli_args
+    from autosprint.app.cli import parse_cli_args
 
     monkeypatch.setattr("sys.argv", ["autosprint", "clear-logss"])
     with pytest.raises(SystemExit) as exc_info:
@@ -144,7 +144,7 @@ def test_terse_argparser_handles_subcommand_typo(monkeypatch: pytest.MonkeyPatch
 
 def test_terse_argparser_suggests_known_token_when_extra_verb_typed(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """`autosprint list teams` is natural English but `list` isn't a valid subcommand. The handler scans the other tokens and finds `teams` (which IS valid) rather than guessing via difflib."""
-    from autosprint.cli import parse_cli_args
+    from autosprint.app.cli import parse_cli_args
 
     monkeypatch.setattr("sys.argv", ["autosprint", "list", "teams"])
     with pytest.raises(SystemExit):
@@ -156,7 +156,7 @@ def test_terse_argparser_suggests_known_token_when_extra_verb_typed(monkeypatch:
 
 def test_terse_argparser_passes_through_other_errors(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """Non-subcommand errors (e.g. unknown flags) keep the default argparse output so the user gets full usage context."""
-    from autosprint.cli import parse_cli_args
+    from autosprint.app.cli import parse_cli_args
 
     monkeypatch.setattr("sys.argv", ["autosprint", "run", "--definitely-not-a-flag"])
     with pytest.raises(SystemExit):

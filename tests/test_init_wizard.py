@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-import autosprint.init as init_mod
+import autosprint.app.init as init_mod
 from autosprint.config import config
 
 # ---------------------------------------------------------------------------
@@ -21,7 +21,7 @@ def test_resolve_target_repo_cwd_beats_env(monkeypatch: pytest.MonkeyPatch, tmp_
     """cwd, when it is a git repo, wins over the TARGET_REPO env fallback."""
     import argparse
 
-    from autosprint.cli import _resolve_target_repo
+    from autosprint.app.cli import _resolve_target_repo
 
     monkeypatch.setattr(config, "TARGET_REPO", "/some/env/fallback")
     repo = tmp_path / "repo"
@@ -35,7 +35,7 @@ def test_resolve_target_repo_flag_wins(monkeypatch: pytest.MonkeyPatch, tmp_path
     """An explicit --target path overrides cwd and the env fallback."""
     import argparse
 
-    from autosprint.cli import _resolve_target_repo
+    from autosprint.app.cli import _resolve_target_repo
 
     monkeypatch.setattr(config, "TARGET_REPO", "")
     _resolve_target_repo(argparse.Namespace(target="/explicit/target"))
@@ -46,7 +46,7 @@ def test_resolve_target_repo_falls_back_to_env_when_cwd_not_git(monkeypatch: pyt
     """When cwd is not a git repo, the TARGET_REPO env fallback is left untouched."""
     import argparse
 
-    from autosprint.cli import _resolve_target_repo
+    from autosprint.app.cli import _resolve_target_repo
 
     monkeypatch.setattr(config, "TARGET_REPO", "/env/fallback")
     plain = tmp_path / "plain"
@@ -72,12 +72,12 @@ def test_apply_config_toml_overlays_values(monkeypatch: pytest.MonkeyPatch, tmp_
     """config.toml values overlay onto config when the field was not set by env."""
     import argparse
 
-    from autosprint.cli import _apply_config_toml
+    from autosprint.app.cli import _apply_config_toml
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SPRINT_STORY_POINT_TARGET", 8)
     monkeypatch.setattr(config, "IMPLEMENT_AGENT", "implementor_opus48")
-    monkeypatch.setattr("autosprint.cli.ENV_SET_FIELDS", frozenset())
+    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset())
     _write_config_toml(tmp_path, 'sp_target = 15\nimplement_agent = "implementor_gpt55"\n')
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
     assert config.SPRINT_STORY_POINT_TARGET == 15
@@ -88,11 +88,11 @@ def test_apply_config_toml_env_beats_toml(monkeypatch: pytest.MonkeyPatch, tmp_p
     """A field set by env / .env (in ENV_SET_FIELDS) is not overwritten by config.toml."""
     import argparse
 
-    from autosprint.cli import _apply_config_toml
+    from autosprint.app.cli import _apply_config_toml
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SPRINT_STORY_POINT_TARGET", 7)
-    monkeypatch.setattr("autosprint.cli.ENV_SET_FIELDS", frozenset({"SPRINT_STORY_POINT_TARGET"}))
+    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset({"SPRINT_STORY_POINT_TARGET"}))
     _write_config_toml(tmp_path, "sp_target = 99\n")
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
     assert config.SPRINT_STORY_POINT_TARGET == 7  # env value kept, toml ignored
@@ -102,7 +102,7 @@ def test_apply_config_toml_missing_file_is_noop(monkeypatch: pytest.MonkeyPatch,
     """No autosprint/config.toml present → silent no-op, no raise."""
     import argparse
 
-    from autosprint.cli import _apply_config_toml
+    from autosprint.app.cli import _apply_config_toml
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
@@ -112,11 +112,11 @@ def test_apply_config_toml_mode_specific_team(monkeypatch: pytest.MonkeyPatch, t
     """The [plan] section's team is used for `autosprint plan`."""
     import argparse
 
-    from autosprint.cli import _apply_config_toml
+    from autosprint.app.cli import _apply_config_toml
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "TEAM", "builder")
-    monkeypatch.setattr("autosprint.cli.ENV_SET_FIELDS", frozenset())
+    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset())
     _write_config_toml(tmp_path, '[plan]\nteam = "council"\n\n[auto_replan]\nteam = "duo"\n')
     _apply_config_toml(argparse.Namespace(command="plan", auto_replan=False))
     assert config.TEAM == "council"
@@ -124,7 +124,7 @@ def test_apply_config_toml_mode_specific_team(monkeypatch: pytest.MonkeyPatch, t
 
 def test_ensure_config_toml_seeds_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """_ensure_config_toml writes a commented template when config.toml is missing."""
-    from autosprint.init import _ensure_config_toml
+    from autosprint.app.init import _ensure_config_toml
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     _ensure_config_toml()
@@ -137,11 +137,11 @@ def test_apply_config_toml_disables_fallback_agent(monkeypatch: pytest.MonkeyPat
     """config.toml can set implement_fallback_agent = "" to disable the refusal-fallback."""
     import argparse
 
-    from autosprint.cli import _apply_config_toml
+    from autosprint.app.cli import _apply_config_toml
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
-    monkeypatch.setattr("autosprint.cli.ENV_SET_FIELDS", frozenset())
+    monkeypatch.setattr("autosprint.app.cli.ENV_SET_FIELDS", frozenset())
     _write_config_toml(tmp_path, 'implement_fallback_agent = ""\n')
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
     assert config.IMPLEMENT_FALLBACK_AGENT == ""
@@ -284,7 +284,7 @@ def test_ensure_config_toml_interactive_skips_wizard_without_tty(monkeypatch: py
     """interactive=True still writes the plain template when stdin is not a TTY."""
     import tomllib
 
-    from autosprint.init import _ensure_config_toml
+    from autosprint.app.init import _ensure_config_toml
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     _ensure_config_toml(interactive=True)  # pytest stdin is not a TTY → no wizard

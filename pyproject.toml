@@ -19,7 +19,7 @@ Issues = "https://github.com/haakonbull/autosprint/issues"
 Changelog = "https://github.com/haakonbull/autosprint/blob/master/CHANGELOG.md"
 
 [project.scripts]
-autosprint = "autosprint.orchestrator:main"
+autosprint = "autosprint.app.orchestrator:main"
 
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]
@@ -93,10 +93,12 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # orchestrator.py is a re-export shim — it deliberately imports sibling-module
-# names purely to surface them under `autosprint.orchestrator` for tests.
-"src/autosprint/orchestrator.py" = ["F401"]
+# names purely to surface them under `autosprint.app.orchestrator` for tests.
+"src/autosprint/app/orchestrator.py" = ["F401"]
+# config re-exports its submodule surface from the package __init__.
+"src/autosprint/config/__init__.py" = ["F401"]
 # Settings properties are UPPERCASE to mirror the env-var config-field convention.
-"src/autosprint/config.py" = ["N802"]
+"src/autosprint/config/settings.py" = ["N802"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

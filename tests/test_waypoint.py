@@ -15,11 +15,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-import autosprint.plan_phase as plan_phase_mod
-from autosprint.agents import AGENT_QUICK_A_GPT41_COPILOT
+import autosprint.phases.plan_phase as plan_phase_mod
 from autosprint.config import config
-from autosprint.errors import WaypointReached
-from autosprint.plan_phase import update_plan
+from autosprint.phases.plan_phase import update_plan
+from autosprint.registry.agents import AGENT_QUICK_A_GPT41_COPILOT
+from autosprint.util.errors import WaypointReached
 
 WAYPOINT_BODY = """# Waypoint — Add export-to-CSV feature
 

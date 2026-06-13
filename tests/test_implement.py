@@ -12,13 +12,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import autosprint.implement_phase as implement_mod
-from autosprint import run_log
-from autosprint.agents import AGENTS
+import autosprint.phases.implement_phase as implement_mod
 from autosprint.config import config
-from autosprint.errors import PhaseFailedError
-from autosprint.implement_phase import run_implement
-from autosprint.parsing import ImplementResponseMalformed, parse_implement_result
+from autosprint.phases.implement_phase import run_implement
+from autosprint.registry.agents import AGENTS
+from autosprint.reporting import run_log
+from autosprint.util.errors import PhaseFailedError
+from autosprint.util.parsing import ImplementResponseMalformed, parse_implement_result
 
 HELLO_TASK = {"title": "Add hello to hello.md", "description": "Append the word 'hello' to the file hello.md, creating it if it does not exist."}
 SUCCESS_RESPONSE = '---RESULT---\n{"status": "success", "summary": "Added hello to hello.md"}\n---END---'

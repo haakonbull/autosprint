@@ -10,40 +10,40 @@ from pathlib import Path
 
 import pytest
 
-from autosprint import run_log
+from autosprint.app.init import _migrate_legacy_autosprint_files
 from autosprint.config import config
-from autosprint.init import _migrate_legacy_autosprint_files
-from autosprint.output import wrap_message
-from autosprint.parsing import parse_implement_result
-from autosprint.paths import LAST_TEST_OUTPUT_FILENAME, RUNTIME_STATS_FILENAME, SPRINT_LOG_FILENAME
-from autosprint.run_log import (
+from autosprint.phases.test_phase import extract_test_output_highlights as _extract_test_output_highlights
+from autosprint.phases.test_phase import read_last_test_output as _read_last_test_output
+from autosprint.phases.test_phase import write_last_test_output as _write_last_test_output
+from autosprint.reporting import run_log
+from autosprint.reporting.run_log import (
     append_changelog_entry,
     append_run_log,
     apply_destination_resolutions,
     check_escalation,
     recent_sprint_history,
 )
-from autosprint.run_log import (
+from autosprint.reporting.run_log import (
     estimated_runtime_line as _estimated_runtime_line,
 )
-from autosprint.run_log import (
+from autosprint.reporting.run_log import (
     read_runtime_stats as _read_runtime_stats,
 )
-from autosprint.run_log import (
+from autosprint.reporting.run_log import (
     trim_console_verbose_log as _trim_console_verbose_log,
 )
-from autosprint.run_log import (
+from autosprint.reporting.run_log import (
     trim_plan_decisions_log as _trim_plan_decisions_log,
 )
-from autosprint.run_log import (
+from autosprint.reporting.run_log import (
     update_runtime_stats as _update_runtime_stats,
 )
-from autosprint.run_log import (
+from autosprint.reporting.run_log import (
     write_runtime_stats as _write_runtime_stats,
 )
-from autosprint.test_phase import extract_test_output_highlights as _extract_test_output_highlights
-from autosprint.test_phase import read_last_test_output as _read_last_test_output
-from autosprint.test_phase import write_last_test_output as _write_last_test_output
+from autosprint.util.output import wrap_message
+from autosprint.util.parsing import parse_implement_result
+from autosprint.util.paths import LAST_TEST_OUTPUT_FILENAME, RUNTIME_STATS_FILENAME, SPRINT_LOG_FILENAME
 
 # ---------------------------------------------------------------------------
 # append_run_log — header once, sprint column populated
@@ -838,7 +838,7 @@ def test_read_last_test_output_returns_empty_when_missing(monkeypatch: pytest.Mo
 def test_trim_console_verbose_log_stays_under_cap(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """After trimming, the file must fit within the cap. Previously an off-by-one
     advanced `kept` twice when the candidate fit, dropping one extra run block."""
-    from autosprint.output import CONSOLE_LOG_FILENAME
+    from autosprint.util.output import CONSOLE_LOG_FILENAME
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     log_path = tmp_path / CONSOLE_LOG_FILENAME
@@ -866,7 +866,7 @@ def test_trim_console_verbose_log_preserves_at_least_one_block(monkeypatch: pyte
     """When the cap is very small (smaller than a single run block), trim stops at
     2 segments (never cuts mid-run) and the file will exceed the cap rather than
     losing the only run block."""
-    from autosprint.output import CONSOLE_LOG_FILENAME
+    from autosprint.util.output import CONSOLE_LOG_FILENAME
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     log_path = tmp_path / CONSOLE_LOG_FILENAME
@@ -891,7 +891,7 @@ def test_trim_console_verbose_log_preserves_at_least_one_block(monkeypatch: pyte
 
 def test_trim_plan_decisions_log_keeps_last_n_entries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """After trimming, exactly `cap` sprint entries remain (plus the preamble)."""
-    from autosprint.paths import PLAN_DECISIONS_FILENAME
+    from autosprint.util.paths import PLAN_DECISIONS_FILENAME
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "PLAN_DECISIONS_RECENT_COUNT", 2)

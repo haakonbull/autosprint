@@ -27,7 +27,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from autosprint.config import config
-from autosprint.errors import add_context
+from autosprint.util.errors import add_context
 
 
 @dataclass
@@ -390,8 +390,8 @@ class PytestRunner(TestRunner):
 
     def _track_coverage(self, package: str) -> None:
         """Run pytest with `--cov` and append the coverage % to `autosprint/logs/coverage-history.log`. Warn-only — never fails the gate; the log is the audit trail and a future v2 will gate on regression. Silent-skips when pytest-cov isn't installed (no warning needed; user explicitly enabled this and is responsible for the dep)."""
-        from autosprint.output import printlev
-        from autosprint.paths import LOGS_SUBDIR
+        from autosprint.util.output import printlev
+        from autosprint.util.paths import LOGS_SUBDIR
 
         module = package.replace("-", "_")
         cmd = [self.python_executable(), "-m", "pytest", f"--cov={module}", "--cov-report=term-missing", "-q"]

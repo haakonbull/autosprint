@@ -8,8 +8,9 @@ live here so orchestrator.py doesn't have to carry the visual layout.
 from __future__ import annotations
 
 from autosprint.config import config
-from autosprint.errors import add_context
-from autosprint.output import printlev
+from autosprint.infra.gates import describe_gates
+from autosprint.util.errors import add_context
+from autosprint.util.output import printlev
 
 
 def section_banner(name: str, tag: str) -> str:
@@ -72,7 +73,7 @@ def print_start_banner(branch_name: str) -> None:
     """Print a visually distinct startup banner summarising the PIT run configuration after prepare completes; always fires at level=100 (prod). Uses 3-space indentation and a box-drawing tree diagram for the Plan→Implement→Test→Commit→Review loop."""
     # Lazy import: _estimated_runtime_line lives in run_log; importing eagerly
     # would create banners ⇄ run_log circular at module-load time.
-    from autosprint.run_log import estimated_runtime_line
+    from autosprint.reporting.run_log import estimated_runtime_line
 
     try:
         modes: list[str] = []
@@ -191,10 +192,8 @@ def print_effective_config(branch_name: str) -> None:
 
 
 def _active_gates_summary_lines() -> list[str]:
-    """One short line per per-sprint gate for the startup banner. Imports `describe_gates` lazily to avoid a cli ↔ banners cycle at module load."""
+    """One short line per per-sprint gate for the startup banner."""
     try:
-        from autosprint.cli import describe_gates
-
         rows = describe_gates()
     except Exception:
         return ["      (gate inspection failed — run `autosprint gates` for details)"]

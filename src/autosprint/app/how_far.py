@@ -17,13 +17,13 @@ from __future__ import annotations
 import asyncio
 import time
 
-from autosprint.agents import AGENTS, TOOLS_READ_ONLY
-from autosprint.banners import section_banner
 from autosprint.config import _project_root, config
-from autosprint.dispatch import query_agent
-from autosprint.errors import add_context
-from autosprint.output import printlev
-from autosprint.paths import DESTINATION_FILENAME, LOGS_SUBDIR
+from autosprint.infra.dispatch import query_agent
+from autosprint.registry.agents import AGENTS, TOOLS_READ_ONLY
+from autosprint.reporting.banners import section_banner
+from autosprint.util.errors import add_context
+from autosprint.util.output import printlev
+from autosprint.util.paths import DESTINATION_FILENAME, LOGS_SUBDIR
 
 _HOWFAR_SKILL_PATH = ".claude/skills/how-far/SKILL.md"
 _HEARTBEAT_LOG_FILENAME = "howfar-heartbeat.log"

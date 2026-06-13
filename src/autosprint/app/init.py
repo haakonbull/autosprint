@@ -4,7 +4,7 @@ Owns the `autosprint init` subcommand and the prepare-step helpers that seed
 files and check pre-conditions in TARGET_REPO. Split out of orchestrator.py
 to keep loop logic separate from one-shot setup concerns. Functions here are
 re-exported from orchestrator.py so existing
-`from autosprint.orchestrator import _foo` paths still resolve.
+`from autosprint.app.orchestrator import _foo` paths still resolve.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ import sys
 from datetime import datetime
 
 from autosprint.config import _project_root, config
-from autosprint.config_toml import render_config_toml as _render_config_toml
-from autosprint.errors import add_context
-from autosprint.output import printlev
-from autosprint.paths import (
+from autosprint.config.toml_io import render_config_toml as _render_config_toml
+from autosprint.util.errors import add_context
+from autosprint.util.output import printlev
+from autosprint.util.paths import (
     ADR_FILENAME,
     AUTOSPRINT_DIR_NAME,
     DESTINATION_FILENAME,
@@ -169,7 +169,7 @@ def _wizard_language(active: dict[str, str]) -> None:
     asked outright. `target_test_runner` is recorded only when the answer differs
     from what `TARGET_TEST_RUNNER=auto` would resolve to anyway — so confirming the
     detection writes nothing (auto already does the right thing)."""
-    from autosprint.test_runners import detect_runner
+    from autosprint.infra.test_runners import detect_runner
 
     root = config.TARGET_REPO_PATH
     has_markers = any((root / m).exists() for m in ("pyproject.toml", "pytest.ini", "setup.cfg", "package.json"))
@@ -728,7 +728,7 @@ def _print_init_config_summary() -> None:
 
 def _run_init_update_skills() -> None:
     """`autosprint init --update-skills`: refresh the target repo's `.claude/skills/`, `.claude/agents/`, and `.github/skills/` from the autosprint source, **overwriting** existing entries. Use this after `git pull`-ing a newer autosprint to pick up updated skills without nuking the rest of init. Skips everything else (config.toml, gitignore, destination seed, sensitive-content scan, etc.) — those are one-time bootstrap concerns, not refresh-relevant."""
-    from autosprint.banners import section_banner
+    from autosprint.reporting.banners import section_banner
 
     try:
         printlev(f"\n{section_banner('INIT --update-skills', 'START')}\n", level=100)
@@ -744,7 +744,7 @@ def _run_init_update_skills() -> None:
 
 def _run_init(assume_defaults: bool = False) -> None:
     """Bootstrap autosprint's working files in the target repo (already resolved to cwd, `--target`, or the TARGET_REPO env fallback before this runs). Steps: (1) assert the target is not the autosprint repo itself, (2) verify it is a git repo, (3) migrate any legacy file names from earlier autosprint versions, (4) seed autosprint/destination.md with the role-explaining template, (5) create an empty autosprint/adr.md stub, (6) create autosprint/config.toml — interactively via a short wizard (target language, AI backend) unless `assume_defaults` is set or stdin is not a TTY, in which case a default template is written, (7) append required .gitignore entries, (8) print resolved config. The destination grilling lives as a separate skill in Claude Code."""
-    from autosprint.banners import section_banner
+    from autosprint.reporting.banners import section_banner
 
     try:
         printlev(f"\n{section_banner('INIT', 'START')}\n", level=100)
@@ -846,8 +846,8 @@ def _check_install_health() -> tuple[bool, str]:
 async def _doctor_probe(assistant: str) -> tuple[bool, str]:
     """Dispatch one trivial prompt to `assistant`'s cheapest agent to confirm that
     auth + dispatch actually work end to end. Returns (ok, human-readable detail)."""
-    from autosprint.agents import AGENTS
-    from autosprint.dispatch import query_agent
+    from autosprint.infra.dispatch import query_agent
+    from autosprint.registry.agents import AGENTS
 
     agent = AGENTS[_DOCTOR_PROBE_AGENT_KEY[assistant]]
     try:
@@ -888,7 +888,7 @@ def run_doctor() -> None:
     the target repo, destination.md, the CLI(s) the team needs, and one live
     round-trip per backend in use (Claude / Copilot) confirming auth + dispatch.
     Prints a checklist; exits non-zero (SystemExit) if any hard check fails."""
-    from autosprint.banners import section_banner
+    from autosprint.reporting.banners import section_banner
 
     try:
         printlev(f"\n{section_banner('DOCTOR', 'START')}\n", level=100)

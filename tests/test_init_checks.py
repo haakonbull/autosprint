@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-import autosprint.init as init_mod
+import autosprint.app.init as init_mod
 from autosprint.config import config
 
 # ---------------------------------------------------------------------------

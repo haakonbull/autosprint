@@ -3,7 +3,7 @@
 A team is a dict with an "agents" list and an optional "selector" agent. The
 selector runs the final merge when there are multiple agents. If omitted,
 agents[0] is used. Single-agent teams never need a selector. Teams may only
-reference agents defined in autosprint.agents.
+reference agents defined in autosprint.registry.agents.
 
 Split out from agents.py so each file has one job: agents.py defines
 individual agents and their AGENTS registry; this module composes those into
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from autosprint.agents import (
+from autosprint.registry.agents import (
     AGENT_ANALYST_GPT52_COPILOT,
     AGENT_ANALYST_OPUS_CLAUDE,
     AGENT_ARCHITECT_GPT55,

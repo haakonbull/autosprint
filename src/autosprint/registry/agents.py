@@ -1,7 +1,7 @@
 """Agent definitions and the AGENTS registry.
 
 An *agent* is a single (assistant, model, persona, tools) combination. Teams
-that group agents into planning rosters live in `autosprint.teams`.
+that group agents into planning rosters live in `autosprint.registry.teams`.
 
 Each agent declares:
   - name:           human-readable label

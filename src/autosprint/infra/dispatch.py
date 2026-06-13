@@ -52,10 +52,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH, VALID_PRESETS
 from autosprint.config import config
-from autosprint.errors import StopSignalDetected, add_context
-from autosprint.output import printlev
+from autosprint.registry.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH, VALID_PRESETS
+from autosprint.util.errors import StopSignalDetected, add_context
+from autosprint.util.output import printlev
 
 
 @dataclass

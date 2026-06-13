@@ -17,51 +17,21 @@ from __future__ import annotations
 import random
 from datetime import UTC, datetime
 
-from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY
 from autosprint.config import config
-from autosprint.dispatch import query_agent
-from autosprint.errors import PhaseFailedError, RevertReason, add_context
-from autosprint.git_ops import git_restore, summarise_working_tree_diff
-from autosprint.output import printlev
-from autosprint.parsing import ImplementResponseMalformed, parse_implement_result
-from autosprint.paths import AUTOSPRINT_DIR_NAME, IMPLEMENT_FAILURES_LOG_FILENAME, LAST_IMPLEMENT_FAILURE_FILENAME
-from autosprint.plan import group_titles, read_plan_md, serialise_plan
-from autosprint.plan_phase import lock_destination_section, read_adr, read_agent_file
-from autosprint.run_log import append_run_log, extract_story_points, task_attempt_stats
+from autosprint.domain.plan import group_titles, read_plan_md, serialise_plan
+from autosprint.infra.dispatch import query_agent
+from autosprint.infra.git_ops import git_restore, summarise_working_tree_diff
+from autosprint.phases.plan_phase import lock_destination_section, read_adr, read_agent_file
+from autosprint.registry.agents import TOOLS_FULL, TOOLS_READ_ONLY
+from autosprint.reporting.run_log import append_run_log, extract_story_points, task_attempt_stats
+from autosprint.util.errors import PhaseFailedError, RevertReason, add_context
+from autosprint.util.output import printlev
 
-# Phrases Opus 4.8 (and variants) tend to emit when it misreads a Read-tool
-# safety reminder as a refusal directive. Used to surface a targeted hint to
-# the user instead of hiding the root cause behind a generic "implement failed"
-# line, and to gate the refusal-fallback re-dispatch.
-#
-# Why the list is broad: empirically (game1 logs, runs 3-8) the parsed `reason`
-# paraphrases the refusal in many ways ("Refused to perform sprint edits",
-# "explicitly forbids improving or augmenting", "refused per Read-tool
-# system-reminder") — but the raw response almost always quotes the canonical
-# Read-tool wording verbatim. `detect_refusal_pattern` therefore checks both
-# the reason AND the raw response, and the phrase list covers both wordings.
-_REFUSAL_PATTERN_PHRASES: tuple[str, ...] = (
-    "refuse to improve",
-    "refuse to augment",
-    "refusing to improve",
-    "refusing to augment",
-    "instructed to refuse",
-    "system directive",
-    "must refuse",
-    "system-reminder",
-    "system reminder",
-    "forbids improving",
-    "forbids augmenting",
-    "forbidding augmenting",
-    "forbidding code augmentation",
-    "do not improve code",
-)
-
-
-def detect_refusal_pattern(reason: str, raw_response: str = "") -> bool:
-    """Return True if a failure looks like Opus 4.8's known misread of Read-tool safety reminders as a refusal directive. Checks the parsed reason AND the raw response together — the agent paraphrases its refusal in the reason field (e.g. "Refused to perform sprint edits") while the raw response typically quotes the canonical reminder verbatim ("MUST refuse to improve or augment"). Catching either path is what lifted the live fallback hit-rate from ~12% to ~95% (see logs from game1 runs 3-8). Matching is case-insensitive on `_REFUSAL_PATTERN_PHRASES`."""
-    haystack = f"{reason}\n{raw_response}".lower()
-    return any(phrase in haystack for phrase in _REFUSAL_PATTERN_PHRASES)
+# detect_refusal_pattern lives in the parsing leaf so run_log can reuse it
+# without a run_log <-> implement_phase cycle; re-exported here because callers
+# and tests reach it as implement_phase.detect_refusal_pattern.
+from autosprint.util.parsing import ImplementResponseMalformed, detect_refusal_pattern, parse_implement_result
+from autosprint.util.paths import AUTOSPRINT_DIR_NAME, IMPLEMENT_FAILURES_LOG_FILENAME, LAST_IMPLEMENT_FAILURE_FILENAME
 
 
 def log_implement_failure(sprint_number: int, task: dict, reason: str, raw_response: str) -> None:

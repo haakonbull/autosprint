@@ -14,12 +14,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import autosprint.orchestrator as orch
-import autosprint.plan_phase as plan_phase_mod
-from autosprint.cli import resolve_max_sprints
+import autosprint.app.orchestrator as orch
+import autosprint.phases.plan_phase as plan_phase_mod
+from autosprint.app.cli import resolve_max_sprints
 from autosprint.config import config
-from autosprint.output import speak_tier_enabled
-from autosprint.plan import PendingTask, Plan, read_plan_md, write_plan_md
+from autosprint.domain.plan import PendingTask, Plan, read_plan_md, write_plan_md
+from autosprint.util.output import speak_tier_enabled
 
 FAKE_TASK = {"title": "Add hello to hello.md", "description": "Append hello."}
 FAKE_IMPLEMENT_RESULT = {"status": "success", "summary": "Appended hello."}

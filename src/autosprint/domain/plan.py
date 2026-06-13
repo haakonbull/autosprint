@@ -24,8 +24,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from autosprint.errors import add_context
-from autosprint.output import printlev
+from autosprint.util.errors import add_context
+from autosprint.util.output import printlev
 
 PLAN_FILENAME = "autosprint/plan.md"
 

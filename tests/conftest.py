@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from autosprint import db
 from autosprint.config import config
+from autosprint.infra import db
 
 
 @pytest.fixture(autouse=True)

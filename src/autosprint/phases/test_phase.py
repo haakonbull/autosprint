@@ -24,12 +24,12 @@ import sys
 from datetime import UTC, datetime
 
 from autosprint.config import _project_root, config
-from autosprint.errors import PhaseFailedError, RevertReason, add_context
-from autosprint.git_ops import git_restore
-from autosprint.output import printlev
-from autosprint.paths import LAST_TEST_OUTPUT_FILENAME, PREFLIGHT_LOG_FILENAME
-from autosprint.plan import group_titles
-from autosprint.test_runners import PytestRunner, count_passed_pytest, get_test_runner
+from autosprint.domain.plan import group_titles
+from autosprint.infra.git_ops import git_restore
+from autosprint.infra.test_runners import PytestRunner, count_passed_pytest, get_test_runner
+from autosprint.util.errors import PhaseFailedError, RevertReason, add_context
+from autosprint.util.output import printlev
+from autosprint.util.paths import LAST_TEST_OUTPUT_FILENAME, PREFLIGHT_LOG_FILENAME
 
 _INITIAL_TESTS_SUMMARY: str | None = None
 
@@ -117,7 +117,7 @@ def run_test_phase(task_group: list[dict], sprint_number: int) -> None:
     """Run the Test phase: execute the target repo's test runner (full suite by default, or quick-only subset when config.TEST_PHASE_QUICK_ONLY is True), revert + raise if tests fail, else print the pass count. A failing test phase reverts the whole group atomically. `sprint_number` is passed explicitly (not read from a context var) for loggability."""
     # Lazy import: append_run_log lives in run_log.py which imports test_phase
     # for output formatters — lazy avoids the cycle at module-load time. While
-    from autosprint.run_log import append_run_log
+    from autosprint.reporting.run_log import append_run_log
 
     try:
         runner = get_test_runner()

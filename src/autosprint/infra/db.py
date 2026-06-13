@@ -29,7 +29,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from autosprint.config import config
-from autosprint.output import printlev
+from autosprint.util.output import printlev
 
 _DB_FILENAME = "autosprint/runs.db"
 

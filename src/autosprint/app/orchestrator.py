@@ -5,10 +5,10 @@ finalization (`commit_sprint`), the plan-only dry-run mode (`plan_only`),
 and the synchronous `main()` entry point. Everything else — phase logic,
 prompts, logging, CLI parsing, init, banners, git wrappers — lives in
 sibling modules and is re-exported below so existing
-`from autosprint.orchestrator import _foo` paths in tests keep resolving.
+`from autosprint.app.orchestrator import _foo` paths in tests keep resolving.
 
 When monkeypatching internal helpers in tests, patch the **home** module
-(e.g. `autosprint.plan_phase`, not `autosprint.orchestrator`) — the
+(e.g. `autosprint.phases.plan_phase`, not `autosprint.app.orchestrator`) — the
 re-export is a name alias; the function looks up its dependencies in its
 own module's `__globals__`.
 """
@@ -20,36 +20,37 @@ import sys
 import time
 from datetime import datetime, timezone
 
+from autosprint.app.cli import _ONESHOT_COMMANDS, prepare
+from autosprint.app.how_far import run_howfar_heartbeat
+from autosprint.config import config
+from autosprint.domain.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
+from autosprint.domain.plan import group_titles as _group_titles
+from autosprint.infra.git_ops import get_commit_hash, git, git_commit, git_restore
+from autosprint.infra.stop import check_stop_request as _check_stop_request
+from autosprint.infra.stop import raise_if_stop_between_phases as _raise_if_stop_between_phases
+from autosprint.phases.implement_phase import run_implement
+from autosprint.phases.plan_phase import SprintRevertRecord, plan_phase, update_plan
+from autosprint.phases.plan_phase import build_post_revert_hint as _build_post_revert_hint
+from autosprint.phases.plan_phase import waypoint_title as _waypoint_title
+from autosprint.phases.test_phase import run_test_phase
+
 # ---------------------------------------------------------------------------
 # Imports — only the names this orchestrator body actually uses. Phase logic,
 # CLI parsing, init, banners, git wrappers live in sibling modules and are
 # imported directly by their callers; tests likewise import from the home
 # module rather than from here.
 # ---------------------------------------------------------------------------
-from autosprint.banners import iteration_banner as _iteration_banner
-from autosprint.cli import _ONESHOT_COMMANDS, prepare
-from autosprint.cli import check_stop_request as _check_stop_request
-from autosprint.cli import raise_if_stop_between_phases as _raise_if_stop_between_phases
-from autosprint.config import config
-from autosprint.errors import PhaseFailedError, RevertReason, StopRequested, StopSignalDetected, WaypointReached, add_context
-from autosprint.errors import revert_reason_shrinks_cap as _revert_reason_shrinks_cap
-from autosprint.git_ops import get_commit_hash, git, git_commit, git_restore
-from autosprint.how_far import run_howfar_heartbeat
-from autosprint.implement_phase import run_implement
-from autosprint.output import printlev, speak
-from autosprint.paths import CHANGELOG_FILENAME, DESTINATION_FILENAME, WAYPOINT_FILENAME
-from autosprint.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
-from autosprint.plan import group_titles as _group_titles
-from autosprint.plan_phase import SprintRevertRecord, plan_phase, update_plan
-from autosprint.plan_phase import build_post_revert_hint as _build_post_revert_hint
-from autosprint.plan_phase import waypoint_title as _waypoint_title
-from autosprint.run_log import append_changelog_entry, append_run_log, apply_destination_resolutions, check_escalation, write_run_ended_separator, write_run_separator
-from autosprint.run_log import extract_story_points as _extract_story_points
-from autosprint.run_log import log_outcome_per_task as _log_outcome_per_task
-from autosprint.run_log import print_run_summary as _print_run_summary
-from autosprint.run_log import review_sprint as _review_sprint
-from autosprint.run_log import update_runtime_stats as _update_runtime_stats
-from autosprint.test_phase import run_test_phase
+from autosprint.reporting.banners import iteration_banner as _iteration_banner
+from autosprint.reporting.run_log import append_changelog_entry, append_run_log, apply_destination_resolutions, check_escalation, write_run_ended_separator, write_run_separator
+from autosprint.reporting.run_log import extract_story_points as _extract_story_points
+from autosprint.reporting.run_log import log_outcome_per_task as _log_outcome_per_task
+from autosprint.reporting.run_log import print_run_summary as _print_run_summary
+from autosprint.reporting.run_log import review_sprint as _review_sprint
+from autosprint.reporting.run_log import update_runtime_stats as _update_runtime_stats
+from autosprint.util.errors import PhaseFailedError, RevertReason, StopRequested, StopSignalDetected, WaypointReached, add_context
+from autosprint.util.errors import revert_reason_shrinks_cap as _revert_reason_shrinks_cap
+from autosprint.util.output import printlev, speak
+from autosprint.util.paths import CHANGELOG_FILENAME, DESTINATION_FILENAME, WAYPOINT_FILENAME
 
 # ---------------------------------------------------------------------------
 # PIT-loop core: commit finalization, manual-review prompt, the loop itself.
@@ -124,7 +125,7 @@ def _prompt_task_approval(task_group: list[dict], plan: Plan) -> bool:
 
 
 # (review_sprint / extract_story_points / persist_run_summary / print_run_summary
-# / log_outcome_per_task moved to autosprint.run_log along with the rest of the
+# / log_outcome_per_task moved to autosprint.reporting.run_log along with the rest of the
 # logging cluster.)
 
 

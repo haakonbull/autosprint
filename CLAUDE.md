@@ -21,29 +21,45 @@ orchestration.
 
 ## Project structure
 
+The package is organised as a **layered architecture** of sub-packages,
+enforced by import-linter (see `[tool.importlinter]` in pyproject.toml).
+Imports may only point *down* the stack; the layer order is
+`app > phases > reporting > infra > domain > util > config > registry`.
+
 ```
 src/autosprint/
-  orchestrator.py   # pit_loop, commit_sprint, plan_only, main — the PIT loop itself
-  cli.py            # argparse, prepare(), one-shot subcommands, stop control
-  init.py           # `autosprint init` + config wizard + prepare-step seed/check helpers
-  how_far.py        # `autosprint how-far` — read-only distance-to-destination report
-  plan_phase.py     # Plan phase: prompts, team-lead context, update_plan, replan
-  implement_phase.py # Implement phase: dispatch, refusal-fallback, failure logs
-  test_phase.py     # Test phase: drives the test runner, revert/commit decision, self-test
-  test_runners.py   # TestRunner adapters — normalizes test execution per language (pytest + vitest)
-  run_log.py        # sprint-outcomes log, plan-decisions log, runtime stats, escalation
-  banners.py        # Section banners, PIT-loop tree, start banner, show-config print
-  git_ops.py        # git, git_restore, git_commit, summarise_working_tree_diff
-  parsing.py        # Result-block parsing for agent responses
-  paths.py          # Path/filename constants for autosprint/* layout
-  agents.py         # Individual agent definitions (name, model, system_prompt, tools) + AGENTS registry
-  teams.py          # TEAM_* dicts + TEAMS registry (composes agents into planning rosters)
-  dispatch.py       # query_agent / query_agents — SDK dispatch, caching, parallelism
-  config.py         # Environment-driven settings via pydantic-settings
-  plan.py           # plan.md parser/writer, Plan/PendingTask/CompletedTask, group_titles
-  db.py             # SQLite mirror of sprint outcomes
-  output.py         # printlev() — level-gated stdout
-  errors.py         # add_context, RevertReason, PhaseFailedError, StopRequested, WaypointReached
+  app/              # Top layer — entry points & user surface
+    orchestrator.py #   pit_loop, commit_sprint, plan_only, main — the PIT loop
+    cli.py          #   argparse, prepare(), one-shot subcommand dispatch
+    init.py         #   `autosprint init` + config wizard + prepare-step helpers
+    how_far.py      #   `autosprint how-far` — distance-to-destination report
+  phases/           # The PIT phases (business logic)
+    plan_phase.py   #   Plan: prompts, team-lead context, update_plan, replan
+    implement_phase.py #  Implement: dispatch, refusal-fallback, failure logs
+    test_phase.py   #   Test: drives the runner, revert/commit decision, self-test
+  reporting/        # Observability & presentation
+    run_log.py      #   sprint-outcomes log, plan-decisions, runtime stats, escalation
+    banners.py      #   Section banners, PIT-loop tree, start banner, show-config
+  infra/            # External-world adapters
+    dispatch.py     #   query_agent / query_agents — SDK dispatch, caching, parallelism
+    git_ops.py      #   git, git_restore, git_commit, summarise_working_tree_diff
+    test_runners.py #   TestRunner adapters (pytest + vitest)
+    db.py           #   SQLite mirror of sprint outcomes
+    stop.py         #   Stop-control file lifecycle (write / poll / raise)
+    gates.py        #   Per-sprint gate inspection (describe_gates)
+  domain/           # Domain model
+    plan.py         #   plan.md parser/writer, Plan/PendingTask/CompletedTask
+  util/             # Cross-cutting utilities
+    errors.py       #   add_context, RevertReason, PhaseFailedError, StopRequested
+    output.py       #   printlev() — level-gated stdout
+    parsing.py      #   Result-block parsing + detect_refusal_pattern
+    paths.py        #   Path/filename constants for autosprint/* layout
+  config/           # Configuration
+    settings.py     #   Environment-driven settings via pydantic-settings (Config, config)
+    toml_io.py      #   render_config_toml
+  registry/         # Static agent/team registries (bottom layer — no deps)
+    agents.py       #   Agent definitions (name, model, system_prompt, tools) + AGENTS
+    teams.py        #   TEAM_* dicts + TEAMS registry
 .claude/agents/
   plan-agent.md            # Prompt template for a single agent's Plan phase (code projects)
   plan-team.md             # Prompt for the selector when merging team proposals (code projects)
@@ -57,12 +73,15 @@ tests/
   test_plan.py
 ```
 
-`orchestrator.py` re-exports most names from the phase / helper modules so
-existing `from autosprint.orchestrator import _foo` paths in tests keep
+`app/orchestrator.py` re-exports most names from the phase / helper modules so
+existing `from autosprint.app.orchestrator import _foo` paths in tests keep
 working. When monkeypatching internal helpers in tests, patch the *home*
-module (e.g. `autosprint.plan_phase`, not `autosprint.orchestrator`) — the
-re-export is just a name alias, the function looks up dependencies in its
+module (e.g. `autosprint.phases.plan_phase`, not `autosprint.app.orchestrator`)
+— the re-export is just a name alias, the function looks up dependencies in its
 own module's namespace.
+
+`config/__init__.py` re-exports its singleton, so `from autosprint.config
+import config` still works without reaching into `config.settings`.
 
 ## Running
 

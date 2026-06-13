@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from autosprint.plan import (
+from autosprint.domain.plan import (
     CompletedTask,
     PendingTask,
     Plan,

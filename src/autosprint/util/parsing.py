@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 
-from autosprint.output import printlev
+from autosprint.util.output import printlev
 
 
 class ImplementResponseMalformed(Exception):
@@ -125,3 +125,32 @@ def parse_implement_result(raw: str) -> dict:
         reason = str(parsed.get("reason") or "").strip() or "(no reason given)"
         return {"status": "failure", "reason": reason}
     raise ImplementResponseMalformed(f"Unknown or missing status: {status!r}")
+
+
+# Refusal detection lives here (a leaf parsing concern) so both the implement
+# phase and the run-log escalation check can use it without either importing
+# the other. The model paraphrases its refusal in the reason field while the
+# raw response usually quotes the safety reminder verbatim, so matching scans
+# both texts.
+_REFUSAL_PATTERN_PHRASES: tuple[str, ...] = (
+    "refuse to improve",
+    "refuse to augment",
+    "refusing to improve",
+    "refusing to augment",
+    "instructed to refuse",
+    "system directive",
+    "must refuse",
+    "system-reminder",
+    "system reminder",
+    "forbids improving",
+    "forbids augmenting",
+    "forbidding augmenting",
+    "forbidding code augmentation",
+    "do not improve code",
+)
+
+
+def detect_refusal_pattern(reason: str, raw_response: str = "") -> bool:
+    """Return True if a failure looks like the known misread of Read-tool safety reminders as a refusal directive. Checks the parsed reason AND the raw response together — the agent paraphrases its refusal in the reason field (e.g. "Refused to perform sprint edits") while the raw response typically quotes the canonical reminder verbatim ("MUST refuse to improve or augment"). Catching either path is what lifted the live fallback hit-rate substantially. Matching is case-insensitive on the phrase list."""
+    haystack = f"{reason}\n{raw_response}".lower()
+    return any(phrase in haystack for phrase in _REFUSAL_PATTERN_PHRASES)

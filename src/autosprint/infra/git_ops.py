@@ -11,10 +11,10 @@ from __future__ import annotations
 import subprocess
 
 from autosprint.config import config
-from autosprint.errors import add_context
-from autosprint.output import printlev
-from autosprint.paths import PLAN_DECISIONS_FILENAME, RUNTIME_STATS_FILENAME, SPRINT_LOG_FILENAME
-from autosprint.plan import group_titles
+from autosprint.domain.plan import group_titles
+from autosprint.util.errors import add_context
+from autosprint.util.output import printlev
+from autosprint.util.paths import PLAN_DECISIONS_FILENAME, RUNTIME_STATS_FILENAME, SPRINT_LOG_FILENAME
 
 # History files that survive `git restore` — these are tracked by git so they
 # time-travel with `git checkout`, but their in-flight (uncommitted) writes from

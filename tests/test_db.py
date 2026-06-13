@@ -1,4 +1,4 @@
-"""Tests for the SQLite mirror in autosprint.db.
+"""Tests for the SQLite mirror in autosprint.infra.db.
 
 Each test points config.TARGET_REPO at a tmp_path so the runs.db lives
 inside the test's scratch directory and never touches a real repo.
@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from autosprint import db
 from autosprint.config import config
+from autosprint.infra import db
 
 
 @pytest.fixture

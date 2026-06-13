@@ -22,16 +22,17 @@ import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from autosprint.agents import TOOLS_READ_ONLY
 from autosprint.config import _project_root, config
-from autosprint.dispatch import AgentResults, query_agent, query_agents
-from autosprint.errors import PhaseFailedError, RevertReason, WaypointReached, add_context
-from autosprint.output import printlev
-from autosprint.parsing import parse_result
-from autosprint.paths import ADR_FILENAME, WAYPOINT_FILENAME
-from autosprint.plan import PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
-from autosprint.run_log import append_run_log, log_plan_decision, recent_sprint_history
-from autosprint.test_phase import get_initial_tests_summary, read_last_test_output, run_preflight_tests
+from autosprint.domain.plan import PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
+from autosprint.infra.dispatch import AgentResults, query_agent, query_agents
+from autosprint.infra.stop import raise_if_stop_between_phases
+from autosprint.phases.test_phase import get_initial_tests_summary, read_last_test_output, run_preflight_tests
+from autosprint.registry.agents import TOOLS_READ_ONLY
+from autosprint.reporting.run_log import append_run_log, log_plan_decision, recent_sprint_history
+from autosprint.util.errors import PhaseFailedError, RevertReason, WaypointReached, add_context
+from autosprint.util.output import printlev
+from autosprint.util.parsing import parse_result
+from autosprint.util.paths import ADR_FILENAME, WAYPOINT_FILENAME
 
 # ---------------------------------------------------------------------------
 # Agent files & shared prompt fragments (used by both Plan and Implement)
@@ -358,9 +359,6 @@ async def query_team_lead_with_retry(agent: dict, prompt: str, sprint_number: in
 
 async def update_plan(team: list[dict], selector: dict, sprint_number: int = 0, prev_sprint_reverted: bool = False, post_revert_hint: str = "", plan_only_mode: bool = False) -> Plan:
     """Generate plan.md: query the team for task proposals (or use FAKE_PLAN_TITLE), let the selector merge them, write plan.md. Decides internally whether to surface a pre-flight pytest summary to the team lead based on sprint_number and prev_sprint_reverted — callers hand in raw sprint state, update_plan owns the "what does the team lead see" decision. Pre-flight context only appears in the team-lead prompt (multi-agent teams); team members stay unaware so their proposals remain independent. `post_revert_hint` is prepended to the team-lead prompt when this replan follows one or more real reverts since the last replan. When the team lead returns `waypoint_reached: true` AND a waypoint is currently active, raises `WaypointReached` after appending a status marker to waypoint.md — the pit_loop catches it and halts cleanly. `plan_only_mode` is True only when called from the `autosprint plan-only` entry point; it appends `plan_depth_section` guidance so the lead drafts a fuller candidate list for human curation instead of the loop's short 5–10. On a plan-only run the lead's `plan_summary` editorial is rendered as a blockquote atop plan.md; loop mode ignores it."""
-    # Lazy import to avoid plan_phase ⇄ cli circular at module-load time.
-    from autosprint.cli import raise_if_stop_between_phases as _raise_if_stop_between_phases
-
     try:
         existing = read_plan_md(config.TARGET_REPO_PATH).completed
         waypoint_active = bool(waypoint_section())  # captured pre-dispatch; the file shouldn't change mid-call but we want a stable snapshot
@@ -383,7 +381,7 @@ async def update_plan(team: list[dict], selector: dict, sprint_number: int = 0, 
             context: TeamLeadContext = await build_context_for_team_lead(team, sprint_number, prev_sprint_reverted)
             team_lead_prompt = assemble_prompt_for_team_lead(context, selector=selector, post_revert_hint=post_revert_hint, plan_only_mode=plan_only_mode)
             printlev(f"[P] All {len(team)} team proposals received. Asking '{selector.get('name', 'unknown')}' (team-lead role) to merge them into the final plan...", level=20)
-            _raise_if_stop_between_phases()  # `stop --now` issued during team-members dispatch should short-circuit before another LLM call
+            raise_if_stop_between_phases()  # `stop --now` issued during team-members dispatch should short-circuit before another LLM call
             parsed_plan = await query_team_lead_with_retry(selector, team_lead_prompt, sprint_number, on_result=log_proposed_tasks)
             plan = result_to_plan(parsed_plan, existing)
             log_plan_decision(plan, context.proposed_task_lists.to_proposals_text())
@@ -426,7 +424,7 @@ def select_sprint_task_group(plan: Plan, task_count_cap: int | None = None) -> l
     """Return the task group for this sprint. When SPRINT_STORY_POINT_TARGET is 0 (disabled), returns a list of length 1 — the single top pending task (legacy single-task-per-sprint behavior). When TARGET > 0, greedily combines the top N pending tasks, stopping as soon as cumulative story points ≥ TARGET, without exceeding SPRINT_STORY_POINT_MAX. `task_count_cap` additionally stops the bundler at this many tasks even if SP target wasn't met — used by the adaptive cap to shrink sprints after a real revert. When None, uses `SPRINT_TASK_COUNT_CAP_INITIAL`. Edge cases: (a) untagged tasks never get grouped with others (too ambiguous to size — take alone if first slot, otherwise stop); (b) a first task whose SP already ≥ TARGET passes as-is (never combined with smaller followers, count cap ignored for solo big tasks); (c) when MAX < TARGET (nonsensical config), groups stop at MAX, so TARGET is unreachable — groups come back smaller than intended but the function never returns an empty group for a non-empty plan. Raises nothing — an empty plan returns an empty list, which the caller handles as 'no pending tasks'."""
     # Lazy import: extract_story_points lives in run_log; importing eagerly
     # would require both modules to be loaded in a stable order.
-    from autosprint.run_log import extract_story_points
+    from autosprint.reporting.run_log import extract_story_points
 
     target = config.SPRINT_STORY_POINT_TARGET
     cap = task_count_cap if task_count_cap is not None else config.SPRINT_TASK_COUNT_CAP_INITIAL
@@ -465,7 +463,7 @@ def select_sprint_task_group(plan: Plan, task_count_cap: int | None = None) -> l
 
 def select_top_tasks(plan: Plan, task_count_cap: int | None = None) -> list[dict]:
     """Return the sprint's task group via `select_sprint_task_group`, or raise PhaseFailedError if the plan is empty. Emits the level=50 'Task(s) chosen' banner. Threads `task_count_cap` through so the pit loop can feed the adaptive cap into task selection."""
-    from autosprint.run_log import extract_story_points
+    from autosprint.reporting.run_log import extract_story_points
 
     task_group = select_sprint_task_group(plan, task_count_cap=task_count_cap)
     if not task_group:

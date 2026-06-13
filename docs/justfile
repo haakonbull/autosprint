@@ -1,0 +1,25 @@
+# Documentation: Quarto site + LikeC4 architecture model.
+# Recipes run from docs/ (the Quarto project root).
+
+_default:
+    @just --list
+
+# Render the Quarto site to docs/_site.
+[group('build')]
+build:
+    quarto render
+
+# Live-preview the Quarto site with reload.
+[group('dev')]
+dev:
+    quarto preview
+
+# Validate the LikeC4 architecture model.
+[group('check')]
+check:
+    npx -y likec4@latest validate likec4
+
+# Serve the interactive LikeC4 architecture model in a browser.
+[group('dev')]
+serve:
+    npx -y likec4@latest serve likec4

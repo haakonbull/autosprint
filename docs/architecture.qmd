@@ -11,24 +11,22 @@ module imports from a layer above it.
 
 ## Layered package diagram
 
-A layer may import from **any** layer below it, never from one above. The arrows
-show the adjacency of the stack; the dashed back-edges are the runtime path
-(each sprint loops), not import dependencies.
+The stack below reads top to bottom from the highest layer to the lowest. A
+layer may import from **any** layer beneath it, never from one above.
 
 ```{mermaid}
 %%| label: fig-layers
-%%| fig-cap: "The eight package layers. Imports flow strictly downward; any layer may use any layer beneath it."
-flowchart TD
-  app["app<br>orchestrator · cli · init · how_far<br><i>entry points & user surface</i>"]
-  phases["phases<br>plan · implement · test<br><i>the PIT phases</i>"]
-  reporting["reporting<br>run_log · banners<br><i>observability & presentation</i>"]
-  infra["infra<br>dispatch · git_ops · test_runners · db · stop · gates<br><i>external-world adapters</i>"]
-  domain["domain<br>plan<br><i>domain model</i>"]
-  util["util<br>errors · output · parsing · paths<br><i>cross-cutting utilities</i>"]
-  config["config<br>settings · toml_io<br><i>configuration</i>"]
-  registry["registry<br>agents · teams<br><i>static registries (no deps)</i>"]
-
-  app --> phases --> reporting --> infra --> domain --> util --> config --> registry
+%%| fig-cap: "The eight package layers, highest at the top. Imports flow strictly downward."
+block-beta
+  columns 1
+  app["app — orchestrator · cli · init · how_far"]
+  phases["phases — plan · implement · test"]
+  reporting["reporting — run_log · banners"]
+  infra["infra — dispatch · git_ops · test_runners · db · stop · gates"]
+  domain["domain — plan"]
+  util["util — errors · output · parsing · paths"]
+  config["config — settings · toml_io"]
+  registry["registry — agents · teams"]
 ```
 
 ## What each layer owns
@@ -60,85 +58,16 @@ graph is a clean DAG, which is exactly what the import-linter contract locks in.
 
 ## C4 model
 
-The diagrams below model the system at the three C4 levels. The same
-architecture is maintained as code in the LikeC4 model under
-[`docs/likec4/`](https://github.com/haakonbull/autosprint/tree/master/docs/likec4),
-which can be explored interactively with `just docs likec4 dev`.
+The system's C4 model — System Context, Containers, and Components — is
+maintained as code in the LikeC4 model under
+[`docs/likec4/`](https://github.com/haakonbull/autosprint/tree/master/docs/likec4)
+(`spec.c4`, `model.c4`, `views.c4`). LikeC4 renders all three levels from that
+single source of truth, so the views never drift from each other.
 
-### Level 1 — System Context
+Explore it from the repo:
 
-```{mermaid}
-C4Context
-  title System Context — Autosprint
-  Person(dev, "Developer", "Writes destination.md, reviews plan.md, runs the loop")
-  System(autosprint, "Autosprint", "Automated PIT-loop orchestrator")
-  System_Ext(target, "Target Repository", "The git repo being worked on")
-  System_Ext(claude, "Claude", "Claude Agent SDK + claude CLI")
-  System_Ext(copilot, "GitHub Copilot", "Copilot SDK + copilot CLI")
-
-  Rel(dev, autosprint, "Runs commands, reviews plan.md")
-  Rel(autosprint, claude, "Dispatches agent prompts")
-  Rel(autosprint, copilot, "Dispatches agent prompts")
-  Rel(claude, target, "Reads & edits files via tools")
-  Rel(copilot, target, "Reads & edits files via tools")
-  Rel(autosprint, target, "Runs tests, commits, reverts")
-```
-
-### Level 2 — Containers
-
-```{mermaid}
-C4Container
-  title Container Diagram — Autosprint
-  Person(dev, "Developer", "Runs and steers the loop")
-  System_Ext(claude, "Claude", "Agent SDK + CLI")
-  System_Ext(copilot, "GitHub Copilot", "SDK + CLI")
-  System_Ext(target, "Target Repository", "Source, tests, autosprint/")
-
-  Container_Boundary(as, "Autosprint") {
-    Container(app, "App / Orchestrator", "Python", "Entry points, CLI, PIT loop")
-    Container(phases, "Phases", "Python", "Plan / Implement / Test")
-    Container(reporting, "Reporting", "Python", "Logs, stats, banners")
-    Container(infra, "Infra", "Python", "Dispatch, git, test runners, db")
-    Container(foundation, "Foundation", "Python", "domain · util · config · registry")
-  }
-
-  Rel(dev, app, "Runs commands")
-  Rel(app, phases, "Drives each sprint")
-  Rel(phases, reporting, "Records outcomes")
-  Rel(phases, infra, "Dispatch, git, tests")
-  Rel(app, infra, "Stop control, gates")
-  Rel(infra, foundation, "Config, registries, plan model")
-  Rel(infra, claude, "Dispatches prompts")
-  Rel(infra, copilot, "Dispatches prompts")
-  Rel(infra, target, "Runs tests, commits, reverts")
-```
-
-### Level 3 — Components (sprint execution)
-
-```{mermaid}
-C4Component
-  title Component Diagram — Sprint execution
-  Component(orchestrator, "orchestrator", "Python", "Runs the PIT loop")
-  ComponentDb(runLog, "run_log", "Python", "Outcomes + escalation")
-
-  Container_Boundary(phases, "Phases") {
-    Component(planPhase, "plan_phase", "Python", "Plan + replan")
-    Component(implementPhase, "implement_phase", "Python", "Implement + fallback")
-    Component(testPhase, "test_phase", "Python", "Test + revert/commit")
-  }
-
-  Container_Boundary(infra, "Infra") {
-    Component(dispatch, "dispatch", "Python", "LLM dispatch + cache")
-    Component(gitOps, "git_ops", "Python", "git commit / restore")
-    Component(testRunners, "test_runners", "Python", "pytest / vitest")
-  }
-
-  Rel(orchestrator, planPhase, "1. Plan")
-  Rel(orchestrator, implementPhase, "2. Implement")
-  Rel(orchestrator, testPhase, "3. Test")
-  Rel(planPhase, dispatch, "Queries the team")
-  Rel(implementPhase, dispatch, "Queries the implementor")
-  Rel(testPhase, testRunners, "Runs tests")
-  Rel(testPhase, gitOps, "Commits / reverts")
-  Rel(implementPhase, runLog, "Logs failures")
+```bash
+just docs likec4 dev      # serve the interactive model with live reload
+just docs likec4 build    # build a static diagrams site into docs/likec4/dist
+just docs likec4 check    # validate the model
 ```

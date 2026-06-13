@@ -1,19 +1,17 @@
 # LikeC4 architecture model. Recipes run from docs/likec4/.
+# Requires a global `likec4` install (e.g. `npm i -g likec4`).
 
 _default:
     @just --list
 
 # Build the static diagrams site (into docs/likec4/dist).
-[group('build')]
 build:
-    npx -y likec4@latest build .
+    likec4 build .
 
 # Validate the LikeC4 model.
-[group('check')]
 check:
-    npx -y likec4@latest validate .
+    likec4 validate .
 
 # Serve the interactive model with live reload.
-[group('dev')]
 dev:
-    npx -y likec4@latest serve .
+    likec4 serve .

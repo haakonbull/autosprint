@@ -8,15 +8,9 @@ _default:
     @just --list
 
 # Render the Quarto site to docs/_site.
-[group('build')]
 build:
     quarto render
 
 # Live-preview the Quarto site with reload.
-[group('dev')]
 dev:
     quarto preview
-
-# Read-only doc gate: validate the LikeC4 model.
-[group('check')]
-check: likec4::check

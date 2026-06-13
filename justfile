@@ -24,7 +24,7 @@ update:
 
 # Read-only quality gate: lint, format, types, import layers, markdown, C4.
 [group('check')]
-check: docs::check
+check: docs::likec4::check
     uv run ruff check src tests
     uv run ruff format --check src tests
     uv run ty check src

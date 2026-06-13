@@ -63,7 +63,7 @@ graph is a clean DAG, which is exactly what the import-linter contract locks in.
 The diagrams below model the system at the three C4 levels. The same
 architecture is maintained as code in the LikeC4 model under
 [`docs/likec4/`](https://github.com/haakonbull/autosprint/tree/master/docs/likec4),
-which can be explored interactively with `npx likec4 serve docs/likec4`.
+which can be explored interactively with `just docs likec4 dev`.
 
 ### Level 1 — System Context
 

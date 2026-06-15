@@ -159,6 +159,7 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--commit-on-start", action="store_true", help="Commit pre-existing uncommitted changes in TARGET_REPO at startup without the Y/N prompt.")
     parser.add_argument("--use-cache", action="store_true", help="Read cached agent responses from .cache/ (writes always happen). Dev iteration only.")
     parser.add_argument("--no-branch", action="store_true", help="Run on the current branch instead of cutting a fresh autosprint/<ts> branch.")
+    parser.add_argument("--skip-probe", action="store_true", help="Skip the live backend round-trip probe at startup. Use to start anyway when a transient API blip (overload/rate-limit) trips the probe but auth/install are fine — per-sprint retries absorb blips.")
     parser.add_argument("--initial-tests", choices=["quick", "all", "none"], default=None, help="Override INITIAL_TESTS — startup test scope. Autosprint terminates on failure.")
     parser.add_argument("--test-phase-quick-only", action="store_true", help='Run only the quick subset (-m "not slow") in the Test phase every sprint.')
     parser.add_argument("--prioritize", type=str, default=None, metavar="TEXT", help="Freeform priority hint for this planning run. Surfaces in both team-member and team-lead prompts.")
@@ -216,7 +217,7 @@ def parse_cli_args() -> argparse.Namespace:
         subparsers.add_parser("sprints", help="List recent sprint outcomes from autosprint/logs/sprint-outcomes.log — the last ~20 lines, dedup'd across the dual-write pattern.")
         subparsers.add_parser("logs", help="List files in autosprint/logs/ with size and last-modified timestamp, so you can see what's been logged without filesystem-browsing.")
         subparsers.add_parser("skills", help="List Claude Code skills installed in the target repo's `.claude/skills/` directory (the autosprint-shipped grill-* skills plus any local ones).")
-        subparsers.add_parser("config-keys", help="List all config fields with default + description (from config.py Settings model). Differs from `show-config` / `settings` which show resolved current values.")
+        subparsers.add_parser("config-keys", aliases=["default", "defaults"], help="List all config fields with their default value + description (from config.py Settings model). `autosprint default` is an alias. Differs from `show-config` / `settings` which show resolved current values.")
         settings_p = subparsers.add_parser("settings", help="Alias for `show-config` — print the resolved config (team roster, implementor, env overrides) and exit.")
         add_run_options(settings_p)
         subparsers.add_parser("help", help="Show this help message and exit — same as `autosprint` with no arguments, or `autosprint -h`.")
@@ -287,10 +288,12 @@ _CONFIG_TOML_KEYS: dict[str, str] = {
     "implement_agent": "IMPLEMENT_AGENT",
     "implement_fallback_agent": "IMPLEMENT_FALLBACK_AGENT",
     "howfar_agent": "HOWFAR_AGENT",
+    "howfar_heartbeat_every_n_sprints": "HOWFAR_HEARTBEAT_EVERY_N_SPRINTS",
     "sp_target": "SPRINT_STORY_POINT_TARGET",
     "sp_min": "SPRINT_STORY_POINT_MIN",
     "sp_max": "SPRINT_STORY_POINT_MAX",
     "replan_every_n_sprints": "REPLAN_EVERY_N_SPRINTS",
+    "defer_blocked_task_after_failures": "DEFER_BLOCKED_TASK_AFTER_FAILURES",
     "test_phase_quick_only": "TEST_PHASE_QUICK_ONLY",
     "target_test_runner": "TARGET_TEST_RUNNER",
     "test_command": "TEST_COMMAND",
@@ -398,6 +401,8 @@ def apply_cli_overrides(args: argparse.Namespace, parser: argparse.ArgumentParse
             config.USE_CACHE = True
         if args.no_branch:
             config.CREATE_BRANCH = False
+        if getattr(args, "skip_probe", False):
+            config.SKIP_BACKEND_PROBE = True
         if args.initial_tests:
             config.INITIAL_TESTS = args.initial_tests
         if args.test_phase_quick_only:
@@ -476,7 +481,7 @@ def prepare() -> argparse.Namespace:
         if args.command == "skills":
             run_show_skills()
             return args
-        if args.command == "config-keys":
+        if args.command in ("config-keys", "default", "defaults"):
             run_show_config_keys()
             return args
         if args.command == "settings":

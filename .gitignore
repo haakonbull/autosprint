@@ -55,3 +55,6 @@ Desktop.ini
 .claude/scheduled_tasks.lock
 todos.md
 .data/
+
+# autosprint run-scratch (logs, runs.db) — never part of this repo's own history
+autosprint/

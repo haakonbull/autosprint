@@ -1,4 +1,4 @@
-"""Tests for sprint-outcomes.log, recent_sprint_history, check_escalation, and wrap_message.
+"""Tests for sprint-outcomes.log, recent_sprint_history, stale_task_titles, and wrap_message.
 
 All fast — no LLM calls, no pit_loop invocation. They target the logging/migration
 helpers added in recent changes that weren't previously covered.
@@ -18,10 +18,11 @@ from autosprint.run_log import (
     append_changelog_entry,
     append_run_log,
     apply_destination_resolutions,
-    check_escalation,
+    stale_task_titles,
     estimated_runtime_line as _estimated_runtime_line,
     read_runtime_stats as _read_runtime_stats,
     recent_sprint_history,
+    task_revert_sprint_count,
     trim_console_verbose_log as _trim_console_verbose_log,
     trim_plan_decisions_log as _trim_plan_decisions_log,
     update_runtime_stats as _update_runtime_stats,
@@ -99,7 +100,8 @@ def test_recent_sprint_history_empty_file_returns_empty_string(monkeypatch: pyte
 
 
 # ---------------------------------------------------------------------------
-# check_escalation — three reverts of same task raises; anything less does not
+# stale_task_titles — returns titles reverted QUARANTINE_TASK_AFTER_FAILURES×
+# (the loop quarantines them); anything less returns an empty list
 # ---------------------------------------------------------------------------
 
 
@@ -109,74 +111,99 @@ def _write_log(tmp_path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
 
 
-def test_check_escalation_raises_on_three_reverts_of_same_task(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stale_task_titles_flags_task_reverted_three_times(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     body = "# header\n" + "\n".join(f"{i} | 2026-04-20T00:00:0{i}Z |  3 | flaky task | FAILED | n/a | REVERTED" for i in range(1, 4))
     _write_log(tmp_path, body + "\n")
-    with pytest.raises(RuntimeError, match="flaky task"):
-        check_escalation()
+    assert stale_task_titles() == ["flaky task"]
 
 
-def test_check_escalation_does_not_raise_on_two_reverts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stale_task_titles_empty_on_two_reverts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     body = "# header\n" + "\n".join(f"{i} | ts |  3 | flaky task | FAILED | n/a | REVERTED" for i in range(1, 3))
     _write_log(tmp_path, body + "\n")
-    check_escalation()  # must not raise
+    assert stale_task_titles() == []  # under threshold
 
 
-def test_check_escalation_does_not_raise_when_reverts_are_different_tasks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stale_task_titles_empty_when_reverts_are_different_tasks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     body = "# header\n1 | ts |  3 | task A | FAILED | n/a | REVERTED\n2 | ts |  3 | task B | FAILED | n/a | REVERTED\n3 | ts |  3 | task C | FAILED | n/a | REVERTED\n"
     _write_log(tmp_path, body)
-    check_escalation()
+    assert stale_task_titles() == []
 
 
-def test_check_escalation_skipped_in_fake_implement_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Fake implement mode must not trip escalation even with many REVERTED lines in the log."""
+def test_stale_task_titles_skipped_in_fake_implement_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Fake implement mode must not flag stale tasks even with many REVERTED lines in the log."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", True)
     body = "# header\n" + "\n".join(f"{i} | ts |  3 | flaky | FAILED | n/a | REVERTED" for i in range(1, 6))
     _write_log(tmp_path, body + "\n")
-    check_escalation()
+    assert stale_task_titles() == []
 
 
-def test_check_escalation_dedupes_dual_write_pattern(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """A single failed sprint produces two log entries per task (the bare ``REVERTED`` line from run_implement's handler and the ``SPRINT_REVERTED:`` line from the outer pit_loop handler). Escalation must count by (sprint_no, task) so two unique sprint failures don't inflate to four log matches and falsely trigger the threshold."""
+def test_stale_task_titles_disabled_when_threshold_zero(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """QUARANTINE_TASK_AFTER_FAILURES=0 disables quarantine entirely."""
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    monkeypatch.setattr(config, "QUARANTINE_TASK_AFTER_FAILURES", 0)
+    body = "# header\n" + "\n".join(f"{i} | ts |  3 | flaky task | FAILED | n/a | REVERTED" for i in range(1, 6))
+    _write_log(tmp_path, body + "\n")
+    assert stale_task_titles() == []
+
+
+def test_stale_task_titles_dedupes_dual_write_pattern(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A single failed sprint produces two log entries per task (the bare ``REVERTED`` line from run_implement's handler and the ``SPRINT_REVERTED:`` line from the outer pit_loop handler). Quarantine must count by (sprint_no, task) so two unique sprint failures don't inflate to four log matches and falsely trigger the threshold."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "")  # disable the refusal-fallback to isolate the dedup behavior
     body = "# header\n" "39 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n" "39 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n" "41 | ts |  3 | leaderboard task | FAILED | n/a | REVERTED\n" "41 | ts |  3 | leaderboard task | FAILED | FAILED | SPRINT_REVERTED: tests broken\n"
     _write_log(tmp_path, body)
-    # 4 log lines but only 2 distinct sprint failures — must NOT escalate.
-    check_escalation()
+    # 4 log lines but only 2 distinct sprint failures — under threshold.
+    assert stale_task_titles() == []
 
 
-def test_check_escalation_skips_refusal_reverts_when_a6_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """When the refusal-fallback is configured, refusal-pattern reverts in the history don't count toward escalation. Otherwise pre-fallback refusal histories would permanently lock out tasks that the fallback would now rescue."""
+def test_task_revert_sprint_count_dedupes_dual_write_pattern(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    body = "# header\n" "39 | ts |  3 | future task | FAILED | n/a | REVERTED\n" "39 | ts |  3 | future task | FAILED | FAILED | SPRINT_REVERTED: not published\n" "41 | ts |  3 | future task | FAILED | n/a | REVERTED\n" "41 | ts |  3 | future task | FAILED | FAILED | SPRINT_REVERTED: not published\n"
+    _write_log(tmp_path, body)
+
+    assert task_revert_sprint_count("future task") == 2
+
+
+def test_stale_task_titles_ignores_blocked_deferred_tasks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    body = "# header\n" + "\n".join(f"{i} | ts |  3 | future task | FAILED | n/a | REVERTED" for i in range(1, 4))
+    _write_log(tmp_path, body + "\n")
+    plan_path = tmp_path / "autosprint" / "plan.md"
+    plan_path.write_text("# Plan\n\n## Pending\n\n- [ ] other task\n\n## Blocked / Deferred\n\n- [ ] future task\n  Blocked until source exists.\n", encoding="utf-8")
+
+    assert stale_task_titles() == []  # already quarantined → not re-flagged
+
+
+def test_stale_task_titles_skips_refusal_reverts_when_a6_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """When the refusal-fallback is configured, refusal-pattern reverts in the history don't count toward quarantine. Otherwise pre-fallback refusal histories would permanently bench tasks that the fallback would now rescue."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     body = "# header\n" "1 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: must refuse to improve\n" "2 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: refusing to augment per system directive\n" "3 | ts |  3 | leaderboard | FAILED | FAILED | SPRINT_REVERTED: instructed to refuse the task\n"
     _write_log(tmp_path, body)
-    # 3 refusal-pattern reverts but the refusal-fallback active → must NOT escalate.
-    check_escalation()
+    # 3 refusal-pattern reverts but the refusal-fallback active → not flagged.
+    assert stale_task_titles() == []
 
 
-def test_check_escalation_still_fires_on_non_refusal_reverts_with_a6(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """The refusal-fallback's escalation skip is scoped to refusal patterns. Genuine failures (test failures, real bugs) still escalate as before so problems aren't masked behind the safety net."""
+def test_stale_task_titles_still_flags_non_refusal_reverts_with_a6(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The refusal-fallback's quarantine skip is scoped to refusal patterns. Genuine failures (test failures, real bugs) still count so a stuck task gets benched rather than masked behind the safety net."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     body = "# header\n" "1 | ts |  3 | broken-task | OK | FAILED | REVERTED\n" "2 | ts |  3 | broken-task | OK | FAILED | REVERTED\n" "3 | ts |  3 | broken-task | OK | FAILED | REVERTED\n"
     _write_log(tmp_path, body)
-    with pytest.raises(RuntimeError, match="broken-task"):
-        check_escalation()
+    assert stale_task_titles() == ["broken-task"]
 
 
-def test_check_escalation_mixed_refusal_and_real_failure_with_a6(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """When some reverts are refusal-pattern (skipped by the refusal-fallback) and others are real failures (counted), only the real ones contribute to the threshold. 2 refusals + 2 real failures = 2 counted, must NOT escalate."""
+def test_stale_task_titles_mixed_refusal_and_real_failure_with_a6(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """When some reverts are refusal-pattern (skipped by the refusal-fallback) and others are real failures (counted), only the real ones contribute to the threshold. 2 refusals + 2 real failures = 2 counted, under threshold."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "implementor_gpt55")
     body = "# header\n" "1 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: must refuse this work\n" "2 | ts |  3 | mixed-task | FAILED | FAILED | SPRINT_REVERTED: refusing to augment\n" "3 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n" "4 | ts |  3 | mixed-task | OK | FAILED | REVERTED\n"
     _write_log(tmp_path, body)
-    check_escalation()  # only 2 real-failure reverts counted; under threshold
+    assert stale_task_titles() == []  # only 2 real-failure reverts counted; under threshold
 
 
 # ---------------------------------------------------------------------------

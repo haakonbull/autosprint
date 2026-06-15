@@ -867,12 +867,36 @@ async def _doctor_probe(assistant: str) -> tuple[bool, str]:
         return False, f"{assistant} dispatch failed — {type(e).__name__}: {e}"
 
 
+# Substrings that mark a probe failure as a transient backend blip (reachable, but
+# returned an error) vs a genuine auth/install problem. The Claude Agent SDK surfaces
+# transient CLI hiccups as "...returned an error result: success" — reachable backend,
+# passing error — which is the dominant transient seen on long runs. Auth terms take
+# precedence: a real login/credential break must never be mislabeled as "just a blip".
+_PROBE_AUTH_TERMS = ("401", "403", "unauthorized", "forbidden", "authenticate", "authentication", "not logged in", "please log in", "log in to", "expired", "credential", "invalid api key", "gh auth")
+_PROBE_TRANSIENT_TERMS = ("error result", "overloaded", "overload", "rate limit", "rate-limit", "ratelimit", "429", "529", "503", "502", "500", "timeout", "timed out", "deadline", "connection", "econnreset", "network", "temporarily", "try again", "unavailable", "service error")
+
+
+def _probe_failure_kind(detail: str) -> str:
+    """Classify a probe-failure detail string as 'auth' (login/credential/install — fatal, needs a fix),
+    'transient' (backend reachable but returned a passing API error — likely overload/rate-limit), or
+    'unknown'. Auth wins over transient so a genuine auth break is never downplayed as a blip."""
+    text = detail.lower()
+    if any(term in text for term in _PROBE_AUTH_TERMS):
+        return "auth"
+    if any(term in text for term in _PROBE_TRANSIENT_TERMS):
+        return "transient"
+    return "unknown"
+
+
 def probe_backends(warn_only: bool = False) -> bool:
     """Live round-trip probe of every AI backend the configured team dispatches to — one cheap call per backend, the same probe `autosprint doctor` uses. Catches breakage that static PATH checks can't see (a Copilot SDK that lost its bundled CLI binary, an expired Claude login, a hit usage cap) *before* a multi-hour run starts limping with half its council dead. `warn_only=True` (init's mode) prints a warning on failure and returns False — init's job is seeding files, and auth may legitimately not be set up yet; the run path raises RuntimeError with a pointer to `autosprint doctor`. Skipped entirely (returns True) in debug/cache modes (LOG_LEVEL <= 15) so dev loops and tests never make live calls."""
     if config.LOG_LEVEL <= 15:
         printlev("[probe] Skipping backend round-trip probe (LOG_LEVEL <= 15 debug/cache mode).", level=20)
         return True
     label = "init" if warn_only else "prepare"
+    if config.SKIP_BACKEND_PROBE and not warn_only:
+        printlev(f"[{label}] ⚠ Skipping backend round-trip probe (--skip-probe / SKIP_BACKEND_PROBE). Per-sprint retries will absorb transient blips; a genuine auth/install break will surface on sprint 1.", level=100)
+        return True
     printlev(f"[{label}] Probing AI backends (one cheap call per backend)...", level=100)
     failures: list[str] = []
     for assistant in sorted(_required_assistants_for_run()):
@@ -884,7 +908,15 @@ def probe_backends(warn_only: bool = False) -> bool:
             failures.append(detail)
     if not failures:
         return True
-    msg = "Backend probe failed:\n  " + "\n  ".join(failures) + "\n  Fix auth/install before starting a run — `autosprint doctor` prints the full checklist."
+    # Classify so we don't blame auth/install for a transient backend blip. Auth wins over transient:
+    # if any failure looks like a real login/credential/install break, keep the fix-auth guidance.
+    kinds = {_probe_failure_kind(d) for d in failures}
+    all_transient = kinds == {"transient"}
+    if all_transient:
+        guidance = "Transient backend error — the backend is reachable but returned an error (likely overload / rate-limit / a passing API blip), not an auth or install problem. This usually clears on its own: re-run shortly. To start anyway and let the per-sprint retries absorb blips, pass --skip-probe."
+    else:
+        guidance = "Fix auth/install before starting a run — `autosprint doctor` prints the full checklist."
+    msg = "Backend probe failed:\n  " + "\n  ".join(failures) + "\n  " + guidance
     if warn_only:
         printlev(f"[{label}] ⚠ {msg}", level=100)
         return False

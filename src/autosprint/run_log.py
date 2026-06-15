@@ -13,8 +13,9 @@ PIT loop runs:
   survives a `git rebase -i` squash.
 
 Plus the helpers that read those logs back: `recent_sprint_history` (used in
-the planner prompt), `check_escalation` (raises when the same task has
-reverted 3× in the last 20 entries), `task_attempt_stats` (per-task counts
+the planner prompt), `stale_task_titles` (titles that have reverted
+QUARANTINE_TASK_AFTER_FAILURES× in the last 20 entries, which the loop
+quarantines into Blocked / Deferred), `task_attempt_stats` (per-task counts
 for the planner's task-history section).
 """
 
@@ -36,7 +37,7 @@ from autosprint.paths import (
     RUNTIME_STATS_FILENAME,
     SPRINT_LOG_FILENAME,
 )
-from autosprint.plan import Plan, group_titles
+from autosprint.plan import Plan, group_titles, read_plan_md
 
 STORY_POINT_PATTERN = re.compile(r"\((\d+)\)\s*$")
 
@@ -414,6 +415,31 @@ def task_attempt_stats(task_title: str) -> tuple[int, int]:
         raise add_context(e, f"Failed to compute attempt stats for task '{task_title}'") from e
 
 
+def task_revert_sprint_count(task_title: str) -> int:
+    """Return the number of distinct sprints where `task_title` reverted.
+
+    Unlike `task_attempt_stats`, this dedupes the dual-write pattern where one
+    failed sprint writes both `REVERTED` and `SPRINT_REVERTED` rows for the same
+    task. Used by blocked-task deferral thresholds so fresh autosprint processes
+    still see historical repeated blockers.
+    """
+    try:
+        log_path = config.TARGET_REPO_PATH / SPRINT_LOG_FILENAME
+        if not log_path.exists():
+            return 0
+        sprint_ids: set[str] = set()
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            if line.lstrip().startswith("#") or "REVERTED" not in line:
+                continue
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) < 7 or parts[3] != task_title:
+                continue
+            sprint_ids.add(parts[0])
+        return len(sprint_ids)
+    except Exception as e:
+        raise add_context(e, f"Failed to compute revert sprint count for task '{task_title}'") from e
+
+
 def recent_sprint_history(n: int = 5) -> str:
     """Return the last `n` unique sprint rows from sprint-outcomes.log for planner context.
     Deduplicates dual-write rows (each successful sprint writes an intermediate ``OK | pending``
@@ -453,8 +479,8 @@ def recent_sprint_history(n: int = 5) -> str:
 # ---------------------------------------------------------------------------
 
 
-def check_escalation() -> None:
-    """Raise if the same task has REVERTED 3+ times across distinct sprint failures in the last 20 log entries; skipped in FAKE_IMPLEMENT mode (stochastic fake failures would falsely trigger it).
+def stale_task_titles() -> list[str]:
+    """Return the titles of tasks that have REVERTED ``QUARANTINE_TASK_AFTER_FAILURES``+ times across distinct sprint failures in the last 20 log entries — the loop quarantines these (moves them to Blocked / Deferred) and continues, rather than halting. Returns ``[]`` in FAKE_IMPLEMENT mode (stochastic fake failures would falsely trigger it) or when quarantine is disabled (threshold ``<= 0``).
 
     Two subtleties the implementation handles:
 
@@ -467,26 +493,28 @@ def check_escalation() -> None:
 
     2. **Fallback-aware skip.** When ``IMPLEMENT_FALLBACK_AGENT`` is configured,
        refusal-pattern reverts in the log history don't count toward
-       escalation — the fallback now intercepts those automatically, so a task
-       with 3 historical refusals (pre-fallback) shouldn't be permanently
-       locked out. Non-refusal failures (test failures, real bugs) still
-       escalate as before so genuine problems aren't masked.
+       quarantine — the fallback now intercepts those automatically, so a task
+       with historical refusals (pre-fallback) shouldn't be benched on their
+       account. Non-refusal failures (test failures, real bugs) still count so
+       a genuinely stuck task gets quarantined.
 
     The log schema is ``sprint | ts | sp | task | implement | test | outcome``;
     the task title lives at column index 3, the outcome at index 6.
     """
     # Lazy import: detect_refusal_pattern lives in implement_phase, which is
     # downstream of run_log in module dependency order. By the time
-    # check_escalation runs, implement_phase is fully loaded.
+    # stale_task_titles runs, implement_phase is fully loaded.
     from autosprint.implement_phase import detect_refusal_pattern
 
     log_path = config.TARGET_REPO_PATH / SPRINT_LOG_FILENAME
     try:
-        if config.FAKE_IMPLEMENT:
-            return
+        threshold = config.QUARANTINE_TASK_AFTER_FAILURES
+        if config.FAKE_IMPLEMENT or threshold <= 0:
+            return []
         if not log_path.exists():
-            return
+            return []
         lines = [line for line in log_path.read_text(encoding="utf-8").strip().splitlines() if not line.lstrip().startswith("#")]
+        blocked_titles = {task.title for task in read_plan_md(config.TARGET_REPO_PATH).blocked}
         a6_enabled = bool(config.IMPLEMENT_FALLBACK_AGENT_CONFIG)
         # (sprint_no, task) -> "this sprint's revert is recognised as a refusal".
         # We OR across the two dual-write entries so the SPRINT_REVERTED line
@@ -501,6 +529,8 @@ def check_escalation() -> None:
                 continue
             sprint_no = parts[0].strip()
             task = parts[3].strip()
+            if task in blocked_titles:
+                continue
             outcome = parts[6].strip() if len(parts) >= 7 else ""
             is_refusal = detect_refusal_pattern(outcome)
             key = (sprint_no, task)
@@ -508,17 +538,13 @@ def check_escalation() -> None:
         recent_reverts: dict[str, int] = {}
         for (sprint_no, task), is_refusal in sprint_revert_is_refusal.items():
             if a6_enabled and is_refusal:
-                # The refusal-fallback will intercept future refusals on this task; don't escalate
+                # The refusal-fallback will intercept future refusals on this task; don't quarantine
                 # historical refusal-only reverts that predate the safety net.
                 continue
             recent_reverts[task] = recent_reverts.get(task, 0) + 1
-        for task, count in recent_reverts.items():
-            if count >= 3:
-                raise RuntimeError(f"Escalation: task '{task}' has failed {count} times. It may need to be broken down or re-scoped.")
-    except RuntimeError:
-        raise
+        return [task for task, count in recent_reverts.items() if count >= threshold]
     except Exception as e:
-        raise add_context(e, f"Failed to check escalation from {log_path}") from e
+        raise add_context(e, f"Failed to compute stale task titles from {log_path}") from e
 
 
 # ---------------------------------------------------------------------------

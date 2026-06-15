@@ -33,6 +33,12 @@ You write down what you want in `destination.md`. Autosprint measures the gap be
 
 By default (reviewed-plan mode), autosprint runs through a human-approved `plan.md` top to bottom and stops when the list empties — `MAX_SPRINTS` and your own `autosprint stop` are the other exit doors. With `--auto-replan`, once the initial plan finishes autosprint re-measures the gap and drafts a fresh plan, repeating sprint after sprint until you stop it or the destination is genuinely reached.
 
+## See it run
+
+<p align="center">
+  <img src="docs/demo.gif" alt="autosprint running the Plan → Implement → Test → Commit loop in a terminal — drafting plan.md, implementing the top task, running the test suite, and committing the sprint." width="720">
+</p>
+
 # Prerequisites
 
 Always required:
@@ -306,7 +312,7 @@ On a clean test run the change is committed to the sprint branch with a `[autosp
 - **Bundled presets.** `--preset solo-gpt55` wires up the all-Copilot-GPT-5.5 team + implementor in one flag, without merging the internal planning-team / implement-agent split.
 - **Pre-flight `doctor`.** `autosprint doctor` verifies the target repo, `destination.md`, the CLIs the configured team needs, and does one live agent round-trip per backend in use — catching a broken setup before you spend tokens on a sprint.
 - **Per-repo config.** Each target repo carries its own `autosprint/config.toml` (planning team, implement agent, story-point band), so one autosprint clone drives many projects without edits.
-- **Fail-safe by default.** Every failed sprint reverts. If the same task fails 3× in the last 20 log entries, the loop halts for human input. autosprint refuses to run against its own repo.
+- **Fail-safe by default.** Every failed sprint reverts. A task that keeps failing is quarantined — after 3 reverts it moves to `## Blocked / Deferred` and the loop carries on with the next task; the hard stop is reserved for `MAX_CONSECUTIVE_FAILURES` (default 5) sprints failing in a row. autosprint refuses to run against its own repo.
 - **Stoppable.** `autosprint stop` (soft) and `autosprint stop --now` (immediate + revert) signal a live loop to exit cleanly. Control files auto-delete on consumption.
 - **Runtime estimation.** A rolling average of per-sprint duration lives in `autosprint/logs/runtime-stats.md`; the startup banner shows `Estimated runtime: ~X min for N sprints` once you have history.
 - **Resumable.** State lives in files (`autosprint/plan.md`, `autosprint/adr.md`, `autosprint/logs/sprint-outcomes.log`). Stop at any time, pick up from the next run.

@@ -96,6 +96,14 @@ class Config(BaseSettings):
         default=5,
         description="Run the Plan phase at least every N sprints, even if the plan still has pending items.",
     )
+    DEFER_BLOCKED_TASK_AFTER_FAILURES: int = Field(
+        default=2,
+        description="Move externally blocked future-publication tasks from Pending to Blocked / Deferred after this many implement failures with a matching temporal blocker reason. Set 0 to disable.",
+    )
+    QUARANTINE_TASK_AFTER_FAILURES: int = Field(
+        default=3,
+        description="Move a task to Blocked / Deferred and continue with the next task once it has reverted this many times across distinct sprints (any failure reason). Replaces the old behaviour where 3 reverts of the same task halted the whole run — now the loop benches the stuck task and keeps going, reserving the hard stop for MAX_CONSECUTIVE_FAILURES sprints failing in a row. Quarantine does not reset the consecutive-failure counter (the reverts were real), so a systemic failure streak still trips the hard stop. Set 0 to disable quarantine.",
+    )
     PLAN_RECENT_COMPLETED_COUNT: int = Field(
         default=5,
         description="How many completed tasks to keep inline in plan.md. Older completed tasks are dropped (git history is the archive).",
@@ -161,12 +169,12 @@ class Config(BaseSettings):
         description="Max number of cached agent-response files to retain in autosprint/cache/. Older entries are evicted (oldest mtime first) on startup. Set to 0 to disable the cap.",
     )
     LLM_RETRY_ATTEMPTS: int = Field(
-        default=3,
-        description="On a transient dispatch failure (network error or any exception raised inside the SDK call), retry the request this many times before giving up. Default 3 with the default LLM_RETRY_BACKOFF_SECONDS=5 gives a 5s/15s/45s exponential schedule — ~65s of total tolerance, tuned for the typical 30-120s network blip seen on overnight `--auto-replan` runs. Set to 0 to disable retry. Bump higher (e.g. 5) if your network is flaky enough that a longer tolerance is worth the wait.",
+        default=5,
+        description="On a transient dispatch failure (network error or any exception raised inside the SDK call), retry the request this many times before giving up. Default 5 with the default LLM_RETRY_BACKOFF_SECONDS=5 gives a 5s/15s/45s/135s/405s exponential schedule — ~10 minutes of total tolerance, so a temporary internet outage or a passing API blip mid-run recovers on its own instead of failing the sprint. Set to 0 to disable retry. Lower it (e.g. 3, ~65s) if you'd rather fail fast on a flaky connection than wait out a long outage.",
     )
     LLM_RETRY_BACKOFF_SECONDS: float = Field(
         default=5.0,
-        description="Initial backoff (seconds) before the first retry attempt; triples between attempts. Default 5 with the default LLM_RETRY_ATTEMPTS=3 gives 5s/15s/45s. Triple (rather than double) is tuned for overnight network blips where doubling burns the retry budget too fast on a real 60s outage. Only consulted when LLM_RETRY_ATTEMPTS > 0.",
+        description="Initial backoff (seconds) before the first retry attempt; triples between attempts. Default 5 with the default LLM_RETRY_ATTEMPTS=5 gives 5s/15s/45s/135s/405s (~10 min total). Triple (rather than double) is tuned for outages where doubling burns the retry budget too fast on a real multi-minute internet drop. Only consulted when LLM_RETRY_ATTEMPTS > 0.",
     )
     LLM_SESSION_TIMEOUT_SECONDS: int = Field(
         default=900,
@@ -191,6 +199,10 @@ class Config(BaseSettings):
     CREATE_BRANCH: bool = Field(
         default=True,
         description="If true, cut a fresh git branch and snapshot uncommitted changes before the PIT loop. Disable with --no-branch to run on the current branch.",
+    )
+    SKIP_BACKEND_PROBE: bool = Field(
+        default=False,
+        description="Skip the live backend round-trip probe at the start of a run. The probe fails the run fast when a backend is unreachable, but it also aborts on a transient API blip (overload/rate-limit) — which the per-sprint retries would otherwise absorb. Set via --skip-probe to start anyway when you know auth/install are fine.",
     )
     FAKE_PLAN_TITLE: str = Field(
         default="",

@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from autosprint.config import config
 from autosprint.errors import StopSignalDetected, add_context
 from autosprint.output import printlev, speak
-from autosprint.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, format_full_plan, read_plan_md, serialise_plan, write_plan_md
+from autosprint.plan import PLAN_FILENAME, CompletedTask, PendingTask, Plan, defer_pending_tasks, format_full_plan, read_plan_md, serialise_plan, write_plan_md
 
 # ---------------------------------------------------------------------------
 # Imports — only the names this orchestrator body actually uses. Phase logic,
@@ -41,12 +41,129 @@ from autosprint.implement_phase import run_implement  # noqa: E402
 from autosprint.paths import CHANGELOG_FILENAME, DESTINATION_FILENAME, WAYPOINT_FILENAME  # noqa: E402
 from autosprint.plan import group_titles as _group_titles  # noqa: E402
 from autosprint.plan_phase import SprintRevertRecord, build_post_revert_hint as _build_post_revert_hint, plan_phase, update_plan, waypoint_title as _waypoint_title  # noqa: E402
-from autosprint.run_log import append_changelog_entry, append_run_log, apply_destination_resolutions, check_escalation, extract_story_points as _extract_story_points, log_outcome_per_task as _log_outcome_per_task, print_run_summary as _print_run_summary, review_sprint as _review_sprint, update_runtime_stats as _update_runtime_stats, write_run_ended_separator, write_run_separator  # noqa: E402
+from autosprint.run_log import append_changelog_entry, append_run_log, apply_destination_resolutions, extract_story_points as _extract_story_points, log_outcome_per_task as _log_outcome_per_task, print_run_summary as _print_run_summary, review_sprint as _review_sprint, stale_task_titles as _stale_task_titles, task_revert_sprint_count as _task_revert_sprint_count, update_runtime_stats as _update_runtime_stats, write_run_ended_separator, write_run_separator  # noqa: E402
 from autosprint.test_phase import run_test_phase  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # PIT-loop core: commit finalization, manual-review prompt, the loop itself.
 # ---------------------------------------------------------------------------
+
+
+_TEMPORAL_BLOCKER_REASON_TERMS = (
+    "not published",
+    "not yet published",
+    "not available",
+    "not yet available",
+    "postdates",
+    "precedes",
+    "before the",
+    "before official",
+    "future event",
+    "future print",
+    "release-gated",
+    "publication",
+    "published",
+    "external publication",
+    "official print",
+    "does not exist",
+    "404",
+)
+
+_TEMPORAL_TASK_TERMS = (
+    "do not start before",
+    "after publication",
+    "after release",
+    "after the release",
+    "once live",
+    "when live",
+    "once it prints",
+    "on print",
+    "after print",
+    "publication",
+    "published",
+    "official print",
+    "fomc",
+    "section 232",
+    "q2",
+    "earnings",
+    "nvidia",
+    "eu ai act",
+)
+
+
+def _is_temporal_blocker_reason(message: str) -> bool:
+    text = message.lower()
+    return any(term in text for term in _TEMPORAL_BLOCKER_REASON_TERMS)
+
+
+def _looks_future_gated_task(task: dict) -> bool:
+    text = f"{task.get('title', '')}\n{task.get('description', '')}".lower()
+    return any(term in text for term in _TEMPORAL_TASK_TERMS)
+
+
+def _deferable_blocked_titles(task_group: list[dict] | None, task_failure_counts: dict[str, int], failure_message: str) -> list[str]:
+    """Return task titles that should be moved out of Pending after repeated temporal blockers.
+
+    Multi-task groups can contain innocent co-bundled tasks that only reverted because
+    a sibling was blocked. Only defer tasks whose own title/description looks
+    future-publication gated; for a single-task group the reason is sufficient.
+    """
+    if not task_group or config.DEFER_BLOCKED_TASK_AFTER_FAILURES <= 0:
+        return []
+    if not _is_temporal_blocker_reason(failure_message):
+        return []
+    threshold = config.DEFER_BLOCKED_TASK_AFTER_FAILURES
+    eligible = [t for t in task_group if max(task_failure_counts.get(t["title"], 0), _task_revert_sprint_count(t["title"])) >= threshold]
+    if not eligible:
+        return []
+    if len(task_group) == 1:
+        return [eligible[0]["title"]]
+    return [t["title"] for t in eligible if _looks_future_gated_task(t)]
+
+
+def _defer_blocked_tasks_if_needed(task_group: list[dict] | None, task_failure_counts: dict[str, int], failure_message: str, sprint_number: int) -> list[str]:
+    titles = _deferable_blocked_titles(task_group, task_failure_counts, failure_message)
+    if not titles:
+        return []
+    defer_pending_tasks(config.TARGET_REPO_PATH, titles, failure_message, sprint_number, recent_count=config.PLAN_RECENT_COMPLETED_COUNT)
+    for title in titles:
+        task_failure_counts.pop(title, None)
+    printlev(f"[R] Deferred blocked task(s) after repeated temporal blocker: {', '.join(titles)}", level=100)
+    if config.COMMIT_SUCCESSFUL_SPRINTS:
+        git("add", PLAN_FILENAME)
+        git("commit", "-m", f"[autosprint] Defer blocked task(s)\n\nMoved future-gated task(s) out of Pending after repeated blocked implement attempts:\n- " + "\n- ".join(titles))
+        printlev(f"[R] Deferred-task plan update committed: {get_commit_hash()}", level=100)
+    return titles
+
+
+def _quarantine_stale_tasks(task_failure_counts: dict[str, int], sprint_number: int) -> list[str]:
+    """Move tasks that have reverted ``QUARANTINE_TASK_AFTER_FAILURES``+ times to Blocked / Deferred and continue.
+
+    Called at the top of each sprint, before task selection: a task that keeps failing on real
+    problems (not the temporal-blocker case `_defer_blocked_tasks_if_needed` already handles earlier,
+    and not a refusal the fallback intercepts) is benched so the loop spends the next sprint on other
+    work instead of re-attempting the stuck task. Replaces the old escalation that halted the whole
+    run at 3 reverts. Only acts on titles still in the Pending queue, so a title already quarantined
+    (now in Blocked / Deferred) is not re-detected. Deliberately does NOT touch `consecutive_failures`:
+    the reverts that earned the quarantine were genuine, so a broad failure streak still trips the
+    MAX_CONSECUTIVE_FAILURES hard stop."""
+    titles = _stale_task_titles()
+    if not titles:
+        return []
+    pending_titles = {task.title for task in read_plan_md(config.TARGET_REPO_PATH).pending}
+    titles = [t for t in titles if t in pending_titles]
+    if not titles:
+        return []
+    reason = f"Quarantined after {config.QUARANTINE_TASK_AFTER_FAILURES} sprint failures on the same task — moved out of Pending so the loop can continue. Review and re-scope, split, or drop it before returning it to Pending."
+    defer_pending_tasks(config.TARGET_REPO_PATH, titles, reason, sprint_number, recent_count=config.PLAN_RECENT_COMPLETED_COUNT)
+    for title in titles:
+        task_failure_counts.pop(title, None)
+    printlev(f"[R] 🪧 Quarantined stale task(s) after {config.QUARANTINE_TASK_AFTER_FAILURES} failures — moved to Blocked / Deferred, continuing: {', '.join(titles)}", level=100)
+    if config.COMMIT_SUCCESSFUL_SPRINTS:
+        git("add", PLAN_FILENAME)
+        git("commit", "-m", f"[autosprint] Quarantine stale task(s)\n\nMoved repeatedly-failing task(s) out of Pending after {config.QUARANTINE_TASK_AFTER_FAILURES} sprint failures:\n- " + "\n- ".join(titles))
+        printlev(f"[R] Quarantine plan update committed: {get_commit_hash()}", level=100)
+    return titles
 
 
 def commit_sprint(task_group: list[dict], plan: Plan, implement_result: dict, sprint_number: int, sprint_results: list[dict]) -> str:
@@ -136,8 +253,9 @@ async def pit_loop(branch_name: str) -> None:
     """Run the Plan/Implement/Test/Commit loop until one of these exits fires:
     - `config.MAX_SPRINTS` reached (normal termination).
     - A stop signal (soft or `--now`) detected at a sprint boundary or between phases.
-    - `check_escalation()` raises because the same task has failed 3× in the last 20 log entries.
     - `consecutive_failures >= config.MAX_CONSECUTIVE_FAILURES` reverts raised as RuntimeError.
+      (A single task that keeps failing no longer halts the run: at `QUARANTINE_TASK_AFTER_FAILURES`
+      reverts it is moved to Blocked / Deferred via `_quarantine_stale_tasks` and the loop continues.)
     - User rejects the task at the manual-review prompt (MANUAL_REVIEW mode).
 
     Each sprint: plan → implement → test → commit on success, or revert + continue on any PhaseFailedError. Failure counters per task title support escalation; the whole-group atomic revert model means a task group is committed or reverted together, never partially.
@@ -186,7 +304,7 @@ async def pit_loop(branch_name: str) -> None:
             wp_title = _waypoint_title()
             if wp_title:
                 printlev(f"[wp] 🧭 Waypoint active: {wp_title} — Plan phase aims here exclusively until reached.", level=100)
-            check_escalation()
+            _quarantine_stale_tasks(task_failure_counts, sprint_number)
             task_group: list[dict] | None = None
 
             try:
@@ -201,6 +319,17 @@ async def pit_loop(branch_name: str) -> None:
                     revert_records_since_replan.clear()
                     pending_post_revert_hint = ""
                 first_sprint = False
+                if not task_group:
+                    # The Plan phase produced no executable task this sprint. In auto-replan mode this is the
+                    # legitimate "nothing to do now" state — e.g. every remaining destination requirement is
+                    # gated on a future external event (the planner is now instructed to keep such work out of
+                    # Pending), or the plan is genuinely complete. Exit cleanly instead of spinning empty replans
+                    # until MAX_SPRINTS. (Reviewed-plan mode exits earlier via the is_empty() guard above.)
+                    printlev(f"\n[stop] Plan phase produced no executable tasks at sprint {sprint_number}. Nothing to run now — the plan may be complete, or all remaining work is gated on a future event. Exiting.", level=100)
+                    printlev(f"\n{_iteration_banner(sprint_number, 'END')}", level=100)
+                    speak("Autosprint stopping. No executable tasks.")
+                    exit_reason = "no executable tasks (plan empty after replan)"
+                    break
                 task_count = len(task_group)
                 speak(f"Sprint {sprint_number}: {task_count} {'task' if task_count == 1 else 'tasks'}.", tier="all")
                 _raise_if_stop_between_phases()
@@ -244,14 +373,20 @@ async def pit_loop(branch_name: str) -> None:
                 consecutive_failures += 1
                 sprints_since_replan += 1
                 group_label = _group_titles(task_group) if task_group else "(no task)"
-                sprint_results.append({"sprint": sprint_number, "outcome": "reverted", "task": group_label, "reason": str(pf)})
                 if task_group is not None:
                     for t in task_group:
                         task_failure_counts[t["title"]] = task_failure_counts.get(t["title"], 0) + 1
+                deferred_titles = _defer_blocked_tasks_if_needed(task_group, task_failure_counts, str(pf), sprint_number)
+                if deferred_titles:
+                    consecutive_failures = 0
+                    group_label = f"{group_label} [deferred: {', '.join(deferred_titles)}]"
+                    sprint_results.append({"sprint": sprint_number, "outcome": "deferred", "task": group_label, "reason": str(pf)})
+                else:
+                    sprint_results.append({"sprint": sprint_number, "outcome": "reverted", "task": group_label, "reason": str(pf)})
                 # Pre-flight next sprint only when Implement+Test actually ran
                 # (task_group was set). Plan-only failures leave the tree untouched,
                 # so a pre-flight survey would be wasted work.
-                prev_sprint_reverted = task_group is not None
+                prev_sprint_reverted = task_group is not None and not deferred_titles
                 # Shrink the adaptive task-count cap on real reverts only.
                 # Parser-format reverts don't reflect bundle-size problems, so they
                 # don't punish the loop.
@@ -262,15 +397,20 @@ async def pit_loop(branch_name: str) -> None:
                         task_count_cap = new_cap
                     consecutive_successes = 0  # reset on any real revert
                 # Record this sprint in the post-replan hint builder.
-                revert_records_since_replan.append(SprintRevertRecord(sprint_number=sprint_number, task_titles=[t["title"] for t in (task_group or [])], reason=pf.revert_reason, reason_message=str(pf)))
+                if not deferred_titles:
+                    revert_records_since_replan.append(SprintRevertRecord(sprint_number=sprint_number, task_titles=[t["title"] for t in (task_group or [])], reason=pf.revert_reason, reason_message=str(pf)))
                 pending_post_revert_hint = _build_post_revert_hint(revert_records_since_replan)
                 # Guarantee at least one sprint-outcomes.log entry per sprint. Phase
                 # helpers already log REVERTED when they can, but paths that fail
                 # before a phase helper reaches its log call (e.g. plan fails with
                 # no task, SDK raises mid-dispatch) would otherwise leave the sprint
                 # invisible in the log.
-                _log_outcome_per_task(sprint_number, task_group, "FAILED", "FAILED", f"SPRINT_REVERTED: {str(pf)[:80]}")
-                _review_sprint(sprint_number, "reverted", group_label, str(pf), consecutive_failures, sprints_since_replan)
+                if deferred_titles:
+                    _log_outcome_per_task(sprint_number, task_group, "DEFERRED", "DEFERRED", f"SPRINT_DEFERRED: {str(pf)[:80]}")
+                    _review_sprint(sprint_number, "deferred", group_label, f"deferred blocked task(s): {', '.join(deferred_titles)}", consecutive_failures, sprints_since_replan)
+                else:
+                    _log_outcome_per_task(sprint_number, task_group, "FAILED", "FAILED", f"SPRINT_REVERTED: {str(pf)[:80]}")
+                    _review_sprint(sprint_number, "reverted", group_label, str(pf), consecutive_failures, sprints_since_replan)
                 sprint_sp = sum(sp for sp in (_extract_story_points(t["title"]) for t in (task_group or [])) if sp is not None)
                 _update_runtime_stats(time.monotonic() - sprint_start, sprint_sp)
                 speak(f"Sprint {sprint_number} reverted.", tier="reverts")

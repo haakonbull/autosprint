@@ -281,6 +281,25 @@ def test_plan_phase_context_omits_lock_notice_when_disabled(monkeypatch: pytest.
     assert "TARGET STATE LOCKED" not in ctx
 
 
+def test_planning_clock_section_states_today_and_forbids_future_gated_tasks() -> None:
+    from datetime import datetime, timezone
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    section = plan_phase_mod.planning_clock_section()
+    assert "Planning clock" in section
+    assert today in section
+    # The three holes the section closes: omit gated work, don't rename it, clean stop is OK.
+    assert "future-gated" in section
+    assert "rephrase gated work" in section
+    assert "empty" in section
+
+
+def test_plan_phase_context_carries_planning_clock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    ctx = plan_phase_mod.plan_phase_context()
+    assert "Planning clock" in ctx
+
+
 def test_prioritize_section_empty_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "PRIORITIZE", "")
     assert plan_phase_mod.prioritize_section() == ""

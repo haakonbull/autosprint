@@ -105,7 +105,7 @@ uv run autosprint stop --now     # immediate — revert + exit
 - **Cache** — stored in `.cache/`, active when `LOG_LEVEL <= 15`. Skip with `skip_cache=True`
 - **`parse_result()`** — extracts JSON from agent output using `---RESULT---...---END---` markers or JSON object scan
 - **`PhaseFailedError`** — raised when a phase fails after retries; triggers revert + continue to next sprint
-- **Escalation** — if the same task fails 3+ times in the last 20 log lines, the loop raises
+- **Quarantine** — if the same task reverts `QUARANTINE_TASK_AFTER_FAILURES` (default 3) times across distinct sprints in the last 20 log lines, the orchestrator moves it to `## Blocked / Deferred` (`stale_task_titles` detects, `_quarantine_stale_tasks` acts) and the loop continues with the next task. Does not reset `consecutive_failures`, so the `MAX_CONSECUTIVE_FAILURES` hard stop still fires on a broad failure streak.
 - **Waypoint** — optional `autosprint/waypoint.md` file describing an *intermediate* target the user wants the loop to reach before continuing toward `destination.md`. When present and not paused, the Plan phase aims at it exclusively. When the team lead concludes the waypoint state is satisfied, it sets `waypoint_reached: true` in its JSON output; the orchestrator appends a `> **Status:** reached <date>` marker to the file (no auto-archive — the user reviews and decides) and halts via the `WaypointReached` exception. Pause without losing content: rename to `waypoint.md.paused`. Template: `examples/waypoint.example.md`.
 
 ## Waypoint workflow

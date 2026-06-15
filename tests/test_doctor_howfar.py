@@ -106,6 +106,64 @@ def test_probe_backends_skipped_in_debug_and_cache_modes(monkeypatch: pytest.Mon
     dispatch_mock.assert_not_called()
 
 
+def test_probe_failure_kind_classifies_transient_auth_and_unknown() -> None:
+    from autosprint.init import _probe_failure_kind
+
+    # The dominant transient: Claude Agent SDK surfaces a CLI blip as "error result: success".
+    assert _probe_failure_kind("claude dispatch failed — RuntimeError: Claude Code returned an error result: success") == "transient"
+    assert _probe_failure_kind("copilot dispatch failed — Exception: HTTP 429 rate limit") == "transient"
+    # Auth wins even when a transient term is also present.
+    assert _probe_failure_kind("claude dispatch failed — 401 Unauthorized, connection reset") == "auth"
+    assert _probe_failure_kind("copilot dispatch failed — please log in to continue") == "auth"
+    assert _probe_failure_kind("something weird happened") == "unknown"
+
+
+def test_probe_backends_transient_failure_does_not_blame_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A transient backend blip must not tell the user to fix auth/install; it points at --skip-probe / re-run."""
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import probe_backends
+
+    monkeypatch.setattr(config, "LOG_LEVEL", 100)
+    monkeypatch.setattr(config, "SKIP_BACKEND_PROBE", False)
+    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"claude"})
+    monkeypatch.setattr("autosprint.dispatch.query_agent", AsyncMock(side_effect=RuntimeError("Claude Code returned an error result: success")))
+    with pytest.raises(RuntimeError) as excinfo:
+        probe_backends()
+    msg = str(excinfo.value)
+    assert "Transient backend error" in msg
+    assert "--skip-probe" in msg
+    assert "Fix auth/install" not in msg
+
+
+def test_probe_backends_auth_failure_keeps_fix_auth_guidance(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import probe_backends
+
+    monkeypatch.setattr(config, "LOG_LEVEL", 100)
+    monkeypatch.setattr(config, "SKIP_BACKEND_PROBE", False)
+    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"claude"})
+    monkeypatch.setattr("autosprint.dispatch.query_agent", AsyncMock(side_effect=RuntimeError("401 Unauthorized")))
+    with pytest.raises(RuntimeError, match="Fix auth/install"):
+        probe_backends()
+
+
+def test_probe_backends_skipped_when_flag_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--skip-probe / SKIP_BACKEND_PROBE returns True in the run path without dispatching."""
+    from unittest.mock import AsyncMock
+
+    from autosprint.init import probe_backends
+
+    monkeypatch.setattr(config, "LOG_LEVEL", 100)
+    monkeypatch.setattr(config, "SKIP_BACKEND_PROBE", True)
+    monkeypatch.setattr(init_mod, "_required_assistants_for_run", lambda: {"claude", "copilot"})
+    dispatch_mock = AsyncMock(side_effect=AssertionError("probe must not dispatch when skipped"))
+    monkeypatch.setattr("autosprint.dispatch.query_agent", dispatch_mock)
+    assert probe_backends() is True
+    dispatch_mock.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # _check_install_health — spots stale `pip install -e .` installs whose
 # metadata doesn't list the new runtime deps. Direct unit tests so we don't

@@ -257,6 +257,17 @@ TEAM_RESEARCH_COUNCIL_GPT55: dict[str, Any] = {
     "description": "All-GPT-5.5 mirror of `research_council` — same four research lenses, every seat filled by a Copilot agent. Use when you want to lean on a Copilot subscription and spare Claude tokens. Pair with an implementor on the Copilot side too.",
 }
 
+TEAM_RESEARCH_COUNCIL_THREEQUARTERS_GPT: dict[str, Any] = {
+    "agents": [
+        AGENT_WEB_RESEARCHER_OPUS48,
+        AGENT_SYNTHESIZER_GPT55,
+        AGENT_STEELMANNER_GPT55,
+        AGENT_EDITOR_GPT55,
+    ],
+    "selector": AGENT_RESEARCH_LEAD_GPT55,
+    "description": "Three-quarters-GPT mirror of `research_council` — same four research lenses (source coverage, synthesis across material, argument balance, format discipline), but only one Claude seat: Web Researcher (source discovery + quality judgement, the foundation of a research project) runs Opus 4.8 while Synthesizer, Steelmanner, and Editor run GPT-5.5, with a GPT-5.5 Research Lead. Use when you want to lean on a Copilot subscription but keep the strongest model on source selection. Pair with `--implement-agent implementor_gpt55` for a mostly-Copilot run.",
+}
+
 TEAM_QUICK_MIXED: dict[str, Any] = {
     "agents": [
         AGENT_DECIDER_HAIKU_CLAUDE,
@@ -319,6 +330,7 @@ TEAMS: dict[str, dict[str, Any]] = {
     "research_council": TEAM_RESEARCH_COUNCIL,
     "research_council_gpt55": TEAM_RESEARCH_COUNCIL_GPT55,
     "research_council_opus": TEAM_RESEARCH_COUNCIL_OPUS,
+    "research_council_threequartersGPT": TEAM_RESEARCH_COUNCIL_THREEQUARTERS_GPT,
     "solo": TEAM_SOLO,
     "solo_lite": TEAM_SOLO_LITE,
     "solo_gpt52": TEAM_SOLO_GPT52,

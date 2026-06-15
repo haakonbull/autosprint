@@ -92,7 +92,7 @@ def mock_phases(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict:
     monkeypatch.setattr(orch, "git", MagicMock(return_value=MagicMock(stdout="abc1234\n")))
     monkeypatch.setattr(orch, "get_commit_hash", MagicMock(return_value="abc1234"))
     monkeypatch.setattr(orch, "append_run_log", log_mock)
-    monkeypatch.setattr(orch, "check_escalation", MagicMock())
+    monkeypatch.setattr(orch, "_stale_task_titles", MagicMock(return_value=[]))
     monkeypatch.setattr(orch, "speak", MagicMock())
 
     return {"plan": plan_mock, "implement": implement_mock, "test": test_mock, "commit": commit_mock, "log": log_mock, "tmp_path": tmp_path}
@@ -107,6 +107,21 @@ async def test_pit_loop_runs_plan_when_plan_empty(monkeypatch: pytest.MonkeyPatc
     mock_phases["plan"].assert_called_once()
     mock_phases["implement"].assert_called_once()
     mock_phases["test"].assert_called_once()
+
+
+async def test_pit_loop_exits_cleanly_when_replan_yields_no_tasks(monkeypatch: pytest.MonkeyPatch, mock_phases: dict) -> None:
+    """Auto-replan mode: when the planner returns an empty Pending (e.g. all remaining work is
+    future-gated and correctly held out of the queue), the loop exits cleanly instead of spinning
+    empty replans until MAX_SPRINTS — Implement/Test never run."""
+    monkeypatch.setattr(config, "AUTO_REPLAN", True)
+    monkeypatch.setattr(config, "MAX_SPRINTS", 5)
+    monkeypatch.setattr(config, "COMMIT_SUCCESSFUL_SPRINTS", True)
+    mock_phases["plan"].side_effect = lambda *a, **kw: Plan(pending=[])
+
+    await orch.pit_loop("test-branch")
+
+    mock_phases["implement"].assert_not_called()
+    mock_phases["test"].assert_not_called()
 
 
 async def test_pit_loop_fires_heartbeat_on_cadence(monkeypatch: pytest.MonkeyPatch, mock_phases: dict) -> None:
@@ -189,6 +204,100 @@ async def test_pit_loop_marks_top_pending_done_after_success(monkeypatch: pytest
     assert final_plan.completed[0].title == FAKE_TASK["title"]
     assert final_plan.completed[0].summary == FAKE_IMPLEMENT_RESULT["summary"]
     assert len(final_plan.pending) == 0
+
+
+def test_deferable_blocked_titles_selects_only_future_gated_repeated_tasks(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "DEFER_BLOCKED_TASK_AFTER_FAILURES", 2)
+    task_group = [
+        {"title": "Integrate June FOMC after publication (5)", "description": "Do not start before the official print exists."},
+        {"title": "Refresh BTOS source (3)", "description": "Refresh the latest available source."},
+    ]
+    counts = {task["title"]: 2 for task in task_group}
+
+    titles = orch._deferable_blocked_titles(
+        task_group,
+        counts,
+        "Both tasks are blocked because the FOMC/SEP is not published yet.",
+    )
+
+    assert titles == ["Integrate June FOMC after publication (5)"]
+
+
+def test_quarantine_stale_tasks_moves_repeated_failure_to_blocked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A task that reverted QUARANTINE_TASK_AFTER_FAILURES times is moved from Pending to Blocked / Deferred (so the loop keeps going), the healthy sibling stays Pending, and its in-memory failure count is cleared."""
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    monkeypatch.setattr(config, "COMMIT_SUCCESSFUL_SPRINTS", False)  # skip the git add/commit
+    monkeypatch.setattr(config, "QUARANTINE_TASK_AFTER_FAILURES", 3)
+    monkeypatch.setattr(config, "IMPLEMENT_FALLBACK_AGENT", "")
+    write_plan_md(tmp_path, Plan(pending=[PendingTask(title="stuck task", description="d"), PendingTask(title="healthy task", description="d2")]))
+    log_path = tmp_path / "autosprint" / "logs" / "sprint-outcomes.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text("# header\n" + "\n".join(f"{i} | ts |  3 | stuck task | OK | FAILED | REVERTED" for i in range(1, 4)) + "\n", encoding="utf-8")
+
+    counts = {"stuck task": 3}
+    moved = orch._quarantine_stale_tasks(counts, sprint_number=4)
+
+    assert moved == ["stuck task"]
+    plan = read_plan_md(tmp_path)
+    assert [t.title for t in plan.pending] == ["healthy task"]
+    assert "stuck task" in [t.title for t in plan.blocked]
+    assert "stuck task" not in counts
+
+
+def test_quarantine_stale_tasks_noop_when_nothing_stale(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """No log / under-threshold history → no quarantine, plan untouched."""
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    monkeypatch.setattr(config, "COMMIT_SUCCESSFUL_SPRINTS", False)
+    write_plan_md(tmp_path, Plan(pending=[PendingTask(title="fine task", description="d")]))
+
+    moved = orch._quarantine_stale_tasks({}, sprint_number=1)
+
+    assert moved == []
+    assert [t.title for t in read_plan_md(tmp_path).pending] == ["fine task"]
+
+
+def test_deferable_blocked_titles_uses_historical_revert_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "DEFER_BLOCKED_TASK_AFTER_FAILURES", 2)
+    monkeypatch.setattr(orch, "_task_revert_sprint_count", lambda title: 2 if title == "Integrate July Section 232 print (3)" else 0)
+
+    titles = orch._deferable_blocked_titles(
+        [{"title": "Integrate July Section 232 print (3)", "description": "Do not start before 1 July publication."}],
+        {"Integrate July Section 232 print (3)": 1},
+        "The official Section 232 print is not published yet.",
+    )
+
+    assert titles == ["Integrate July Section 232 print (3)"]
+
+
+def test_defer_blocked_tasks_writes_plan_and_commits_when_enabled(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
+    monkeypatch.setattr(config, "DEFER_BLOCKED_TASK_AFTER_FAILURES", 2)
+    monkeypatch.setattr(config, "COMMIT_SUCCESSFUL_SPRINTS", True)
+    git_mock = MagicMock()
+    monkeypatch.setattr(orch, "git", git_mock)
+    monkeypatch.setattr(orch, "get_commit_hash", MagicMock(return_value="def1234"))
+    write_plan_md(
+        tmp_path,
+        Plan(
+            pending=[
+                PendingTask(title="Integrate July Section 232 print (3)", description="Do not start before 1 July publication."),
+                PendingTask(title="Next actionable task (2)", description="Can run now."),
+            ]
+        ),
+    )
+
+    titles = orch._defer_blocked_tasks_if_needed(
+        [{"title": "Integrate July Section 232 print (3)", "description": "Do not start before 1 July publication."}],
+        {"Integrate July Section 232 print (3)": 2},
+        "The official Section 232 print is not published yet.",
+        sprint_number=14,
+    )
+
+    plan = read_plan_md(tmp_path)
+    assert titles == ["Integrate July Section 232 print (3)"]
+    assert [task.title for task in plan.pending] == ["Next actionable task (2)"]
+    assert [task.title for task in plan.blocked] == ["Integrate July Section 232 print (3)"]
+    git_mock.assert_any_call("add", "autosprint/plan.md")
 
 
 async def test_pit_loop_reviewed_plan_exits_cleanly_when_plan_empty(monkeypatch: pytest.MonkeyPatch, mock_phases: dict) -> None:
@@ -292,8 +401,8 @@ async def test_pit_loop_fake_escalation_triggers_on_many_failures(monkeypatch: p
     _configure_fake_run(monkeypatch, tmp_path, max_sprints=30, max_consecutive_failures=3)
     # Force every fake implement to fail by raising the failure rate to 100%.
     monkeypatch.setattr(config, "FAKE_IMPLEMENT_FAILURE_RATE", 1.0)
-    # FAKE_IMPLEMENT early-returns in check_escalation, so override that too —
-    # we want the consecutive-failure path, not the task-repeat-revert path.
+    # FAKE_IMPLEMENT early-returns in stale_task_titles, so the quarantine path
+    # is inert — we want the consecutive-failure hard stop, not task quarantine.
 
     with pytest.raises(RuntimeError, match="consecutive sprint failures"):
         await orch.pit_loop("test-branch")

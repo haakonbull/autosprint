@@ -10,9 +10,11 @@ from pathlib import Path
 import pytest
 
 from autosprint.plan import (
+    BlockedTask,
     CompletedTask,
     PendingTask,
     Plan,
+    defer_pending_tasks,
     mark_top_pending_done,
     parse_plan,
     read_plan_md,
@@ -81,6 +83,7 @@ def test_serialise_round_trip() -> None:
     plan = Plan(
         completed=[CompletedTask(title="A", summary="did A", commit_hash="abc1234")],
         pending=[PendingTask(title="B", description="do B")],
+        blocked=[BlockedTask(title="C", description="blocked until source exists")],
     )
     text = serialise_plan(plan)
     parsed = parse_plan(text)
@@ -89,6 +92,8 @@ def test_serialise_round_trip() -> None:
     assert parsed.completed[0].commit_hash == "abc1234"
     assert len(parsed.pending) == 1
     assert parsed.pending[0].title == "B"
+    assert len(parsed.blocked) == 1
+    assert parsed.blocked[0].title == "C"
 
 
 def test_serialise_truncates_completed_to_recent_count() -> None:
@@ -114,6 +119,24 @@ def test_serialise_no_plan_summary_by_default() -> None:
     """The default call writes no blockquote — loop-mode plans stay clean."""
     plan = Plan(pending=[PendingTask(title="B", description="do B")])
     assert ">" not in serialise_plan(plan)
+
+
+def test_parse_blocked_deferred_section() -> None:
+    text = """# Plan
+
+## Pending
+
+- [ ] Actionable task (2)
+
+## Blocked / Deferred
+
+- [ ] Integrate July Section 232 print (3)
+  Blocked until official print exists.
+"""
+    plan = parse_plan(text)
+    assert [task.title for task in plan.pending] == ["Actionable task (2)"]
+    assert [task.title for task in plan.blocked] == ["Integrate July Section 232 print (3)"]
+    assert "official print" in plan.blocked[0].description
 
 
 def test_serialise_multiline_description_indents_each_line() -> None:
@@ -166,6 +189,29 @@ def test_mark_top_pending_done_raises_when_empty(tmp_path: Path) -> None:
     write_plan_md(tmp_path, plan)
     with pytest.raises(Exception):
         mark_top_pending_done(tmp_path, summary="x")
+
+
+def test_defer_pending_tasks_moves_only_matching_titles(tmp_path: Path) -> None:
+    write_plan_md(
+        tmp_path,
+        Plan(
+            pending=[
+                PendingTask(title="Integrate June FOMC after publication (5)", description="Do not start before publication."),
+                PendingTask(title="Refresh BTOS source (3)", description="Actionable source refresh."),
+            ]
+        ),
+    )
+
+    updated = defer_pending_tasks(
+        tmp_path,
+        ["Integrate June FOMC after publication (5)"],
+        "FOMC is not published yet.",
+        sprint_number=7,
+    )
+
+    assert [task.title for task in updated.pending] == ["Refresh BTOS source (3)"]
+    assert [task.title for task in updated.blocked] == ["Integrate June FOMC after publication (5)"]
+    assert "Blocked after sprint 7" in updated.blocked[0].description
 
 
 def test_top_pending_returns_first() -> None:

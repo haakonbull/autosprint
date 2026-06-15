@@ -49,9 +49,16 @@ class PendingTask:
 
 
 @dataclass
+class BlockedTask:
+    title: str
+    description: str = ""
+
+
+@dataclass
 class Plan:
     completed: list[CompletedTask] = field(default_factory=list)
     pending: list[PendingTask] = field(default_factory=list)
+    blocked: list[BlockedTask] = field(default_factory=list)
 
     def is_empty(self) -> bool:
         return not self.pending
@@ -67,6 +74,7 @@ class Plan:
 
 _HEADER_COMPLETED = re.compile(r"^##\s+Recent completed\s*$", re.IGNORECASE)
 _HEADER_PENDING = re.compile(r"^##\s+Pending\s*$", re.IGNORECASE)
+_HEADER_BLOCKED = re.compile(r"^##\s+(?:Blocked(?:\s*/\s*Deferred)?|Deferred)\s*$", re.IGNORECASE)
 _HEADER_ANY = re.compile(r"^##\s+")
 _COMPLETED_LINE = re.compile(r"^-\s+\[x\]\s+(.*?)(?:\s+\(([0-9a-f]{4,40})\))?\s*$", re.IGNORECASE)
 _PENDING_LINE = re.compile(r"^-\s+\[\s\]\s+(.*?)\s*$")
@@ -122,6 +130,11 @@ def parse_plan(text: str) -> Plan:
             for title, _, body in items:
                 plan.pending.append(PendingTask(title=title, description=" ".join(body)))
             continue
+        if _HEADER_BLOCKED.match(line):
+            items, i = _parse_section(lines, i + 1)
+            for title, _, body in items:
+                plan.blocked.append(BlockedTask(title=title, description=" ".join(body)))
+            continue
         i += 1
     return plan
 
@@ -170,6 +183,15 @@ def serialise_plan(plan: Plan, recent_count: int = 5, plan_summary: str = "") ->
             for desc_line in task.description.split("\n"):
                 lines.append(f"  {desc_line}".rstrip())
     lines.append("")
+    if plan.blocked:
+        lines.append("## Blocked / Deferred")
+        lines.append("")
+        for task in plan.blocked:
+            lines.append(f"- [ ] {task.title}")
+            if task.description:
+                for desc_line in task.description.split("\n"):
+                    lines.append(f"  {desc_line}".rstrip())
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -229,3 +251,36 @@ def mark_top_pending_done(repo_path: Path, summary: str, commit_hash: str = "", 
         return plan
     except Exception as e:
         raise add_context(e, f"Failed to mark top pending task done in {repo_path}") from e
+
+
+def defer_pending_tasks(repo_path: Path, titles: list[str], reason: str, sprint_number: int, recent_count: int = 5) -> Plan:
+    """Move matching pending tasks to Blocked / Deferred with an unblock note.
+
+    The tasks are not deleted: they remain visible to the user and to future
+    planners, but they no longer sit in the executable Pending queue.
+    """
+    try:
+        if not titles:
+            return read_plan_md(repo_path)
+        title_set = set(titles)
+        plan = read_plan_md(repo_path)
+        kept: list[PendingTask] = []
+        moved: list[BlockedTask] = []
+        for task in plan.pending:
+            if task.title in title_set:
+                note_lines = []
+                if task.description.strip():
+                    note_lines.append(task.description.strip())
+                clean_reason = " ".join(reason.strip().split())
+                note_lines.append(f"Blocked after sprint {sprint_number}: {clean_reason}")
+                note_lines.append("Retry when the external publication/event named by the task is available; otherwise keep this out of Pending.")
+                moved.append(BlockedTask(title=task.title, description="\n".join(note_lines)))
+            else:
+                kept.append(task)
+        plan.pending = kept
+        existing_blocked_titles = {task.title for task in plan.blocked}
+        plan.blocked.extend(task for task in moved if task.title not in existing_blocked_titles)
+        write_plan_md(repo_path, plan, recent_count=recent_count)
+        return plan
+    except Exception as e:
+        raise add_context(e, f"Failed to defer blocked task(s) in {repo_path}: {', '.join(titles)}") from e

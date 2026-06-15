@@ -77,11 +77,13 @@ def test_apply_config_toml_overlays_values(monkeypatch: pytest.MonkeyPatch, tmp_
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "SPRINT_STORY_POINT_TARGET", 8)
     monkeypatch.setattr(config, "IMPLEMENT_AGENT", "implementor_opus48")
+    monkeypatch.setattr(config, "HOWFAR_HEARTBEAT_EVERY_N_SPRINTS", 10)
     monkeypatch.setattr("autosprint.cli.ENV_SET_FIELDS", frozenset())
-    _write_config_toml(tmp_path, 'sp_target = 15\nimplement_agent = "implementor_gpt55"\n')
+    _write_config_toml(tmp_path, 'sp_target = 15\nimplement_agent = "implementor_gpt55"\nhowfar_heartbeat_every_n_sprints = 10000\n')
     _apply_config_toml(argparse.Namespace(command="run", auto_replan=False))
     assert config.SPRINT_STORY_POINT_TARGET == 15
     assert config.IMPLEMENT_AGENT == "implementor_gpt55"
+    assert config.HOWFAR_HEARTBEAT_EVERY_N_SPRINTS == 10000
 
 
 def test_apply_config_toml_env_beats_toml(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -159,6 +161,7 @@ def test_render_config_toml_empty_is_all_commented_template() -> None:
     text = init_mod._render_config_toml({})
     assert tomllib.loads(text) == {}  # every setting commented out
     assert "implement_agent" in text and "implement_fallback_agent" in text
+    assert "howfar_heartbeat_every_n_sprints" in text
 
 
 def test_render_config_toml_writes_active_keys_as_live_settings() -> None:

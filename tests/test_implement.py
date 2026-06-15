@@ -179,8 +179,8 @@ async def test_implement_format_retry_disabled_reverts_immediately(monkeypatch: 
     git_restore_mock.assert_called_once()
 
 
-def test_check_escalation_groups_by_task_title_not_story_points(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Regression test: the log schema is `sprint | ts | sp | task | …`. An earlier version of `check_escalation` read `parts[2]` (the story-points column) and grouped unrelated tasks that happened to share an SP value — so three successful-but-reverted SP=3 sprints looked like one task had failed three times. Escalation must group by task title (parts[3])."""
+def test_stale_task_titles_groups_by_task_title_not_story_points(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Regression test: the log schema is `sprint | ts | sp | task | …`. An earlier version read `parts[2]` (the story-points column) and grouped unrelated tasks that happened to share an SP value — so three successful-but-reverted SP=3 sprints looked like one task had failed three times. Quarantine detection must group by task title (parts[3])."""
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
     log_path = tmp_path / "autosprint" / "logs" / "sprint-outcomes.log"
@@ -197,10 +197,10 @@ def test_check_escalation_groups_by_task_title_not_story_points(monkeypatch: pyt
         encoding="utf-8",
     )
 
-    run_log.check_escalation()  # three SP=3 reverts across distinct titles must NOT escalate
+    assert run_log.stale_task_titles() == []  # three SP=3 reverts across distinct titles → nothing to quarantine
 
 
-def test_check_escalation_fires_when_same_title_reverts_thrice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stale_task_titles_flags_when_same_title_reverts_thrice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(config, "FAKE_IMPLEMENT", False)
     log_path = tmp_path / "autosprint" / "logs" / "sprint-outcomes.log"
@@ -217,8 +217,7 @@ def test_check_escalation_fires_when_same_title_reverts_thrice(monkeypatch: pyte
         encoding="utf-8",
     )
 
-    with pytest.raises(RuntimeError, match="Same stuck task"):
-        run_log.check_escalation()
+    assert run_log.stale_task_titles() == ["Same stuck task (3)"]
 
 
 def _make_query_agent_sequence(*responses: str) -> AsyncMock:

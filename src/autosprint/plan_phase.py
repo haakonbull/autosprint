@@ -62,6 +62,39 @@ def prioritize_section() -> str:
     return "\n\n## User priority for this run\n\n" "The user has flagged the following as a priority for this planning run:\n\n" f"```\n{text}\n```\n\n" "Surface tasks that address this priority near the top of your proposed list. " "If the text references an existing section of `destination.md` (vaguely or by name), look it up and prioritise tasks toward that section. " "If it introduces a concern not yet in destination.md, propose tasks for it as one-off work for this run — do not add the priority itself to destination.md; that is the human's decision to make later. " "When in doubt about how to interpret the hint, follow the most direct reading and proceed."
 
 
+def planning_clock_section() -> str:
+    """Returns a prompt fragment stating today's date and forbidding future-gated tasks in the Pending queue.
+
+    Roots out the failure mode where the planner proposes tasks that depend on an
+    external event/publication that has not happened yet (the Implement agent
+    correctly refuses, the sprint reverts, and the loop wastes sprints re-attempting
+    — often under a slightly renamed title that evades the title-keyed deferral
+    safety net). Domain-neutral: it names no specific events, so it applies equally
+    to code and research target repos. Surfaces in both the team-member plan-phase
+    prompt (via `plan_phase_context`) and the team-lead prompt (via
+    `assemble_prompt_for_team_lead`) so every planner sees the same rule. Uses the
+    same UTC clock the Implement agent and all run-log timestamps run against."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return (
+        f"\n\n## Planning clock — {today}\n\n"
+        f"Today's date (UTC) is **{today}**. This is the date the Implement agent runs against.\n\n"
+        "**Do not place future-gated work in the Pending queue.** A task is future-gated if completing it "
+        "depends on an external event, publication, release, filing, or data point that has not occurred or been "
+        f'published as of {today} — for example a task whose own description says "do not start before '
+        f'<a date later than {today}>", or one that integrates a report/result that has not been released yet.\n\n'
+        "Such tasks are **not executable now**: the Implement agent will correctly refuse them, the sprint reverts, "
+        "and the loop wastes effort re-attempting impossible work. So:\n\n"
+        "- **Omit future-gated tasks from your `pending` list entirely.** They do not belong in the executable queue "
+        "until their gating date/event has passed. Pending is only for work that can be completed and tested today.\n"
+        '- **Do not invent or rephrase gated work to keep the queue full.** Renaming "integrate X after it releases" '
+        'to "prepare for X" or "resolve the X sign-off" does not make it executable — it just evades the loop\'s '
+        "blocked-task tracking and burns more sprints.\n"
+        "- If, after excluding gated work, there is genuinely nothing executable left, propose an empty (or near-empty) "
+        "`pending` list and say so in your reasoning. A clean stop is the correct outcome — far better than a queue of "
+        "tasks that can only fail. Waiting on a future external event is a legitimate project state, not a gap you must fill."
+    )
+
+
 def lock_destination_section() -> str:
     """Returns a prompt fragment instructing planners and the implementor not to propose any expansion of `destination.md` when LOCK_DESTINATION is True. Empty when False so it has zero footprint by default. Surfaces in three prompts: team-member plan-phase, team-lead plan-phase, and implementor."""
     if not config.LOCK_DESTINATION:
@@ -153,7 +186,7 @@ def plan_phase_context() -> str:
     """Shared context appended to every plan-phase prompt (story-point band + plan + decisions + history). When LOCK_DESTINATION is set, the lock notice is prepended so team members see the convergence-mode instruction first. When a waypoint is active, the waypoint section is prepended too so every planner aims at it exclusively."""
     current_plan = read_plan_md(config.TARGET_REPO_PATH)
     plan_text = serialise_plan(current_plan, recent_count=config.PLAN_RECENT_COMPLETED_COUNT)
-    ctx = waypoint_section() + lock_destination_section() + prioritize_section()
+    ctx = waypoint_section() + lock_destination_section() + planning_clock_section() + prioritize_section()
     ctx += f"\n\n## Story-point band for this sprint\n\nSPRINT_STORY_POINT_MIN = {config.SPRINT_STORY_POINT_MIN}, SPRINT_STORY_POINT_MAX = {config.SPRINT_STORY_POINT_MAX}. Tag each proposed task with a trailing '(N)' Fibonacci-ish estimate. Anywhere inside [{config.SPRINT_STORY_POINT_MIN}, {config.SPRINT_STORY_POINT_MAX}] is fine. A single '(1)' task that stands alone (a focused bug fix, a small independent improvement) is also welcome — don't up-size it artificially. Tasks above {config.SPRINT_STORY_POINT_MAX} must be split by the team lead before writing plan.md; a pattern of sub-min tasks that share a concern should be bundled."
     ctx += f"\n\n## Current autosprint/plan.md\n\n{plan_text}"
     adr = read_adr()
@@ -190,10 +223,16 @@ def log_proposed_tasks(raw: str) -> None:
         raise add_context(e, "Failed to log proposed tasks from plan-agent response") from e
 
 
-def result_to_plan(result: dict, existing_completed: list) -> Plan:
-    plan = Plan(completed=list(existing_completed))
+def result_to_plan(result: dict, existing_completed: list, existing_blocked: list | None = None) -> Plan:
+    existing_blocked = list(existing_blocked or [])
+    blocked_titles = {task.title for task in existing_blocked}
+    plan = Plan(completed=list(existing_completed), blocked=existing_blocked)
     for item in result.get("pending", []):
-        plan.pending.append(PendingTask(title=item.get("title", "(untitled)"), description=item.get("description", "")))
+        title = item.get("title", "(untitled)")
+        if title in blocked_titles:
+            printlev(f"[P] Skipping blocked/deferred task re-proposed by planner: {title}", level=50)
+            continue
+        plan.pending.append(PendingTask(title=title, description=item.get("description", "")))
     return plan
 
 
@@ -259,7 +298,7 @@ async def build_context_for_team_lead(team_members: list[dict], sprint_number: i
 def assemble_prompt_for_team_lead(ctx: TeamLeadContext, selector: dict | None = None, post_revert_hint: str = "", plan_only_mode: bool = False) -> str:
     """Stitch the full team-lead prompt from the already-built context: team-lead-prompt-file base + optional plan-only depth section + optional post-revert hint + optional pre-flight section + previous sprint's test output + the Proposals block (one per team member). Pure string concatenation. The prompt-file path defaults to `.claude/agents/plan-team.md` (code-flavored); research selectors declare `plan_lead_prompt_file = ".claude/agents/plan-team-research.md"` on their agent dict to use the research-flavored variant. `selector=None` is accepted (defaults to the code prompt) so older callers and test fixtures that didn't pass the selector keep working — pass `selector=<agent dict>` when you want the prompt-file selection respected. `plan_only_mode` is True only on an `autosprint plan-only` run; it appends guidance telling the lead to produce a fuller, human-curated candidate list."""
     prompt_file = (selector or {}).get("plan_lead_prompt_file", ".claude/agents/plan-team.md")
-    prompt_for_team_lead = read_agent_file(prompt_file) + waypoint_section() + lock_destination_section() + prioritize_section() + plan_depth_section(plan_only_mode) + post_revert_hint + preflight_prompt_section(ctx.preflight_summary) + last_test_output_section(ctx.last_test_output) + f"\n\n## Proposals\n\n{ctx.proposed_task_lists.to_proposals_text()}"
+    prompt_for_team_lead = read_agent_file(prompt_file) + waypoint_section() + lock_destination_section() + planning_clock_section() + prioritize_section() + plan_depth_section(plan_only_mode) + post_revert_hint + preflight_prompt_section(ctx.preflight_summary) + last_test_output_section(ctx.last_test_output) + f"\n\n## Proposals\n\n{ctx.proposed_task_lists.to_proposals_text()}"
     printlev(f"[P] Full team-lead prompt ({len(prompt_for_team_lead)} chars):\n{prompt_for_team_lead}", level=1)
     return prompt_for_team_lead
 
@@ -362,18 +401,21 @@ async def update_plan(team: list[dict], selector: dict, sprint_number: int = 0, 
     from autosprint.cli import raise_if_stop_between_phases as _raise_if_stop_between_phases
 
     try:
-        existing = read_plan_md(config.TARGET_REPO_PATH).completed
+        existing_plan = read_plan_md(config.TARGET_REPO_PATH)
+        existing = existing_plan.completed
+        existing_blocked = existing_plan.blocked
         waypoint_active = bool(waypoint_section())  # captured pre-dispatch; the file shouldn't change mid-call but we want a stable snapshot
 
         if config.FAKE_PLAN_TITLE:
             printlev(f"[P] Using FAKE_PLAN_TITLE (no agent call): {config.FAKE_PLAN_TITLE}", level=20)
-            plan = Plan(completed=list(existing), pending=[PendingTask(title=config.FAKE_PLAN_TITLE, description=config.FAKE_PLAN_DESC)])
+            pending = [] if config.FAKE_PLAN_TITLE in {task.title for task in existing_blocked} else [PendingTask(title=config.FAKE_PLAN_TITLE, description=config.FAKE_PLAN_DESC)]
+            plan = Plan(completed=list(existing), pending=pending, blocked=list(existing_blocked))
             parsed_plan: dict = {}
         elif len(team) == 1:
             printlev(f"[P] Generating plan with single agent: {selector.get('name', 'unknown')}", level=20)
             solo_prompt = build_prompt_for_plan_phase(selector) + post_revert_hint + plan_depth_section(plan_only_mode)
             parsed_plan = await query_team_lead_with_retry(selector, solo_prompt, sprint_number, on_result=log_proposed_tasks)
-            plan = result_to_plan(parsed_plan, existing)
+            plan = result_to_plan(parsed_plan, existing, existing_blocked)
             log_plan_decision(plan)
         else:
             printlev(f"[P] Generating plan with team of {len(team)} agent(s)...", level=20)
@@ -385,7 +427,7 @@ async def update_plan(team: list[dict], selector: dict, sprint_number: int = 0, 
             printlev(f"[P] All {len(team)} team proposals received. Asking '{selector.get('name', 'unknown')}' (team-lead role) to merge them into the final plan...", level=20)
             _raise_if_stop_between_phases()  # `stop --now` issued during team-members dispatch should short-circuit before another LLM call
             parsed_plan = await query_team_lead_with_retry(selector, team_lead_prompt, sprint_number, on_result=log_proposed_tasks)
-            plan = result_to_plan(parsed_plan, existing)
+            plan = result_to_plan(parsed_plan, existing, existing_blocked)
             log_plan_decision(plan, context.proposed_task_lists.to_proposals_text())
 
         # Waypoint-reached signal — only honored when a waypoint was actually active at the start of this call.
@@ -494,7 +536,12 @@ async def plan_phase(sprints_since_replan: int, task_failure_counts: dict[str, i
             sprints_since_replan = 0
         else:
             log_plan_skip(plan, sprints_since_replan)
-        task_group = select_top_tasks(plan, task_count_cap=task_count_cap)
+        # An empty plan after the Plan phase is no longer a failure: in auto-replan mode the planner
+        # is instructed to keep future-gated work out of Pending and to return an empty list when
+        # nothing is executable now. Return an empty task group and let pit_loop exit cleanly, rather
+        # than raising PhaseFailedError (which would count as a revert and trip the consecutive-failure
+        # abort). select_top_tasks keeps its own empty-guard as a defensive backstop for direct callers.
+        task_group = select_top_tasks(plan, task_count_cap=task_count_cap) if plan.pending else []
         return plan, task_group, sprints_since_replan
     except PhaseFailedError:
         raise

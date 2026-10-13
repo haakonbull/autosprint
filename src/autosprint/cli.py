@@ -203,7 +203,8 @@ def parse_cli_args() -> argparse.Namespace:
         stop_p.add_argument("--now", action="store_true", help="Stop immediately and revert the in-progress sprint's uncommitted changes.")
         plan_p = subparsers.add_parser("plan", help="Draft autosprint/plan.md — run the Prepare + Plan phases only, then exit. Review the plan, then `autosprint run`.")
         add_run_options(plan_p)
-        subparsers.add_parser("doctor", help="Verify the setup can run — target repo, destination.md, required CLIs, and one live agent round-trip per backend in use. Exits non-zero on any failure.")
+        doctor_p = subparsers.add_parser("doctor", help="Verify sprint setup, or use --agent KEY for a standalone model/runtime/auth check with JSON output.")
+        doctor_p.add_argument("--agent", metavar="KEY", help="Check only this agent with a small live tool-only probe; no target repository or sprint setup required.")
         howfar_p = subparsers.add_parser("how-far", help="Measure how far the codebase is from autosprint/destination.md — a read-only status table (done / partial / not started / unclear). Dispatches one agent; makes no changes.")
         howfar_p.add_argument("--agent", type=str, default=None, metavar="KEY", help="Override HOWFAR_AGENT for this run (a key in agents.AGENTS). Use `howfar_gpt6` for a Copilot-only run, e.g. when Claude tokens are exhausted.")
         ask_p = subparsers.add_parser("ask", help="Dispatch one ad-hoc prompt to one registered agent. Defaults to read-only tools for safe reviews from another orchestrator.")
@@ -211,7 +212,12 @@ def parse_cli_args() -> argparse.Namespace:
         ask_p.add_argument("--tools", choices=["read-only", "full", "research"], default="read-only", help="Tool preset for the dispatch. Default read-only; use full only when you want the agent to edit/run commands.")
         ask_p.add_argument("--target", default=argparse.SUPPRESS, metavar="PATH", help="Target directory (default: current working directory, never the sprint TARGET_REPO fallback).")
         ask_p.add_argument("--output", choices=["text", "json"], default="json", help="Output mode. Default json writes one report to stdout; progress goes to stderr.")
-        ask_p.add_argument("prompt", nargs="+", help='Task to send, e.g. "review src/foo.py". Include required repo guidance and memory in the task.')
+        ask_p.add_argument("prompt", nargs="*", help='Task to send, e.g. "review src/foo.py". Include required repo guidance and memory in the task.')
+        prompt_source = ask_p.add_mutually_exclusive_group()
+        prompt_source.add_argument("--prompt-file", metavar="PATH", help="Read the task from a UTF-8 file (relative to the caller's working directory).")
+        prompt_source.add_argument("--stdin", action="store_true", help="Read the task from piped UTF-8 stdin; never prompts interactively.")
+        ask_p.add_argument("--compact", action="store_true", help="Omit raw_response from JSON stdout; requires --report-file to retain the full report.")
+        ask_p.add_argument("--report-file", metavar="PATH", help="Save full JSON at a new file path. Existing files are never overwritten; parent directory must exist.")
         subparsers.add_parser("self-test", help="Run autosprint's own test suite (fast, no live calls) and exit.")
         show_config_p = subparsers.add_parser("show-config", help="Print the resolved config (team roster, implementor, env overrides) and exit.")
         add_run_options(show_config_p)
@@ -238,7 +244,13 @@ def parse_cli_args() -> argparse.Namespace:
             raise SystemExit(0)
 
         if args.command == "ask":
+            if sum((bool(args.prompt), args.prompt_file is not None, args.stdin)) != 1:
+                parser.error("ask requires exactly one prompt source: positional text, --prompt-file PATH, or --stdin")
+            if args.compact and (args.output != "json" or not args.report_file):
+                parser.error("--compact requires --output json and --report-file PATH")
             config.TARGET_REPO = str(Path(args.target).resolve() if args.target else Path.cwd())
+            return args
+        if args.command == "doctor" and args.agent is not None:
             return args
 
         _resolve_target_repo(args)
@@ -510,11 +522,15 @@ def prepare() -> argparse.Namespace:
                 _run_init(assume_defaults=getattr(args, "yes", False))
             return args
         if args.command == "doctor":
+            if args.agent is not None:
+                from autosprint.agent_doctor import run_agent_doctor
+
+                raise SystemExit(run_agent_doctor(args.agent))
             run_doctor()
             return args
 
         if args.command == "ask":
-            raise SystemExit(run_ask(args.agent, args.prompt, args.tools, args.output))
+            raise SystemExit(run_ask(args.agent, args.prompt, args.tools, args.output, prompt_file=args.prompt_file, stdin=args.stdin, compact=args.compact, report_file=args.report_file))
 
         _assert_target_repo_not_self()
 

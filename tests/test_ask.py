@@ -301,7 +301,7 @@ def test_claude_sdk_receives_restricted_tools_and_reports_backend_errors(monkeyp
 async def test_cancellation_waits_for_owned_copilot_cleanup():
     from types import SimpleNamespace
 
-    from autosprint.dispatch import _stop_ask_client
+    from autosprint.dispatch import _stop_copilot_client
 
     stopping = asyncio.Event()
     release = asyncio.Event()
@@ -313,7 +313,7 @@ async def test_cancellation_waits_for_owned_copilot_cleanup():
         stopped.set()
 
     client = SimpleNamespace(stop=stop, force_stop=AsyncMock())
-    task = asyncio.create_task(_stop_ask_client(client))
+    task = asyncio.create_task(_stop_copilot_client(client))
     await stopping.wait()
     task.cancel()
     await asyncio.sleep(0)
@@ -328,7 +328,7 @@ async def test_cancellation_waits_for_owned_copilot_cleanup():
 async def test_hung_copilot_shutdown_forces_stop_and_surfaces_failure(monkeypatch):
     from types import SimpleNamespace
 
-    from autosprint.dispatch import _stop_ask_client
+    from autosprint.dispatch import _stop_copilot_client
 
     async def stop():
         await asyncio.Event().wait()
@@ -336,7 +336,7 @@ async def test_hung_copilot_shutdown_forces_stop_and_surfaces_failure(monkeypatc
     monkeypatch.setattr("autosprint.dispatch._COPILOT_SHUTDOWN_TIMEOUT_SECONDS", 0.01)
     client = SimpleNamespace(stop=stop, force_stop=AsyncMock())
     with pytest.raises(TimeoutError):
-        await _stop_ask_client(client)
+        await _stop_copilot_client(client)
     client.force_stop.assert_awaited_once()
 
 

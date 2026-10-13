@@ -29,6 +29,7 @@ src/autosprint/
   how_far.py        # `autosprint how-far` — read-only distance-to-destination report
   ask.py            # `autosprint ask` — one-shot subagent tasks, JSON stdout, explicit exit codes
   ask_report.py     # Shared validated report contract for both SDKs and the CLI
+  agent_doctor.py   # Standalone model/auth/runtime preflight with a tool-only live probe
   plan_phase.py     # Plan phase: prompts, team-lead context, update_plan, replan
   implement_phase.py # Implement phase: dispatch, refusal-fallback, failure logs
   test_phase.py     # Test phase: drives the test runner, revert/commit decision, self-test
@@ -93,6 +94,12 @@ uv run autosprint how-far
 # One task against another repo, no sprint initialization required
 autosprint ask --target C:\path\to\project --agent bug_hunter_gpt6 "Read repo guidance, then review src\example.py."
 
+# Multiline task, compact stdout, full report saved at a new scratch path
+autosprint ask --target C:\path\to\project --agent bug_hunter_gpt6 --prompt-file C:\scratch\task.txt --compact --report-file C:\scratch\review-001.json
+
+# Check only the selected agent, without sprint setup
+autosprint doctor --agent bug_hunter_gpt6
+
 # Stop a running loop (from another terminal pointed at the same target repo)
 uv run autosprint stop           # soft — finish current sprint, exit
 uv run autosprint stop --now     # immediate — revert + exit
@@ -141,3 +148,7 @@ Resolved from (low → high precedence): code defaults < per-repo `autosprint/co
 ## Agents and skills
 
 Project-local agents live in `.claude/agents/`. Skills in `.claude/skills/`. These are separate from CLAUDE.md and are not affected by changes here.
+
+The `autosprint-ask` skill is the parent-Claude guide for bounded delegation:
+explicit repo/memory context, conservative tool permissions, compact reports,
+and independent verification. It is bundled here, not installed globally.

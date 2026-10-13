@@ -108,6 +108,34 @@ Replace the example file with a real path. Prompts do not inherit the parent Cla
 | `--tools full` | Explicit permission for the agent's full tool capabilities, including commands and edits. Use a dedicated target worktree. |
 | `--output json` | Default. Exactly one JSON report on stdout; diagnostic output goes to stderr. |
 | `--output text` | Human-readable status, response, changed files, validation, and blockers. |
+| `--prompt-file PATH` | Read the entire task from a UTF-8 file (BOM accepted), preserving internal newlines and quotes. |
+| `--stdin` | Read piped UTF-8 task text; rejects an interactive terminal. |
+| `--report-file PATH` | Save the complete JSON report to a **new** file. The parent directory must exist; existing files are never overwritten. |
+| `--compact` | JSON stdout without `raw_response`, plus `report_file` pointing to the full report. Requires `--report-file` and JSON output. |
+
+Choose exactly one prompt source: positional text, `--prompt-file`, or `--stdin`.
+Prompt and report file paths are relative to the **caller's working directory**,
+not `--target`; absolute paths are safest for parent agents. These options avoid
+command-line length limits and shell quoting problems:
+
+```powershell
+autosprint ask --agent bug_hunter_gpt6 --target "C:\path\to\project" --prompt-file "C:\scratch\task.txt" --compact --report-file "C:\scratch\review-001.json"
+```
+
+Compact mode does not make another LLM summarization call or truncate evidence:
+it preserves every structured field, including blockers, and only removes raw
+narration and pretty-print whitespace from stdout. Its length is not capped.
+The full file uses the normal report schema. Missing summaries/findings should
+be investigated in that file, not assumed to mean there were none.
+JSON stdout escapes non-ASCII characters so legacy Windows terminal encodings
+cannot corrupt the report; JSON parsing restores the original Unicode text.
+
+Use a private scratch location outside the target for prompts/reports; reports
+can contain sensitive source details and should not be committed. `--report-file`
+is an explicit runner write even with read-only agent tools. Wait for the process
+to complete before reading it. An existing or unwritable destination fails before
+dispatch. If writing fails after work has run, the command returns a failed
+**full report on stdout**, preserving available evidence; the file may be partial.
 
 The selected agent's tool restrictions also apply; requesting full tools cannot widen a read-only agent. These are **tool restrictions, not an OS sandbox**: especially with `full`, the agent can use the invoking account's filesystem/network access. Do not point it at untrusted repositories or supply secrets in prompts.
 
@@ -118,6 +146,41 @@ The parent reads stdout and the process exit code: **0** completed, **1** failed
 Astra/high was verified with `github-copilot-sdk==1.0.20` and Copilot CLI `1.0.96`. After updating an older autosprint installation, run `uv tool install --reinstall --editable C:\path\to\autosprint` to refresh its dependencies; pulling Python source alone does not replace an old bundled runtime.
 
 Reports are **agent-reported evidence**, not independent verification. A successful review can still contain bugs it found. Empty file/test lists in an unstructured failure mean evidence was unavailable, not that nothing changed. The parent remains responsible for checking the diff and validations before accepting work. Each call starts a new agent session; there is no shared conversation, persistent job queue, or automatic follow-up messaging.
+
+### Check a single agent
+
+```powershell
+autosprint doctor --agent bug_hunter_gpt6
+```
+
+This standalone preflight ignores sprint teams, target selection, and per-repo
+sprint config. It requires no git repository, destination, or initialization.
+It returns JSON with the selected agent/model, SDK/runtime versions, successful
+checks, and blockers. Exit codes are 0 (passed), 1 (failed), and 130 (interrupted).
+Without `--agent`, `doctor` retains its full sprint checklist.
+
+For Copilot it checks runtime startup, authentication, model visibility/policy,
+and the configured reasoning effort, then makes **one small live structured-tool
+call using that exact model/effort**. Claude uses a live tool call with the
+selected model to verify access; a runtime version is included when the SDK
+reports it. The probe has no file, shell, web, or nested-agent tools and runs in
+an empty temporary directory, not your repository. It may consume model usage.
+It has a 60-second deadline, plus bounded Copilot cleanup; it never retries,
+falls back to another model, or treats an ordinary prose answer as tool success.
+
+### Claude delegation skill
+
+The bundled [autosprint-ask skill](.claude/skills/autosprint-ask/SKILL.md) teaches
+Claude to prepare neutral, bounded tasks, name applicable guidance/memory paths,
+choose permissions, capture exit codes, and independently verify reports.
+It is included in the existing skill-copy step during `autosprint init`.
+
+No global skill is installed automatically. To use only this skill in another
+repo **without initializing a sprint**, copy the single
+`.claude\skills\autosprint-ask` directory from this checkout into that repo's
+`.claude\skills` directory. Preserve any existing local customization. Avoid
+`init --update-skills` just for this purpose: that command refreshes all bundled
+skills/agents and overwrites matching entries.
 
 # First run
 

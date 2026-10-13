@@ -420,7 +420,7 @@ async def _copilot_send_with_stop_check(session, prompt: str, timeout: float, st
 _COPILOT_SHUTDOWN_TIMEOUT_SECONDS = 10.0
 
 
-async def _stop_ask_client(client: CopilotClient) -> None:
+async def _stop_copilot_client(client: CopilotClient) -> None:
     """Complete owned-runtime cleanup even if the task deadline fires during shutdown."""
 
     async def stop_with_deadline() -> None:
@@ -484,7 +484,7 @@ async def _run_copilot(agent: dict, prompt: str, preset: str, result_capture: di
             return response.data.content
         finally:
             if dispatch_mode == "ask":
-                await _stop_ask_client(client)
+                await _stop_copilot_client(client)
             else:
                 await client.stop()
     except Exception as e:

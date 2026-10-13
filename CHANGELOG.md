@@ -6,6 +6,9 @@ of meaningful shifts grouped by date.
 
 ## 2026-10-13 — One-shot subagents and high-reasoning Copilot defaults
 
+- Added UTF-8 `ask --prompt-file` / `--stdin`, optional lossless compact stdout with an explicit full-report file, and safe refusal to overwrite existing reports.
+- Added standalone `doctor --agent KEY`: selected-model runtime/auth/reasoning checks plus one tool-only live probe, without sprint setup or repository access.
+- Bundled the `autosprint-ask` Claude skill for neutral, bounded delegation and independent result verification. No global installation is performed.
 - Added `autosprint ask --agent KEY "task"` for use from another repository or parent agent, without sprint initialization. It returns validated JSON by default; `--output text` is available for people.
 - Added a shared report contract for both SDKs, explicit exit statuses, captured response text, strict tool restrictions, and a per-call timeout. Missing reports fail explicitly. Ask does not retry tasks or use sprint caching, logging, stop signals, git operations, or the sprint target fallback.
 - Updated the Copilot SDK dependency and lockfile to 1.0.20. The older 0.2.1 installation bundled CLI 1.0.17, which rejected Astra/high; the updated SDK uses CLI 1.0.96 and supports that configuration.

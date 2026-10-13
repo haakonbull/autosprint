@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 from contextlib import redirect_stdout
+from pathlib import Path
+from typing import TextIO
 
 from autosprint.agents import AGENTS, TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH
 from autosprint.ask_report import AskOutcome, AskReport
@@ -23,6 +26,8 @@ If you need a human decision, report blocked instead of waiting for interactive 
 Provide the requested answer/findings, including file/line references where useful.
 Finish by calling submit_ask_report exactly once. Include status, summary,
 files_changed, tests_run (commands and observed outcomes), and blockers.
+Make the summary self-contained: include actionable findings and file references,
+not just "done". Put supporting narration in the response.
 A successful review means the review completed, not that the code has no bugs.
 """
 
@@ -96,16 +101,44 @@ async def dispatch_ask_async(agent_key: str, prompt_parts: list[str], tools: str
     return _report(agent_key, effective_tools, outcome, raw_response=raw, structured=True).model_dump()
 
 
-def run_ask(agent_key: str, prompt_parts: list[str], tools: str = "read-only", output: str = "json") -> int:
+def _read_prompt(prompt_parts: list[str], prompt_file: str | None, stdin: bool) -> list[str]:
+    if sum((bool(prompt_parts), prompt_file is not None, stdin)) != 1:
+        raise ValueError("Provide exactly one prompt source: positional text, --prompt-file PATH, or --stdin.")
+    if prompt_file is not None:
+        return [Path(prompt_file).read_text(encoding="utf-8-sig")]
+    if stdin:
+        if sys.stdin.isatty():
+            raise ValueError("--stdin requires piped input, not an interactive terminal.")
+        binary = getattr(sys.stdin, "buffer", None)
+        text = binary.read().decode("utf-8-sig") if binary is not None else sys.stdin.read().removeprefix("\ufeff")
+        return [text]
+    return prompt_parts
+
+
+def _write_report(stream: TextIO, report: AskReport) -> None:
+    stream.write(report.model_dump_json(indent=2) + "\n")
+    stream.flush()
+
+
+def run_ask(agent_key: str, prompt_parts: list[str], tools: str = "read-only", output: str = "json", *, prompt_file: str | None = None, stdin: bool = False, compact: bool = False, report_file: str | None = None) -> int:
     """Print exactly one JSON document (or a human report), returning the task exit code."""
     save_logs = config.SAVE_CONSOLE_LOG
     exit_code = None
+    report_path: Path | None = None
+    report_stream: TextIO | None = None
+    saved = False
     try:
         config.SAVE_CONSOLE_LOG = False
         # An ask runs alone in its CLI process. SDK chatter belongs on stderr,
         # never in the parent's JSON input or in the target's sprint logs.
         with redirect_stdout(sys.stderr):
             try:
+                if compact and (output != "json" or not report_file):
+                    raise ValueError("--compact requires --output json and --report-file PATH.")
+                prompt_parts = _read_prompt(prompt_parts, prompt_file, stdin)
+                if report_file is not None:
+                    report_path = Path(report_file).absolute()
+                    report_stream = report_path.open("x", encoding="utf-8")
                 report = AskReport.model_validate(asyncio.run(dispatch_ask_async(agent_key, prompt_parts, tools)))
             except (Exception, KeyboardInterrupt) as exc:
                 interrupted = isinstance(exc, KeyboardInterrupt)
@@ -122,10 +155,21 @@ def run_ask(agent_key: str, prompt_parts: list[str], tools: str = "read-only", o
                     ),
                 )
                 exit_code = 130 if interrupted else 1
+            if report_stream is not None:
+                try:
+                    with report_stream:
+                        _write_report(report_stream, report)
+                    saved = True
+                except OSError as exc:
+                    report = AskReport.model_validate(report.model_dump() | {"status": "failed", "summary": f"Could not save full report. {report.summary}", "blockers": [*report.blockers, str(exc), "Full report is returned on stdout; the output file may be incomplete."]})
+                    exit_code = 130 if exit_code == 130 else 1
     finally:
         config.SAVE_CONSOLE_LOG = save_logs
-    if output == "json":
-        sys.stdout.write(report.model_dump_json(indent=2) + "\n")
+    if compact and saved:
+        data = report.model_dump(exclude={"raw_response"}) | {"report_file": str(report_path)}
+        sys.stdout.write(json.dumps(data, separators=(",", ":")) + "\n")
+    elif output == "json":
+        sys.stdout.write(json.dumps(report.model_dump(), indent=2) + "\n")
     else:
         sys.stdout.write(f"{report.status.upper()}: {report.summary}\n")
         if report.raw_response:

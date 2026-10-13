@@ -31,6 +31,7 @@ from autosprint.banners import print_effective_config, print_start_banner, secti
 from autosprint.config import ENV_SET_FIELDS, config, _project_root
 from autosprint.errors import StopRequested, add_context
 from autosprint.git_ops import git
+from autosprint.ask import run_ask
 from autosprint.how_far import run_how_far
 from autosprint.init import (
     _assert_target_repo_not_self,
@@ -56,10 +57,11 @@ from autosprint.test_phase import check_initial_tests, run_self_test
 _CLI_PRESETS: dict[str, dict[str, Any]] = {
     "solo-gpt55": {"team": "solo_gpt55", "implement_agent": "implementor_gpt55"},
     "claude-only": {"team": "council_opus", "implement_agent": "implementor_opus48"},
-    "copilot-only": {"team": "council_gpt55", "implement_agent": "implementor_gpt55"},
+    "copilot-only": {"team": "council_gpt6", "implement_agent": "implementor_gpt6"},
+    "copilot-cheap": {"team": "council_gpt55", "implement_agent": "implementor_gpt55"},
     "quick-debug": {
         "team": "quick",
-        "implement_agent": "implementor_gpt41",
+        "implement_agent": "implementor_gpt54mini",
         "initial_tests": "none",
         "sp_target": 3,
         "sp_max": 3,
@@ -67,7 +69,7 @@ _CLI_PRESETS: dict[str, dict[str, Any]] = {
 }
 
 
-_ONESHOT_COMMANDS: frozenset[str] = frozenset({"self-test", "show-config", "settings", "init", "doctor", "how-far", "clear-logs", "stop", "teams", "agents", "presets", "gates", "sprints", "logs", "skills", "config-keys"})
+_ONESHOT_COMMANDS: frozenset[str] = frozenset({"self-test", "show-config", "settings", "init", "doctor", "how-far", "ask", "clear-logs", "stop", "teams", "agents", "presets", "gates", "sprints", "logs", "skills", "config-keys"})
 
 
 # ---------------------------------------------------------------------------
@@ -141,12 +143,12 @@ class _TerseArgumentParser(argparse.ArgumentParser):
 def add_run_options(parser: argparse.ArgumentParser) -> None:
     """Attach the run-mode options that apply to the `run`, `plan`, and `show-config` subcommands. Kept in one helper so all three stay in lockstep."""
     parser.add_argument("--branch", default=None, metavar="NAME", help="Branch name for the PIT run (default: autosprint/<timestamp>).")
-    parser.add_argument("--max-sprints", type=int, default=None, metavar="N", help="Override MAX_SPRINTS (default 100).")
+    parser.add_argument("--max-sprints", type=int, default=None, metavar="N", help="Override MAX_SPRINTS (default 500).")
     parser.add_argument("--team", type=str, default=None, metavar="NAME", help="Override TEAM — the planning team (key in agents.TEAMS, e.g. council, power, duo). Implementor is set separately via --implement-agent.")
     parser.add_argument("--implement-agent", type=str, default=None, metavar="KEY", help="Override IMPLEMENT_AGENT — the Implement-phase agent (key in agents.AGENTS, e.g. implementor_opus48).")
     parser.add_argument("--preset", type=str, default=None, metavar="NAME", choices=sorted(_CLI_PRESETS), help=f"Bundled preset that sets several flags at once. Choices: {', '.join(sorted(_CLI_PRESETS))}. Explicit flags override preset values.")
     parser.add_argument("--claude-only", action="store_true", help="Shortcut: use the all-Claude council_opus team + Opus implementor. Equivalent to `--preset claude-only`.")
-    parser.add_argument("--copilot-only", action="store_true", help="Shortcut: use the all-Copilot council_gpt55 team + GPT-5.5 implementor. Equivalent to `--preset copilot-only`.")
+    parser.add_argument("--copilot-only", action="store_true", help="Shortcut: use the all-Copilot council_gpt6 team + GPT-6 Astra implementor — Copilot's strongest tier. Equivalent to `--preset copilot-only`; use `--preset copilot-cheap` for the GPT-5.5 equivalent at roughly half the token cost.")
     parser.add_argument("--fake-plan", type=str, default=None, metavar="TITLE", help="Skip the Plan LLM call; inject this hardcoded task title. Debug only.")
     parser.add_argument("--fake-desc", type=str, default="", metavar="DESC", help="Description for --fake-plan (ignored unless --fake-plan is set).")
     parser.add_argument("--fake-implement", action="store_true", help="Skip the Implement LLM call; simulate success/failure via FAKE_IMPLEMENT_FAILURE_RATE.")
@@ -172,6 +174,7 @@ Examples:
   autosprint plan --team council        draft a reviewed plan into autosprint/plan.md
   autosprint run                        run the reviewed plan.md top to bottom
   autosprint run --auto-replan          autonomous self-planning loop
+  autosprint ask --agent bug_hunter_gpt6 "review src/foo.py"
   autosprint how-far                    measure distance to destination.md (read-only)
   autosprint show-config                print the resolved config and exit
   autosprint stop                       signal a running loop to finish and exit
@@ -202,7 +205,13 @@ def parse_cli_args() -> argparse.Namespace:
         add_run_options(plan_p)
         subparsers.add_parser("doctor", help="Verify the setup can run — target repo, destination.md, required CLIs, and one live agent round-trip per backend in use. Exits non-zero on any failure.")
         howfar_p = subparsers.add_parser("how-far", help="Measure how far the codebase is from autosprint/destination.md — a read-only status table (done / partial / not started / unclear). Dispatches one agent; makes no changes.")
-        howfar_p.add_argument("--agent", type=str, default=None, metavar="KEY", help="Override HOWFAR_AGENT for this run (a key in agents.AGENTS). Use `howfar_gpt55` for a Copilot-only run, e.g. when Claude tokens are exhausted.")
+        howfar_p.add_argument("--agent", type=str, default=None, metavar="KEY", help="Override HOWFAR_AGENT for this run (a key in agents.AGENTS). Use `howfar_gpt6` for a Copilot-only run, e.g. when Claude tokens are exhausted.")
+        ask_p = subparsers.add_parser("ask", help="Dispatch one ad-hoc prompt to one registered agent. Defaults to read-only tools for safe reviews from another orchestrator.")
+        ask_p.add_argument("--agent", type=str, required=True, metavar="KEY", help="Agent key from `autosprint agents`, e.g. bug_hunter_gpt6.")
+        ask_p.add_argument("--tools", choices=["read-only", "full", "research"], default="read-only", help="Tool preset for the dispatch. Default read-only; use full only when you want the agent to edit/run commands.")
+        ask_p.add_argument("--target", default=argparse.SUPPRESS, metavar="PATH", help="Target directory (default: current working directory, never the sprint TARGET_REPO fallback).")
+        ask_p.add_argument("--output", choices=["text", "json"], default="json", help="Output mode. Default json writes one report to stdout; progress goes to stderr.")
+        ask_p.add_argument("prompt", nargs="+", help='Task to send, e.g. "review src/foo.py". Include required repo guidance and memory in the task.')
         subparsers.add_parser("self-test", help="Run autosprint's own test suite (fast, no live calls) and exit.")
         show_config_p = subparsers.add_parser("show-config", help="Print the resolved config (team roster, implementor, env overrides) and exit.")
         add_run_options(show_config_p)
@@ -212,7 +221,7 @@ def parse_cli_args() -> argparse.Namespace:
         init_p.add_argument("--update-skills", action="store_true", help="Refresh .claude/skills, .claude/agents, .github/skills from the autosprint source (overwrite). Skips the rest of init.")
         subparsers.add_parser("teams", help="List all available planning teams (key, description, roster, lead) so you can pick one for --team.")
         subparsers.add_parser("agents", help="List every agent in agents.AGENTS (key, name, backend, model) — useful for picking --implement-agent or HOWFAR_AGENT.")
-        subparsers.add_parser("presets", help="List bundled --preset values (claude-only, copilot-only, solo-gpt55, quick-debug) and what each expands to.")
+        subparsers.add_parser("presets", help="List bundled --preset values (claude-only, copilot-only, copilot-cheap, solo-gpt55, quick-debug) and what each expands to.")
         subparsers.add_parser("gates", help="List per-sprint gates (import-check, smoke-test, format-check, lint-check, collect-only, coverage-track) with their config value + active/off/auto-skipped status (and why) for the configured target repo.")
         subparsers.add_parser("sprints", help="List recent sprint outcomes from autosprint/logs/sprint-outcomes.log — the last ~20 lines, dedup'd across the dual-write pattern.")
         subparsers.add_parser("logs", help="List files in autosprint/logs/ with size and last-modified timestamp, so you can see what's been logged without filesystem-browsing.")
@@ -227,6 +236,10 @@ def parse_cli_args() -> argparse.Namespace:
         if args.command is None or args.command == "help":
             parser.print_help()
             raise SystemExit(0)
+
+        if args.command == "ask":
+            config.TARGET_REPO = str(Path(args.target).resolve() if args.target else Path.cwd())
+            return args
 
         _resolve_target_repo(args)
         _apply_config_toml(args)
@@ -500,6 +513,9 @@ def prepare() -> argparse.Namespace:
             run_doctor()
             return args
 
+        if args.command == "ask":
+            raise SystemExit(run_ask(args.agent, args.prompt, args.tools, args.output))
+
         _assert_target_repo_not_self()
 
         if args.command == "how-far":
@@ -580,6 +596,8 @@ def run_show_agents() -> None:
             lines.append(f"      name:    {agent.get('name', '?')}")
             lines.append(f"      backend: {agent.get('assistant', '?')}")
             lines.append(f"      model:   {agent.get('model', '?')}")
+            if agent.get("reasoning_effort"):
+                lines.append(f"      reasoning: {agent.get('reasoning_effort')}")
         lines.append("")
         lines.append("   Use:  autosprint run --implement-agent <key>   (or set IMPLEMENT_AGENT=<key> in .env)")
         lines.append(section_banner("AGENTS", "END"))

@@ -25,8 +25,8 @@ _CONFIG_TOML_HEADER = """\
 # user can uncomment by hand. Order here is the order in the file.
 _CONFIG_TOML_SCALAR_FIELDS: tuple[tuple[str, str, str], ...] = (
     ("implement_agent", '"implementor_opus48"', "agent that runs the Implement phase"),
-    ("implement_fallback_agent", '"implementor_gpt55"', 'refusal-fallback agent ("" disables it)'),
-    ("howfar_agent", '"howfar_opus48"', "agent for `autosprint how-far` (howfar_gpt55 = Copilot-only)"),
+    ("implement_fallback_agent", '"implementor_gpt6"', 'refusal-fallback agent ("" disables it)'),
+    ("howfar_agent", '"howfar_opus48"', "agent for `autosprint how-far` (howfar_gpt6 = Copilot-only)"),
     ("howfar_heartbeat_every_n_sprints", "10", "run passive how-far heartbeat every N sprints (0 disables)"),
     ("sp_target", "8", "task-grouping story-point aim (0 disables)"),
     ("sp_min", "2", "preferred story-point band, low end"),

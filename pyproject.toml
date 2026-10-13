@@ -7,7 +7,7 @@ authors = [{ name = "Haakon Hove", email = "hbhove@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "claude-agent-sdk>=0.1.0",
-    "github-copilot-sdk>=0.2.0",
+    "github-copilot-sdk>=1.0.20",
     "pydantic-settings>=2.13.1",
     "pyttsx3>=2.90",
 ]

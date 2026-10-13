@@ -88,27 +88,11 @@ _PROMPT_ARCHITECT = f"{_THINK_CAREFULLY}\n\nYour specialty: module structure, se
 # 3a. Generic personality agents — alphabetised to match the AGENTS registry.
 # -----------------------------------------------------------------------------
 
-AGENT_ANALYST_GPT52_COPILOT: dict[str, Any] = {
-    "name": "The Analyst (Copilot)",
-    "assistant": "copilot",
-    "model": "gpt-5.2",
-    "system_prompt": "Analytical and thorough. Examine the full codebase and destination before deciding.",
-    "tools": TOOLS_FULL,
-}
-
 AGENT_ANALYST_OPUS_CLAUDE: dict[str, Any] = {
     "name": "The Analyst (Claude)",
     "assistant": "claude",
     "model": "claude-opus-4-8",
     "system_prompt": "Analytical and thorough. Examine the full codebase and destination before deciding.",
-    "tools": TOOLS_FULL,
-}
-
-AGENT_ARCHITECT_COPILOT: dict[str, Any] = {
-    "name": "The Architect (Copilot)",
-    "assistant": "copilot",
-    "model": "gpt-5.2",
-    "system_prompt": "Think about module boundaries and separation of concerns. Watch for logic that lives in the wrong layer, leaky abstractions, and circular dependencies. Suggest changes that make the shape of the codebase match its responsibilities.",
     "tools": TOOLS_FULL,
 }
 
@@ -152,14 +136,6 @@ AGENT_DELIBERATOR_SONNET_CLAUDE: dict[str, Any] = {
     "tools": TOOLS_FULL,
 }
 
-AGENT_GUARDIAN_COPILOT: dict[str, Any] = {
-    "name": "The Guardian (Copilot)",
-    "assistant": "copilot",
-    "model": "gpt-5.2",
-    "system_prompt": "Ultra-conservative. Argue against change unless the case is overwhelming. Focus on stability and what could break.",
-    "tools": TOOLS_FULL,
-}
-
 AGENT_PRAGMATIST_CLAUDE: dict[str, Any] = {
     "name": "The Pragmatist (Claude)",
     "assistant": "claude",
@@ -176,10 +152,10 @@ AGENT_REFACTORER_CLAUDE: dict[str, Any] = {
     "tools": TOOLS_FULL,
 }
 
-AGENT_SPEED_RUNNER_COPILOT: dict[str, Any] = {
-    "name": "The Speed-runner (Copilot)",
+AGENT_SPEED_RUNNER_GPT54MINI: dict[str, Any] = {
+    "name": "The Speed-runner (GPT-5.4-mini)",
     "assistant": "copilot",
-    "model": "gpt-4.1",
+    "model": "gpt-5.4-mini",
     "system_prompt": "Never think long. Answer extremely quickly and briefly. Pick the most obvious task immediately and return the result in the correct format.",
     "tools": TOOLS_FULL,
 }
@@ -188,6 +164,7 @@ AGENT_TESTER_COPILOT: dict[str, Any] = {
     "name": "The Tester (Copilot)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": "Focused on test coverage, correctness, and confidence. Argue that untested code is unfinished code.",
     "tools": TOOLS_FULL,
 }
@@ -217,6 +194,7 @@ AGENT_ARCHITECT_GPT55: dict[str, Any] = {
     "name": "The Architect (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_ARCHITECT,
     "tools": TOOLS_FULL,
 }
@@ -233,6 +211,7 @@ AGENT_BUG_HUNTER_GPT55: dict[str, Any] = {
     "name": "The Bug Hunter (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_BUG_HUNTER,
     "tools": TOOLS_FULL,
 }
@@ -249,6 +228,7 @@ AGENT_MINIMALIST_GPT55: dict[str, Any] = {
     "name": "The Minimalist (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_MINIMALIST,
     "tools": TOOLS_FULL,
 }
@@ -257,6 +237,7 @@ AGENT_TESTER_GPT55: dict[str, Any] = {
     "name": "The Tester (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_TESTER,
     "tools": TOOLS_FULL,
 }
@@ -273,6 +254,7 @@ AGENT_GUARDIAN_GPT55: dict[str, Any] = {
     "name": "The Guardian (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: risk. Argue against change unless the case is overwhelming. Focus on what could break, regressions that might already be in flight, and the cost of reversing a bad decision. If a proposal reads like high-leverage / low-regret, support it; if it's high-change / high-reversibility-cost, push back explicitly and name the concrete failure mode you fear.",
     "tools": TOOLS_FULL,
 }
@@ -305,6 +287,7 @@ AGENT_REFACTORER_GPT55: dict[str, Any] = {
     "name": "The Refactorer (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: structural cleanliness. Hunt for functions whose names no longer match what they do, helpers that mix two concerns, duplicated logic that should be extracted. Prefer renaming, splitting, and consolidating over adding new code. Flag emergent architectural smells early, while the fix is still small. Also audit `autosprint/adr.md` for drift — superseded decisions still referenced by active code, rationales whose trade-offs have changed, and decisions the code no longer follows.",
     "tools": TOOLS_FULL,
 }
@@ -318,6 +301,7 @@ AGENT_INNOVATOR_GPT55: dict[str, Any] = {
     "name": "The Innovator (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: fresh approaches and creative solutions that produce genuinely good code. Look for opportunities to introduce better patterns, smarter abstractions, or simpler designs that the current codebase hasn't discovered yet. Propose the change that makes the codebase *better to work in* — not just bigger. Bias toward ideas that unlock momentum: a well-named abstraction, a clean interface, a pattern that makes the next five changes easy. Avoid novelty for its own sake; every proposal must make the code clearer, safer, or more capable.",
     "tools": TOOLS_FULL,
 }
@@ -326,6 +310,7 @@ AGENT_VISIONARY_GPT55: dict[str, Any] = {
     "name": "The Visionary (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYour specialty: the 2-3 sprints-out horizon. While others focus on the next obvious step, you think about the bigger gap between current state and destination.md. Propose tasks that *set up* a later high-value sprint — one task that isn't great alone but unlocks a sequence of great ones. Be explicit about the sequence you're enabling. Bias toward changes that will make the codebase dramatically easier to extend, test, and reason about in the future.",
     "tools": TOOLS_FULL,
 }
@@ -334,6 +319,7 @@ AGENT_TEAMLEAD_GPT55: dict[str, Any] = {
     "name": "Team Lead (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYou are the team lead. Read each team member's proposal, weigh them against destination.md and adr.md, and produce the single merged plan. Resolve disagreements with reasoning, drop duplicates, and order tasks by strategic value. Favour tasks that improve code quality, correctness, and long-term maintainability.",
     "tools": TOOLS_FULL,
 }
@@ -342,6 +328,7 @@ AGENT_NORTH_STAR_GPT55: dict[str, Any] = {
     "name": "The North Star (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_NORTH_STAR,
     "tools": TOOLS_FULL,
 }
@@ -350,6 +337,7 @@ AGENT_PRAGMATIST_GPT55: dict[str, Any] = {
     "name": "The Pragmatist (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_PRAGMATIST,
     "tools": TOOLS_FULL,
 }
@@ -409,6 +397,7 @@ AGENT_WEB_RESEARCHER_GPT55: dict[str, Any] = {
     "name": "The Web Researcher (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_WEB_RESEARCHER,
     "tools": TOOLS_RESEARCH,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -427,6 +416,7 @@ AGENT_SYNTHESIZER_GPT55: dict[str, Any] = {
     "name": "The Synthesizer (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_SYNTHESIZER,
     "tools": TOOLS_FULL,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -445,6 +435,7 @@ AGENT_STEELMANNER_GPT55: dict[str, Any] = {
     "name": "The Steelmanner (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_STEELMANNER,
     "tools": TOOLS_FULL,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -463,6 +454,7 @@ AGENT_EDITOR_GPT55: dict[str, Any] = {
     "name": "The Editor (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _PROMPT_EDITOR,
     "tools": TOOLS_FULL,
     "plan_prompt_file": ".claude/agents/plan-agent-research.md",
@@ -486,6 +478,7 @@ AGENT_RESEARCH_LEAD_GPT55: dict[str, Any] = {
     "name": "Research Lead (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": f"{_THINK_CAREFULLY}\n\nYou are the research team lead. Read each team member's proposal, weigh them against destination.md and adr.md, and produce the single merged plan. Resolve disagreements with reasoning, drop duplicates, and order tasks by strategic value toward the research destination — cite quality, source coverage, scenario completeness, argument balance, format discipline.",
     "tools": TOOLS_FULL,
     "plan_lead_prompt_file": ".claude/agents/plan-team-research.md",
@@ -534,14 +527,15 @@ AGENT_IMPLEMENTOR_GPT55: dict[str, Any] = {
     "name": "Implementor (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
     "system_prompt": _IMPLEMENTOR_PERSONA,
     "tools": TOOLS_FULL,
 }
 
-AGENT_IMPLEMENTOR_GPT41: dict[str, Any] = {
-    "name": "Implementor (GPT-4.1)",
+AGENT_IMPLEMENTOR_GPT54MINI: dict[str, Any] = {
+    "name": "Implementor (GPT-5.4-mini)",
     "assistant": "copilot",
-    "model": "gpt-4.1",
+    "model": "gpt-5.4-mini",
     "system_prompt": _IMPLEMENTOR_PERSONA,
     "tools": TOOLS_FULL,
 }
@@ -551,18 +545,18 @@ AGENT_IMPLEMENTOR_GPT41: dict[str, Any] = {
 # machinery without spending production-tier tokens.
 # -----------------------------------------------------------------------------
 
-AGENT_QUICK_A_GPT41_COPILOT: dict[str, Any] = {
-    "name": "Quick A (Copilot)",
+AGENT_QUICK_A_GPT54MINI: dict[str, Any] = {
+    "name": "Quick A (GPT-5.4-mini)",
     "assistant": "copilot",
-    "model": "gpt-4.1",
+    "model": "gpt-5.4-mini",
     "system_prompt": "Never think long. Answer extremely quickly and briefly. Pick the most obvious task immediately and return the result in the correct format.",
     "tools": TOOLS_FULL,
 }
 
-AGENT_QUICK_B_GPT41_COPILOT: dict[str, Any] = {
-    "name": "Quick B (Copilot)",
+AGENT_QUICK_B_GPT54MINI: dict[str, Any] = {
+    "name": "Quick B (GPT-5.4-mini)",
     "assistant": "copilot",
-    "model": "gpt-4.1",
+    "model": "gpt-5.4-mini",
     "system_prompt": "Never think long. Answer extremely quickly and briefly. Pick the most obvious task immediately and return the result in the correct format.",
     "tools": TOOLS_FULL,
 }
@@ -588,19 +582,112 @@ AGENT_HOWFAR_GPT55: dict[str, Any] = {
     "name": "How-far (GPT-5.5)",
     "assistant": "copilot",
     "model": "gpt-5.5",
+    "reasoning_effort": "high",
+    "system_prompt": _HOWFAR_PERSONA,
+    "tools": TOOLS_READ_ONLY,
+}
+
+
+# -----------------------------------------------------------------------------
+# 3h. GPT-6 Astra agents — the top Copilot tier. Astra went GA in Copilot on
+# 2026-09-04 and is the strongest coding model the Copilot subscription offers
+# (Pro+/Max/Business/Enterprise only). Priced at $10/$50 per 1M tokens against
+# GPT-5.5's $5/$30, so these seats cost roughly 2x their GPT-5.5 twins — worth
+# it for Implement, a judgement call for a six-seat planning council. The lens
+# prompts are the shared constants, so an Astra seat and its GPT-5.5 twin argue
+# the same way and only the model differs.
+# -----------------------------------------------------------------------------
+
+AGENT_NORTH_STAR_GPT6: dict[str, Any] = {
+    "name": "The North Star (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": _PROMPT_NORTH_STAR,
+    "tools": TOOLS_FULL,
+}
+
+AGENT_BUG_HUNTER_GPT6: dict[str, Any] = {
+    "name": "The Bug Hunter (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": _PROMPT_BUG_HUNTER,
+    "tools": TOOLS_FULL,
+}
+
+AGENT_PRAGMATIST_GPT6: dict[str, Any] = {
+    "name": "The Pragmatist (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": _PROMPT_PRAGMATIST,
+    "tools": TOOLS_FULL,
+}
+
+AGENT_TESTER_GPT6: dict[str, Any] = {
+    "name": "The Tester (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": _PROMPT_TESTER,
+    "tools": TOOLS_FULL,
+}
+
+AGENT_MINIMALIST_GPT6: dict[str, Any] = {
+    "name": "The Minimalist (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": _PROMPT_MINIMALIST,
+    "tools": TOOLS_FULL,
+}
+
+AGENT_ARCHITECT_GPT6: dict[str, Any] = {
+    "name": "The Architect (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": _PROMPT_ARCHITECT,
+    "tools": TOOLS_FULL,
+}
+
+AGENT_TEAMLEAD_GPT6: dict[str, Any] = {
+    "name": "Team Lead (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": AGENT_TEAMLEAD_GPT55["system_prompt"],
+    "tools": TOOLS_FULL,
+}
+
+AGENT_IMPLEMENTOR_GPT6: dict[str, Any] = {
+    "name": "Implementor (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "system_prompt": _IMPLEMENTOR_PERSONA,
+    "tools": TOOLS_FULL,
+}
+
+AGENT_HOWFAR_GPT6: dict[str, Any] = {
+    "name": "How-far (GPT-6 Astra)",
+    "assistant": "copilot",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
     "system_prompt": _HOWFAR_PERSONA,
     "tools": TOOLS_READ_ONLY,
 }
 
 
 AGENTS: dict[str, dict[str, Any]] = {
-    "analyst_gpt52_copilot": AGENT_ANALYST_GPT52_COPILOT,
     "analyst_opus_claude": AGENT_ANALYST_OPUS_CLAUDE,
-    "architect_copilot": AGENT_ARCHITECT_COPILOT,
     "architect_gpt55": AGENT_ARCHITECT_GPT55,
+    "architect_gpt6": AGENT_ARCHITECT_GPT6,
     "architect_opus48": AGENT_ARCHITECT_OPUS48,
     "bug_hunter_claude": AGENT_BUG_HUNTER_CLAUDE,
     "bug_hunter_gpt55": AGENT_BUG_HUNTER_GPT55,
+    "bug_hunter_gpt6": AGENT_BUG_HUNTER_GPT6,
     "bug_hunter_opus48": AGENT_BUG_HUNTER_OPUS48,
     "clarifier_claude": AGENT_CLARIFIER_CLAUDE,
     "clarifier_opus48": AGENT_CLARIFIER_OPUS48,
@@ -609,37 +696,43 @@ AGENTS: dict[str, dict[str, Any]] = {
     "deliberator_sonnet_claude": AGENT_DELIBERATOR_SONNET_CLAUDE,
     "editor_gpt55": AGENT_EDITOR_GPT55,
     "editor_opus48": AGENT_EDITOR_OPUS48,
-    "guardian_copilot": AGENT_GUARDIAN_COPILOT,
     "guardian_gpt55": AGENT_GUARDIAN_GPT55,
     "howfar_gpt55": AGENT_HOWFAR_GPT55,
+    "howfar_gpt6": AGENT_HOWFAR_GPT6,
     "howfar_opus48": AGENT_HOWFAR_OPUS48,
-    "implementor_gpt41": AGENT_IMPLEMENTOR_GPT41,
+    "implementor_gpt54mini": AGENT_IMPLEMENTOR_GPT54MINI,
     "implementor_gpt55": AGENT_IMPLEMENTOR_GPT55,
+    "implementor_gpt6": AGENT_IMPLEMENTOR_GPT6,
     "implementor_opus48": AGENT_IMPLEMENTOR_OPUS48,
     "innovator_gpt55": AGENT_INNOVATOR_GPT55,
     "minimalist_gpt55": AGENT_MINIMALIST_GPT55,
+    "minimalist_gpt6": AGENT_MINIMALIST_GPT6,
     "minimalist_opus48": AGENT_MINIMALIST_OPUS48,
     "north_star_gpt55": AGENT_NORTH_STAR_GPT55,
+    "north_star_gpt6": AGENT_NORTH_STAR_GPT6,
     "north_star_opus48": AGENT_NORTH_STAR_OPUS48,
     "pragmatist_claude": AGENT_PRAGMATIST_CLAUDE,
     "pragmatist_gpt55": AGENT_PRAGMATIST_GPT55,
+    "pragmatist_gpt6": AGENT_PRAGMATIST_GPT6,
     "pragmatist_opus48": AGENT_PRAGMATIST_OPUS48,
-    "quick_a_gpt41_copilot": AGENT_QUICK_A_GPT41_COPILOT,
-    "quick_b_gpt41_copilot": AGENT_QUICK_B_GPT41_COPILOT,
+    "quick_a_gpt54mini": AGENT_QUICK_A_GPT54MINI,
+    "quick_b_gpt54mini": AGENT_QUICK_B_GPT54MINI,
     "refactorer_claude": AGENT_REFACTORER_CLAUDE,
     "refactorer_gpt55": AGENT_REFACTORER_GPT55,
     "research_lead_gpt55": AGENT_RESEARCH_LEAD_GPT55,
     "research_lead_opus48": AGENT_RESEARCH_LEAD_OPUS48,
-    "speed_runner_copilot": AGENT_SPEED_RUNNER_COPILOT,
+    "speed_runner_gpt54mini": AGENT_SPEED_RUNNER_GPT54MINI,
     "steelmanner_gpt55": AGENT_STEELMANNER_GPT55,
     "steelmanner_opus48": AGENT_STEELMANNER_OPUS48,
     "strategist_opus48": AGENT_STRATEGIST_OPUS48,
     "synthesizer_gpt55": AGENT_SYNTHESIZER_GPT55,
     "synthesizer_opus48": AGENT_SYNTHESIZER_OPUS48,
     "teamlead_gpt55": AGENT_TEAMLEAD_GPT55,
+    "teamlead_gpt6": AGENT_TEAMLEAD_GPT6,
     "teamlead_opus48": AGENT_TEAMLEAD_OPUS48,
     "tester_copilot": AGENT_TESTER_COPILOT,
     "tester_gpt55": AGENT_TESTER_GPT55,
+    "tester_gpt6": AGENT_TESTER_GPT6,
     "tester_opus48": AGENT_TESTER_OPUS48,
     "thinker_opus48": AGENT_THINKER_OPUS48,
     "visionary_claude": AGENT_VISIONARY_CLAUDE,

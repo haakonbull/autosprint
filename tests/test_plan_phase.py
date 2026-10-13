@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 import autosprint.plan_phase as plan_phase_mod
-from autosprint.agents import AGENT_QUICK_A_GPT41_COPILOT
+from autosprint.agents import AGENT_QUICK_A_GPT54MINI
 from autosprint.config import config
 from autosprint.errors import PhaseFailedError
 from autosprint.plan_phase import should_replan, update_plan
@@ -172,7 +172,7 @@ async def test_update_plan_uses_fake_plan_config(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(config, "FAKE_PLAN_TITLE", "Add hello to hello.md")
     monkeypatch.setattr(config, "FAKE_PLAN_DESC", "Append the word 'hello' to the file hello.md.")
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    plan = await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
+    plan = await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI)
     assert len(plan.pending) == 1
     assert plan.pending[0].title == "Add hello to hello.md"
     assert (tmp_path / "autosprint" / "plan.md").exists()
@@ -182,7 +182,7 @@ async def test_update_plan_single_agent_writes_plan(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(config, "LOG_LEVEL", 10)
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=VALID_PLAN_RESPONSE))
-    plan = await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
+    plan = await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI)
     assert len(plan.pending) == 2
     assert plan.pending[0].title == "Do thing"
     assert (tmp_path / "autosprint" / "plan.md").exists()
@@ -193,7 +193,7 @@ async def test_update_plan_writes_plan_summary_in_plan_only_mode(monkeypatch: py
     monkeypatch.setattr(config, "LOG_LEVEL", 10)
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=PLAN_RESPONSE_WITH_SUMMARY))
-    await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT, plan_only_mode=True)
+    await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI, plan_only_mode=True)
     plan_text = (tmp_path / "autosprint" / "plan.md").read_text(encoding="utf-8")
     assert "> Merged 8 proposals into 1 task." in plan_text
 
@@ -203,7 +203,7 @@ async def test_update_plan_omits_plan_summary_in_loop_mode(monkeypatch: pytest.M
     monkeypatch.setattr(config, "LOG_LEVEL", 10)
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=PLAN_RESPONSE_WITH_SUMMARY))
-    await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT, plan_only_mode=False)
+    await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI, plan_only_mode=False)
     plan_text = (tmp_path / "autosprint" / "plan.md").read_text(encoding="utf-8")
     assert "Merged 8 proposals" not in plan_text
 
@@ -213,7 +213,7 @@ async def test_update_plan_raises_phase_failed_on_bad_output(monkeypatch: pytest
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value="this is not json"))
     with pytest.raises(PhaseFailedError):
-        await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
+        await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI)
 
 
 def test_should_replan_when_plan_is_empty() -> None:

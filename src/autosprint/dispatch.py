@@ -47,14 +47,18 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable, Literal
 
 from pydantic import BaseModel, Field
 
 from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH, VALID_PRESETS
+from autosprint.ask_report import ASK_REPORT_DESCRIPTION, AskOutcome, capture_ask_report
 from autosprint.config import config
 from autosprint.errors import StopSignalDetected, add_context
 from autosprint.output import printlev
+
+if TYPE_CHECKING:
+    from copilot import CopilotClient
 
 
 @dataclass
@@ -93,7 +97,8 @@ _CLAUDE_TOOLS: dict[str, list[str]] = {
     TOOLS_RESEARCH: ["Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch"],
 }
 
-_COPILOT_READ_ONLY_TOOLS: set[str] = {"read_file", "view", "glob", "grep"}
+_COPILOT_READ_ONLY_TOOLS: set[str] = {"read_file", "view", "glob", "grep", "rg", "submit_ask_report"}
+_COPILOT_RESEARCH_TOOLS = _COPILOT_READ_ONLY_TOOLS | {"web_fetch", "web_search", "create", "edit", "apply_patch"}
 
 _CACHE_DIRNAME = "autosprint/cache"
 
@@ -228,14 +233,33 @@ def _build_claude_result_tools(result_capture: dict) -> tuple[object, list[str]]
     return server, tool_names
 
 
+def _build_claude_ask_report_tools(result_capture: dict) -> tuple[object, list[str]]:
+    """Build the Claude-side structured report tool used by `autosprint ask`."""
+    from claude_agent_sdk import tool, create_sdk_mcp_server
+
+    @tool(
+        "submit_ask_report",
+        ASK_REPORT_DESCRIPTION,
+        AskOutcome.model_json_schema(),
+    )
+    async def submit_ask_report(args: dict) -> dict:
+        err = capture_ask_report(args, result_capture)
+        if err is not None:
+            return {"content": [{"type": "text", "text": err}], "is_error": True}
+        return {"content": [{"type": "text", "text": "Ask report captured."}]}
+
+    server = create_sdk_mcp_server("autosprint", "0.1.0", tools=[submit_ask_report])
+    return server, ["mcp__autosprint__submit_ask_report"]
+
+
 # ---------------------------------------------------------------------------
 # Assistant dispatchers
 # ---------------------------------------------------------------------------
 
 
-async def _run_claude(agent: dict, prompt: str, preset: str, result_capture: dict | None = None) -> str:
-    """Dispatch a prompt to Claude via the Anthropic Agent SDK and return the concatenated narration text. When ``result_capture`` is a dict (used by the Implement phase for the structured-result-tool exit pattern), an in-process MCP server exposing ``submit_implement_success`` and ``submit_implement_failure`` is registered, and the agent's typed args from whichever tool it calls are written into the dict. Plan-phase callers leave ``result_capture=None`` so no extra tools are registered and behaviour is unchanged."""
-    from claude_agent_sdk import ClaudeAgentOptions, AssistantMessage, query
+async def _run_claude(agent: dict, prompt: str, preset: str, result_capture: dict | None = None, dispatch_mode: Literal["sprint", "ask"] = "sprint") -> str:
+    """Dispatch to Claude and collect narration. Captured result tools serve either the Implement phase or an ad-hoc ask. Ask also sets the role, project guidance and explicit tool inventory; other phases retain their existing prompt and permission behavior."""
+    from claude_agent_sdk import ClaudeAgentOptions, AssistantMessage, ResultMessage, query
 
     try:
         allowed_tools = list(_CLAUDE_TOOLS[preset])  # copy so per-call extension doesn't mutate the preset
@@ -244,18 +268,28 @@ async def _run_claude(agent: dict, prompt: str, preset: str, result_capture: dic
             "model": agent.get("model"),
             "cwd": config.TARGET_REPO_PATH,
         }
+        if dispatch_mode == "ask":
+            opts_kwargs["system_prompt"] = {"type": "preset", "preset": "claude_code", "append": agent["system_prompt"]}
+            opts_kwargs["setting_sources"] = ["project"]
+            opts_kwargs["tools"] = list(_CLAUDE_TOOLS[preset])
+            opts_kwargs["permission_mode"] = "dontAsk"
 
         if result_capture is not None:
-            server, tool_names = _build_claude_result_tools(result_capture)
+            if dispatch_mode == "ask":
+                server, tool_names = _build_claude_ask_report_tools(result_capture)
+            else:
+                server, tool_names = _build_claude_result_tools(result_capture)
             opts_kwargs["mcp_servers"] = {"autosprint": server}
             allowed_tools.extend(tool_names)
 
         result_text = ""
         async for message in query(prompt=prompt, options=ClaudeAgentOptions(**opts_kwargs)):
+            if dispatch_mode == "ask" and isinstance(message, ResultMessage) and message.is_error:
+                raise RuntimeError(f"Claude task failed: {message.result or message.subtype}")
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if hasattr(block, "text"):
-                        result_text += block.text
+                        result_text += block.text + ("\n\n" if dispatch_mode == "ask" else "")
         return result_text
     except Exception as e:
         raise add_context(e, f"Failed to run Claude query with model {agent.get('model')}") from e
@@ -266,6 +300,13 @@ async def _copilot_read_only_hook(input_data: dict, invocation: object) -> dict:
     if tool_name in _COPILOT_READ_ONLY_TOOLS:
         return {"permissionDecision": "allow"}
     return {"permissionDecision": "deny", "permissionDecisionReason": f'Read-only preset: "{tool_name}" is not allowed.'}
+
+
+async def _copilot_research_hook(input_data: dict, invocation: object) -> dict:
+    tool_name = input_data.get("toolName", "")
+    if tool_name in _COPILOT_RESEARCH_TOOLS:
+        return {"permissionDecision": "allow"}
+    return {"permissionDecision": "deny", "permissionDecisionReason": f'Research preset: "{tool_name}" is not allowed.'}
 
 
 class _ResolvedOpenQuestion(BaseModel):
@@ -323,6 +364,17 @@ def _build_copilot_result_tools(result_capture: dict) -> list:
     return [submit_implement_success, submit_implement_failure]
 
 
+def _build_copilot_ask_report_tools(result_capture: dict) -> list:
+    """Build Copilot-side structured-report tool for `autosprint ask`."""
+    from copilot import define_tool
+
+    @define_tool(name="submit_ask_report", description=ASK_REPORT_DESCRIPTION)
+    def submit_ask_report(params: AskOutcome) -> str:
+        return capture_ask_report(params.model_dump(), result_capture) or "Ask report captured."
+
+    return [submit_ask_report]
+
+
 _STOP_CHECK_POLL_INTERVAL_SECONDS = 5.0
 
 
@@ -365,34 +417,76 @@ async def _copilot_send_with_stop_check(session, prompt: str, timeout: float, st
         raise
 
 
-async def _run_copilot(agent: dict, prompt: str, preset: str, result_capture: dict | None = None) -> str:
-    """Dispatch to Copilot via the GitHub Copilot SDK and return the assistant's coalesced response text. When ``result_capture`` is supplied, two custom tools (``submit_implement_success`` / ``submit_implement_failure``) are registered with the session so the agent's typed args land in the dict — the same structured-exit contract the Claude dispatcher uses. The legacy ``---RESULT---`` text path stays as a fallback in the orchestrator for cases where the agent answers in prose."""
+_COPILOT_SHUTDOWN_TIMEOUT_SECONDS = 10.0
+
+
+async def _stop_ask_client(client: CopilotClient) -> None:
+    """Complete owned-runtime cleanup even if the task deadline fires during shutdown."""
+
+    async def stop_with_deadline() -> None:
+        try:
+            await asyncio.wait_for(client.stop(), timeout=_COPILOT_SHUTDOWN_TIMEOUT_SECONDS)
+        except (Exception, asyncio.CancelledError):
+            await asyncio.wait_for(client.force_stop(), timeout=5.0)
+            raise
+
+    cleanup = asyncio.create_task(stop_with_deadline())
+    try:
+        await asyncio.shield(cleanup)
+    except asyncio.CancelledError:
+        await cleanup
+        raise
+
+
+async def _run_copilot(agent: dict, prompt: str, preset: str, result_capture: dict | None = None, dispatch_mode: Literal["sprint", "ask"] = "sprint") -> str:
+    """Dispatch to Copilot with the requested reasoning effort and result tools. Ask retains completed assistant messages and does not poll or consume sprint stop files. The Implement phase retains its existing structured-exit and stop-check contracts."""
     from copilot import CopilotClient
+    from copilot.generated.session_events import SessionEvent
     from copilot.session import PermissionHandler
 
     try:
         client = CopilotClient()
-        await client.start()
         try:
+            await client.start()
             create_kwargs: dict = {
                 "on_permission_request": PermissionHandler.approve_all,
                 "model": agent.get("model"),
                 "working_directory": str(config.TARGET_REPO_PATH),
             }
+            if agent.get("reasoning_effort"):
+                create_kwargs["reasoning_effort"] = agent["reasoning_effort"]
             if preset == TOOLS_READ_ONLY:
                 create_kwargs["hooks"] = {"on_pre_tool_use": _copilot_read_only_hook}
+            if dispatch_mode == "ask":
+                messages: list[str] = []
+
+                def collect_response(event: SessionEvent) -> None:
+                    if event.type.value == "assistant.message" and event.data.content:
+                        messages.append(event.data.content)
+
+                create_kwargs["on_event"] = collect_response
+                create_kwargs["system_message"] = {"mode": "append", "content": agent["system_prompt"]}
+                if preset == TOOLS_READ_ONLY:
+                    create_kwargs["available_tools"] = sorted(_COPILOT_READ_ONLY_TOOLS)
+                elif preset == TOOLS_RESEARCH:
+                    create_kwargs["available_tools"] = sorted(_COPILOT_RESEARCH_TOOLS)
+                    create_kwargs["hooks"] = {"on_pre_tool_use": _copilot_research_hook}
             if result_capture is not None:
-                create_kwargs["tools"] = _build_copilot_result_tools(result_capture)
+                create_kwargs["tools"] = _build_copilot_ask_report_tools(result_capture) if dispatch_mode == "ask" else _build_copilot_result_tools(result_capture)
             session = await client.create_session(**create_kwargs)
-            response = await _copilot_send_with_stop_check(
-                session,
-                prompt,
-                config.LLM_SESSION_TIMEOUT_SECONDS,
-                config.TARGET_REPO_PATH / "autosprint/stop-now",
-            )
+            if dispatch_mode == "ask":
+                response = await session.send_and_wait(prompt, timeout=config.LLM_SESSION_TIMEOUT_SECONDS)
+                final_text = response.data.content if response is not None else ""
+                if final_text and (not messages or messages[-1] != final_text):
+                    messages.append(final_text)
+                return "\n\n".join(messages)
+            response = await _copilot_send_with_stop_check(session, prompt, config.LLM_SESSION_TIMEOUT_SECONDS, config.TARGET_REPO_PATH / "autosprint/stop-now")
             return response.data.content
         finally:
-            await client.stop()
+            if dispatch_mode == "ask":
+                await _stop_ask_client(client)
+            else:
+                await client.stop()
     except Exception as e:
         raise add_context(e, f"Failed to run Copilot query with model {agent.get('model')}") from e
 
@@ -479,7 +573,7 @@ def get_claude_usage_estimate() -> dict:
     }
 
 
-async def query_agent(agent: dict, prompt: str, tools: str | None = None, cache_validator=None, cache_namespace: str = "", skip_cache: bool = False, phase_tag: str = "", on_result: Callable[[str], None] | None = None, result_log_suffix: str = "", result_capture: dict | None = None) -> str:
+async def query_agent(agent: dict, prompt: str, tools: str | None = None, cache_validator=None, cache_namespace: str = "", skip_cache: bool = False, phase_tag: str = "", on_result: Callable[[str], None] | None = None, result_log_suffix: str = "", result_capture: dict | None = None, dispatch_mode: Literal["sprint", "ask"] = "sprint") -> str:
     """Dispatch a prompt to the agent's assistant SDK.
 
     Args:
@@ -520,11 +614,20 @@ async def query_agent(agent: dict, prompt: str, tools: str | None = None, cache_
                ``skip_cache=True`` so this path is unreachable today, but any
                new caller combining ``result_capture`` with a cacheable call
                must treat an empty capture as the expected outcome on a hit.
+        dispatch_mode: ``sprint`` preserves the sprint behavior. ``ask``
+               uses the shared ask-report tool instead, bypasses both cache reads
+               and writes, and calls the backend once without automatic retries.
     """
     try:
+        if dispatch_mode not in ("sprint", "ask"):
+            raise ValueError(f"Unknown dispatch mode: {dispatch_mode!r}")
         if tools is not None and tools not in VALID_PRESETS:
             raise ValueError(f"tools must be a preset ({VALID_PRESETS}), got {tools!r}")
         preset = _effective_preset(agent, tools)
+        if dispatch_mode == "ask":
+            # A parent owns retries: repeating a task after partial edits is not
+            # safe, and an ad-hoc ask must not read/write a sprint response cache.
+            return await DISPATCHERS[agent["assistant"]](agent, prompt, preset, result_capture=result_capture, dispatch_mode="ask")
         label = _agent_label(agent)
         prefix = f"{phase_tag} " if phase_tag else ""
         _evict_cache_if_over_cap()

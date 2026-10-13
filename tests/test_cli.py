@@ -30,8 +30,8 @@ def test_claude_only_flag_expands_to_council_opus(monkeypatch: pytest.MonkeyPatc
     assert config.IMPLEMENT_AGENT == "implementor_opus48"
 
 
-def test_copilot_only_flag_expands_to_council_gpt55(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """--copilot-only sets team + implementor to the all-Copilot pair."""
+def test_copilot_only_flag_expands_to_council_gpt6(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """--copilot-only sets team + implementor to the all-Copilot pair, on Copilot's strongest model (GPT-6 Astra)."""
     (tmp_path / ".git").mkdir()
     (tmp_path / "autosprint").mkdir()
     (tmp_path / "autosprint" / "config.toml").write_text("", encoding="utf-8")
@@ -40,8 +40,8 @@ def test_copilot_only_flag_expands_to_council_gpt55(monkeypatch: pytest.MonkeyPa
     from autosprint.cli import parse_cli_args
 
     parse_cli_args()
-    assert config.TEAM == "council_gpt55"
-    assert config.IMPLEMENT_AGENT == "implementor_gpt55"
+    assert config.TEAM == "council_gpt6"
+    assert config.IMPLEMENT_AGENT == "implementor_gpt6"
 
 
 def test_claude_only_and_copilot_only_are_mutually_exclusive(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -86,6 +86,16 @@ def test_council_gpt55_is_all_copilot() -> None:
     assert team["selector"]["assistant"] == "copilot", f"council_gpt55 selector is not Copilot: {team['selector']['name']}"
 
 
+def test_council_gpt6_is_all_copilot() -> None:
+    """council_gpt6 must be 100% Copilot — every planner + the team lead. This is the team `--copilot-only` now expands to, so drift here breaks that preset's promise."""
+    from autosprint.teams import TEAMS
+
+    team = TEAMS["council_gpt6"]
+    for agent in team["agents"]:
+        assert agent["assistant"] == "copilot", f"council_gpt6 planner {agent['name']} is not Copilot: {agent['assistant']}"
+    assert team["selector"]["assistant"] == "copilot", f"council_gpt6 selector is not Copilot: {team['selector']['name']}"
+
+
 def test_council_opus_is_all_claude() -> None:
     """council_opus must be 100% Claude — every planner + the team lead. Drift here breaks the Claude-only preset's promise."""
     from autosprint.teams import TEAMS
@@ -106,7 +116,7 @@ def test_council_default_is_mixed() -> None:
 
 
 def test_council_family_has_same_six_lenses() -> None:
-    """All three council variants must have the same six role names (North Star, Bug Hunter, Pragmatist, Tester, Minimalist, Architect) — that's the family-resemblance contract. Backend suffix in the display name is ignored."""
+    """All four council variants must have the same six role names (North Star, Bug Hunter, Pragmatist, Tester, Minimalist, Architect) — that's the family-resemblance contract. Backend suffix in the display name is ignored."""
     from autosprint.teams import TEAMS
 
     def lens(name: str) -> str:
@@ -114,7 +124,7 @@ def test_council_family_has_same_six_lenses() -> None:
         return name.split("(")[0].strip()
 
     expected_lenses = {"The North Star", "The Bug Hunter", "The Pragmatist", "The Tester", "The Minimalist", "The Architect"}
-    for key in ("council", "council_gpt55", "council_opus"):
+    for key in ("council", "council_gpt55", "council_gpt6", "council_opus"):
         lenses = {lens(agent["name"]) for agent in TEAMS[key]["agents"]}
         assert lenses == expected_lenses, f"team {key} lenses {lenses} != expected {expected_lenses}"
 

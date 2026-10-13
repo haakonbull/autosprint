@@ -211,7 +211,7 @@ def _wizard_assistants(active: dict[str, str]) -> None:
         [
             ("both", "Both Claude and Copilot — council team (mixed), Opus implementor"),
             ("claude", "Claude only — council_opus team (6-agent Claude), Opus implementor, no Copilot fallback"),
-            ("copilot", "Copilot only — council_gpt55 team (6-agent Copilot), GPT-5.5 implementor"),
+            ("copilot", "Copilot only — council_gpt6 team (6-agent GPT-6 Astra), GPT-6 Astra implementor"),
         ],
         default_key,
     )
@@ -225,11 +225,11 @@ def _wizard_assistants(active: dict[str, str]) -> None:
         active["howfar_agent"] = "howfar_opus48"
         printlev("[init] → team = council_opus (6-agent Claude), implementor + how-far on Opus 4.8, refusal-fallback disabled (Claude-only).", level=100)
     elif choice == "copilot":
-        active["team"] = "council_gpt55"
-        active["implement_agent"] = "implementor_gpt55"
+        active["team"] = "council_gpt6"
+        active["implement_agent"] = "implementor_gpt6"
         active["implement_fallback_agent"] = ""  # default fallback is Copilot — already same backend, no point
-        active["howfar_agent"] = "howfar_gpt55"
-        printlev("[init] → team = council_gpt55 (6-agent Copilot), implementor + how-far on GPT-5.5 (Copilot-only).", level=100)
+        active["howfar_agent"] = "howfar_gpt6"
+        printlev("[init] → team = council_gpt6 (6-agent Copilot), implementor + how-far on GPT-6 Astra high reasoning (Copilot-only).", level=100)
 
 
 def _wizard_auto_gates(active: dict[str, str]) -> None:
@@ -795,7 +795,7 @@ def _run_init(assume_defaults: bool = False) -> None:
 
 # Probe agent per backend — used only for the doctor connectivity probe. Claude probes
 # Haiku (cheapest). Copilot probes gpt-5.5, the model production teams actually dispatch
-# to — gpt-4.1 was retired from Copilot's lineup and probing it blocked runs whose own
+# to — gpt-4.1 and gpt-5.2 were retired from Copilot's lineup and probing them blocked runs whose own
 # models were fine.
 _DOCTOR_PROBE_AGENT_KEY: dict[str, str] = {"claude": "decider_haiku_claude", "copilot": "editor_gpt55"}
 

@@ -210,12 +210,12 @@ def test_wizard_assistants_claude_only_disables_fallback(monkeypatch: pytest.Mon
 
 
 def test_wizard_assistants_copilot_only_sets_gpt_agents(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Copilot-only resolves team + implement + how-far agents to the GPT-5.5 keys (council_gpt55 multi-agent team, GPT-5.5 implementor, fallback disabled since primary is already Copilot)."""
+    """Copilot-only resolves team + implement + how-far agents to GPT-6 Astra, with fallback disabled since primary is already Copilot."""
     monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (False, True))
     _feed_input(monkeypatch, "3")
     active: dict[str, str] = {}
     init_mod._wizard_assistants(active)
-    assert active == {"team": "council_gpt55", "implement_agent": "implementor_gpt55", "implement_fallback_agent": "", "howfar_agent": "howfar_gpt55"}
+    assert active == {"team": "council_gpt6", "implement_agent": "implementor_gpt6", "implement_fallback_agent": "", "howfar_agent": "howfar_gpt6"}
 
 
 def test_wizard_assistants_eof_falls_back_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -272,7 +272,7 @@ def test_run_config_wizard_copilot_typescript_end_to_end(monkeypatch: pytest.Mon
     monkeypatch.setattr(init_mod, "_detect_assistants", lambda: (False, True))
     _feed_input(monkeypatch, "y", "3")  # confirm TS detection, then Copilot-only
     active = init_mod._run_config_wizard()
-    assert active == {"team": "council_gpt55", "implement_agent": "implementor_gpt55", "implement_fallback_agent": "", "howfar_agent": "howfar_gpt55"}
+    assert active == {"team": "council_gpt6", "implement_agent": "implementor_gpt6", "implement_fallback_agent": "", "howfar_agent": "howfar_gpt6"}
 
 
 def test_detect_assistants_returns_two_bools() -> None:

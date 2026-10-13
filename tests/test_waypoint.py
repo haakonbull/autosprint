@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 import autosprint.plan_phase as plan_phase_mod
-from autosprint.agents import AGENT_QUICK_A_GPT41_COPILOT
+from autosprint.agents import AGENT_QUICK_A_GPT54MINI
 from autosprint.config import config
 from autosprint.errors import WaypointReached
 from autosprint.plan_phase import update_plan
@@ -72,7 +72,7 @@ async def test_plan_phase_with_waypoint_prepends_waypoint_section(monkeypatch: p
         return VALID_PLAN_RESPONSE
 
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(side_effect=fake_query))
-    await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
+    await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI)
 
     assert captured, "expected at least one query_agent dispatch"
     prompt = captured[0]
@@ -96,7 +96,7 @@ async def test_plan_phase_without_waypoint_omits_section(monkeypatch: pytest.Mon
         return VALID_PLAN_RESPONSE
 
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(side_effect=fake_query))
-    await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
+    await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI)
 
     assert captured
     assert "## Waypoint active" not in captured[0]
@@ -116,7 +116,7 @@ async def test_waypoint_reached_writes_status_marker_and_raises(monkeypatch: pyt
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=WAYPOINT_REACHED_RESPONSE))
 
     with pytest.raises(WaypointReached) as exc_info:
-        await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
+        await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI)
 
     assert "All three acceptance criteria" in exc_info.value.rationale
     assert waypoint_path.exists(), "waypoint.md must NOT be auto-deleted on reached"
@@ -133,7 +133,7 @@ async def test_waypoint_reached_ignored_when_no_waypoint_active(monkeypatch: pyt
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
     monkeypatch.setattr(plan_phase_mod, "query_agent", AsyncMock(return_value=WAYPOINT_REACHED_RESPONSE))
 
-    plan = await update_plan([AGENT_QUICK_A_GPT41_COPILOT], AGENT_QUICK_A_GPT41_COPILOT)
+    plan = await update_plan([AGENT_QUICK_A_GPT54MINI], AGENT_QUICK_A_GPT54MINI)
     # Empty pending list because the mock response has no tasks; the important
     # assertion is that we got back a Plan instead of WaypointReached being raised.
     assert plan is not None

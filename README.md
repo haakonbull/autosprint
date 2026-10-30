@@ -597,7 +597,7 @@ Configured via environment variables or `.env` (pydantic-settings, loaded eagerl
 | `CACHE_MAX_ENTRIES` | `500` | Cap on cached response files; oldest evicted on startup. `0` disables. |
 | `LLM_RETRY_ATTEMPTS` | `3` | Retry transient dispatch failures this many times before giving up. With the default `LLM_RETRY_BACKOFF_SECONDS=5` this gives a 5s/15s/45s schedule (~65s total tolerance) — tuned for the typical 30-120s network blip seen on overnight `--auto-replan` runs. |
 | `LLM_RETRY_BACKOFF_SECONDS` | `5.0` | Initial backoff before first retry; **triples** each attempt (not doubles). Triple is tuned for real network outages where doubling burned the budget too fast. |
-| `LLM_SESSION_TIMEOUT_SECONDS` | `900` | Max wall-clock per LLM session (Copilot `send_and_wait`). 15 min default leaves room for heavy package installs. |
+| `LLM_SESSION_TIMEOUT_SECONDS` | `43200` | Max wall-clock per LLM session (Copilot `send_and_wait`). 12 h default lets a long `ask` job run to completion; lower it to fail faster on a hung call. |
 | `SELF_TEST_BEFORE_START` | `false` | Run autosprint's own pytest + black --check before each PIT loop |
 | `CREATE_BRANCH` | `true` | Cut a fresh `autosprint/<ts>` branch on start. Disable with `--no-branch`. |
 | `DEBUG_TRACEBACK` | `false` | Print full Python traceback alongside breadcrumb chain on errors |

@@ -177,8 +177,8 @@ class Config(BaseSettings):
         description="Initial backoff (seconds) before the first retry attempt; triples between attempts. Default 5 with the default LLM_RETRY_ATTEMPTS=5 gives 5s/15s/45s/135s/405s (~10 min total). Triple (rather than double) is tuned for outages where doubling burns the retry budget too fast on a real multi-minute internet drop. Only consulted when LLM_RETRY_ATTEMPTS > 0.",
     )
     LLM_SESSION_TIMEOUT_SECONDS: int = Field(
-        default=1800,
-        description="Max wall-clock seconds per LLM session (Copilot send_and_wait timeout) and the outer-guard deadline for an Implement call. Needs headroom for heavy work — big package installs (e.g. `uv add scikit-learn joblib`) and long web-research / large-document sprints can take many minutes. Default 30 min; lower it (e.g. 900) to fail faster on a hung call, or raise it for very heavy research sprints.",
+        default=43200,
+        description="Max wall-clock seconds per LLM session (Copilot send_and_wait timeout) and the outer-guard deadline for an Implement call. Needs headroom for heavy work — big package installs (e.g. `uv add scikit-learn joblib`) and long web-research / large-document sprints can take many minutes. Default 12 h, so a long `ask` job is bounded by the task, not the clock; lower it (e.g. 1800) to fail faster on a hung call. A hung `ask` call is stopped by killing the process; sprint dispatch also honours the stop-now file.",
     )
     CLAUDE_TOKEN_LIMIT: int = Field(
         default=0,

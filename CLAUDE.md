@@ -27,6 +27,9 @@ src/autosprint/
   cli.py            # argparse, prepare(), one-shot subcommands, stop control
   init.py           # `autosprint init` + config wizard + prepare-step seed/check helpers
   how_far.py        # `autosprint how-far` — read-only distance-to-destination report
+  ask.py            # `autosprint ask` — one-shot subagent tasks, JSON stdout, explicit exit codes
+  ask_report.py     # Shared validated report contract for both SDKs and the CLI
+  agent_doctor.py   # Standalone model/auth/runtime preflight with a tool-only live probe
   plan_phase.py     # Plan phase: prompts, team-lead context, update_plan, replan
   implement_phase.py # Implement phase: dispatch, refusal-fallback, failure logs
   test_phase.py     # Test phase: drives the test runner, revert/commit decision, self-test
@@ -88,6 +91,15 @@ uv run autosprint doctor
 # Read-only distance-to-destination report (makes no changes)
 uv run autosprint how-far
 
+# One task against another repo, no sprint initialization required
+autosprint ask --target C:\path\to\project --agent bug_hunter_gpt6 "Read repo guidance, then review src\example.py."
+
+# Multiline task, compact stdout, full report saved at a new scratch path
+autosprint ask --target C:\path\to\project --agent bug_hunter_gpt6 --prompt-file C:\scratch\task.txt --compact --report-file C:\scratch\review-001.json
+
+# Check only the selected agent, without sprint setup
+autosprint doctor --agent bug_hunter_gpt6
+
 # Stop a running loop (from another terminal pointed at the same target repo)
 uv run autosprint stop           # soft — finish current sprint, exit
 uv run autosprint stop --now     # immediate — revert + exit
@@ -117,7 +129,7 @@ When you have a specific feature or sub-goal you want the loop to focus on:
 3. **Run the loop** — `uv run autosprint run`. Each sprint header logs `🧭 Waypoint active: <title>`.
 4. **Loop halts when reached** — open `waypoint.md` to see the appended `> **Status:** reached` marker with the team lead's rationale. Decide what's next: delete the file (waypoint done), revise it (not done yet, remove the marker and continue), or set a new waypoint.
 
-For one-shot work that fits in a single sprint, skip the waypoint and just open Claude Code — the loop's value is multi-sprint discipline.
+For one-shot work, use `autosprint ask` from the target repo. The parent supplies task context and memory-reading instructions; stdout is a JSON report, stderr is diagnostics. Exit codes: 0 success, 1 failure, 2 CLI usage error, 3 blocked, 130 interrupted. This is a fresh agent session, not the PIT loop: no automatic retry, git operations, cache, or sprint-log writes. Reports are agent-reported, not independent validation.
 
 ## Config
 
@@ -136,3 +148,7 @@ Resolved from (low → high precedence): code defaults < per-repo `autosprint/co
 ## Agents and skills
 
 Project-local agents live in `.claude/agents/`. Skills in `.claude/skills/`. These are separate from CLAUDE.md and are not affected by changes here.
+
+The `autosprint-ask` skill is the parent-Claude guide for bounded delegation:
+explicit repo/memory context, conservative tool permissions, compact reports,
+and independent verification. It is bundled here, not installed globally.

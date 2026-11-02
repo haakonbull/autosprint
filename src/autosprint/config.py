@@ -43,7 +43,7 @@ class Config(BaseSettings):
         description="Debug/dev fallback for the target-repo path. Normally unset: autosprint operates on the current working directory, or the path passed to `--target` / `autosprint init <path>`. This env var only takes effect when cwd is not a git repo (e.g. running autosprint from its own repo while developing it); it never overrides a valid cwd. Leave empty for normal use.",
     )
     MAX_SPRINTS: int = Field(
-        default=100,
+        default=500,
         description="Maximum number of sprints to run before stopping. In reviewed-plan mode (`autosprint run` without `--auto-replan`), when this is left at the default — not set in .env and no --max-sprints flag — the ceiling is auto-derived from plan.md at prepare time: 2× the pending task count, floored at 10. The plan there is a fixed human-curated list the loop cannot refill, so MAX_SPRINTS stops being a budget and is only a runaway backstop; auto-sizing keeps a deep reviewed plan from being cut short at 10. An explicitly set value (env or --max-sprints) always wins, including an explicit low value.",
     )
     LOG_LEVEL: int = Field(
@@ -53,7 +53,7 @@ class Config(BaseSettings):
     MAX_CONSECUTIVE_FAILURES: int = Field(default=5, description="Stop the PIT loop if this many sprints fail in a row.")
     TEAM: str = Field(
         default="council",
-        description="Which team configuration to use. See agents.TEAMS for available options. Default `council` is a 6-planner team — North Star + Bug Hunter + Pragmatist on Opus 4.8, Tester + Minimalist + Architect on GPT-5.5 — merged by an Opus 4.8 team lead. Six deliberately orthogonal lenses for broad coverage. Heavier than the smaller teams (6 LLM dispatches per plan); in the reviewed-plan workflow it runs once via `autosprint plan`, so the weight is paid once. Claude-only users: set TEAM=solo_opus. Copilot-only users: set TEAM=solo_gpt55. Lighter teams for the in-loop auto-plan cadence: `builder` (4 voices) or `duo` (2).",
+        description="Which team configuration to use. See agents.TEAMS for available options. Default `council` is a 6-planner team — North Star + Bug Hunter + Pragmatist on Opus 4.8, Tester + Minimalist + Architect on GPT-6 Astra high reasoning — merged by an Opus 4.8 team lead. Six deliberately orthogonal lenses for broad coverage. Heavier than the smaller teams (6 LLM dispatches per plan); in the reviewed-plan workflow it runs once via `autosprint plan`, so the weight is paid once. Claude-only users: set TEAM=solo_opus. Copilot-only users: set TEAM=council_gpt6. Lighter teams for the in-loop auto-plan cadence: `builder` (4 voices) or `duo` (2).",
     )
     SPRINT_STORY_POINT_MIN: int = Field(
         default=2,
@@ -74,15 +74,15 @@ class Config(BaseSettings):
     # `config.IMPLEMENT_AGENT`. Same pattern for TEAM and HOWFAR_AGENT.
     IMPLEMENT_AGENT: str = Field(
         default="implementor_opus48",
-        description="Agent key (into agents.AGENTS) for the Implement phase. Default `implementor_opus48` (Claude Opus 4.8) is the strong production pick. Copilot-only users: set IMPLEMENT_AGENT=implementor_gpt55. Debug/quick iteration: set IMPLEMENT_AGENT=quick_a_gpt41_copilot. The resolved agent dict is at `config.IMPLEMENT_AGENT_CONFIG`.",
+        description="Agent key (into agents.AGENTS) for the Implement phase. Default `implementor_opus48` (Claude Opus 4.8) is the strong production pick. Copilot-only users: set IMPLEMENT_AGENT=implementor_gpt6 (GPT-6 Astra, strongest Copilot tier) or implementor_gpt55 for roughly half the token cost. Debug/quick iteration: set IMPLEMENT_AGENT=quick_a_gpt54mini. The resolved agent dict is at `config.IMPLEMENT_AGENT_CONFIG`.",
     )
     IMPLEMENT_FALLBACK_AGENT: str = Field(
-        default="implementor_gpt55",
-        description="Refusal-fallback agent. When the primary `IMPLEMENT_AGENT` returns a refusal-pattern failure (the Opus 4.8 read-tool malware-reminder misread), the orchestrator reverts the primary's partial edits and re-dispatches the same task group to this fallback agent. Default `implementor_gpt55` (Copilot) sidesteps the failure mode entirely because the Copilot SDK doesn't carry the offending reminder. Set to empty string to disable the fallback (legacy behaviour: refusal → revert + raise). Only fires on refusal patterns; non-refusal failures (test failures, malformed responses, real bugs) revert as before so problems aren't masked.",
+        default="implementor_gpt6",
+        description="Refusal-fallback agent. When the primary `IMPLEMENT_AGENT` returns a refusal-pattern failure (the Opus 4.8 read-tool malware-reminder misread), the orchestrator reverts the primary's partial edits and re-dispatches the same task group to this fallback agent. Default `implementor_gpt6` (Copilot GPT-6 Astra high reasoning) sidesteps the failure mode entirely because the Copilot SDK doesn't carry the offending reminder. Set to empty string to disable the fallback (legacy behaviour: refusal → revert + raise). Only fires on refusal patterns; non-refusal failures (test failures, malformed responses, real bugs) revert as before so problems aren't masked.",
     )
     HOWFAR_AGENT: str = Field(
         default="howfar_opus48",
-        description="Agent that runs `autosprint how-far` — the read-only distance-to-destination measurement. Must be a key in agents.AGENTS. Default `howfar_opus48` (Claude Opus 4.8). On a Copilot-only setup, or when Claude tokens are exhausted, set HOWFAR_AGENT=howfar_gpt55 (Copilot GPT-5.5) — or pass `autosprint how-far --agent howfar_gpt55` for a one-off. The agent runs with the read-only tool preset regardless, so how-far can never modify the repo.",
+        description="Agent that runs `autosprint how-far` — the read-only distance-to-destination measurement. Must be a key in agents.AGENTS. Default `howfar_opus48` (Claude Opus 4.8). On a Copilot-only setup, or when Claude tokens are exhausted, set HOWFAR_AGENT=howfar_gpt6 (Copilot GPT-6 Astra) or howfar_gpt55 (Copilot GPT-5.5) — or pass `autosprint how-far --agent howfar_gpt55` for a one-off. The agent runs with the read-only tool preset regardless, so how-far can never modify the repo.",
     )
     HOWFAR_HEARTBEAT_EVERY_N_SPRINTS: int = Field(
         default=10,
@@ -177,8 +177,8 @@ class Config(BaseSettings):
         description="Initial backoff (seconds) before the first retry attempt; triples between attempts. Default 5 with the default LLM_RETRY_ATTEMPTS=5 gives 5s/15s/45s/135s/405s (~10 min total). Triple (rather than double) is tuned for outages where doubling burns the retry budget too fast on a real multi-minute internet drop. Only consulted when LLM_RETRY_ATTEMPTS > 0.",
     )
     LLM_SESSION_TIMEOUT_SECONDS: int = Field(
-        default=900,
-        description="Max wall-clock seconds per LLM session (Copilot send_and_wait timeout). Needs headroom for big package installs (e.g. `uv add scikit-learn joblib` can take several minutes). Default 15 min; bump if you frequently add heavy deps.",
+        default=43200,
+        description="Max wall-clock seconds per LLM session (Copilot send_and_wait timeout) and the outer-guard deadline for an Implement call. Needs headroom for heavy work — big package installs (e.g. `uv add scikit-learn joblib`) and long web-research / large-document sprints can take many minutes. Default 12 h, so a long `ask` job is bounded by the task, not the clock; lower it (e.g. 1800) to fail faster on a hung call. A hung `ask` call is stopped by killing the process; sprint dispatch also honours the stop-now file.",
     )
     CLAUDE_TOKEN_LIMIT: int = Field(
         default=0,

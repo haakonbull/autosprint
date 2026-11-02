@@ -33,6 +33,8 @@ You write down what you want in `destination.md`. Autosprint measures the gap be
 
 By default (reviewed-plan mode), autosprint runs through a human-approved `plan.md` top to bottom and stops when the list empties — `MAX_SPRINTS` and your own `autosprint stop` are the other exit doors. With `--auto-replan`, once the initial plan finishes autosprint re-measures the gap and drafts a fresh plan, repeating sprint after sprint until you stop it or the destination is genuinely reached.
 
+**Only need a subagent from Claude Code or another shell?** Use [`autosprint ask`](#one-shot-subagents) instead of the sprint loop. It runs one task and returns a structured report without requiring `autosprint init`.
+
 ## See it run
 
 <p align="center">
@@ -50,7 +52,7 @@ Always required:
 Plus **one or both** of the AI backends below, depending on which team you'll run. The default `council` team mixes both, so most users install both. Single-backend teams (e.g. `solo` is Claude-only, `solo_gpt55` is Copilot-only) only need the matching one. Run `autosprint teams` to see which backends each team uses, and `autosprint doctor` to verify the ones your configured team needs.
 
 - **For Claude/Opus agents** (e.g. `solo`, `solo_opus`, default `council` includes them): [Node.js](https://nodejs.org/en/download) + `npm install -g @anthropic-ai/claude-code && claude login`
-- **For Copilot/GPT-5.5 agents** (e.g. `solo_gpt55`, `trio_gpt55`, default `council` includes them): the [GitHub CLI](https://cli.github.com/) (`gh`), then `gh auth login`
+- **For Copilot agents** (GPT-6 Astra or GPT-5.5): the [GitHub CLI](https://cli.github.com/) (`gh`), then `gh auth login`. The account must have access to the selected model.
 
 ## Installing autosprint
 
@@ -79,6 +81,107 @@ autosprint init --update-skills
 ```
 
 `init --update-skills` overwrites `.claude/skills/`, `.claude/agents/`, and `.github/skills/` with the autosprint source versions. Other init artefacts (config.toml, destination.md, .gitignore) are left untouched.
+
+## One-shot subagents
+
+From any target repository, call a registered agent directly:
+
+```powershell
+autosprint ask --agent bug_hunter_gpt6 "Read CLAUDE.md and memory.md if present, then review src\example.py. Do not edit files. Return concrete findings with file and line references."
+```
+
+Or supply an explicit target directory:
+
+```powershell
+autosprint ask --target C:\Clok\Github\hoer --agent implementor_gpt6 --tools full "First read CLAUDE.md, AGENTS.md, and .claude\skill_data\memory\index.md if present, and follow the relevant guidance. Investigate the failing test in src\example.py and fix the underlying defect. Stop and report blocked if a product or architecture decision is required. Report changed files, validation commands and outcomes, and blockers."
+```
+
+Replace the example file with a real path. Prompts do not inherit the parent Claude conversation, selected editor file, or in-memory context. Include the task's constraints, relevant paths, and explicit instructions to read the repository's guidance/memory. `ask` sends the selected role prompt to the SDK, but does not inject memory-file contents. Normal runtime instruction discovery remains enabled (Claude loads project settings); this is not an isolated context sandbox. The selected model must support tools.
+
+`ask` uses `--target` or the current working directory, including linked worktrees; it never falls back to the sprint `TARGET_REPO` setting. It needs no destination, plan, config file, or git initialization. It does not create branches, commit, revert, write sprint logs/cache, or consume a running sprint's stop signal. It does not automatically retry failed calls: edits may already have happened.
+
+| Option | Behavior |
+|---|---|
+| `--agent KEY` | Required registry key; list keys with `autosprint agents`. Astra agents (`*_gpt6`) use `gpt-6-astra` with `high` reasoning. Explicit `*_gpt55` keys remain GPT-5.5. |
+| `--tools read-only` | Default. Exposes file-reading/search tools and the report tool, not edits, shell commands, web access, or nested agents. |
+| `--tools research` | Reading, file edits, and web tools, but no shell. **Write-capable.** |
+| `--tools code` | Reading, file edits, and shell (tests, linters, formatters), but no web. **Write-capable.** The preset for an implementor that must verify its own work; use a dedicated target worktree. |
+| `--tools full` | Explicit permission for the agent's full tool capabilities, including commands and edits. Use a dedicated target worktree. |
+| `--output json` | Default. Exactly one JSON report on stdout; diagnostic output goes to stderr. |
+| `--output text` | Human-readable status, response, changed files, validation, and blockers. |
+| `--prompt-file PATH` | Read the entire task from a UTF-8 file (BOM accepted), preserving internal newlines and quotes. |
+| `--stdin` | Read piped UTF-8 task text; rejects an interactive terminal. |
+| `--report-file PATH` | Save the complete JSON report to a **new** file. The parent directory must exist; existing files are never overwritten. |
+| `--compact` | JSON stdout without `raw_response`, plus `report_file` pointing to the full report. Requires `--report-file` and JSON output. |
+
+Choose exactly one prompt source: positional text, `--prompt-file`, or `--stdin`.
+Prompt and report file paths are relative to the **caller's working directory**,
+not `--target`; absolute paths are safest for parent agents. These options avoid
+command-line length limits and shell quoting problems:
+
+```powershell
+autosprint ask --agent bug_hunter_gpt6 --target "C:\path\to\project" --prompt-file "C:\scratch\task.txt" --compact --report-file "C:\scratch\review-001.json"
+```
+
+Compact mode does not make another LLM summarization call or truncate evidence:
+it preserves every structured field, including blockers, and only removes raw
+narration and pretty-print whitespace from stdout. Its length is not capped.
+The full file uses the normal report schema. Missing summaries/findings should
+be investigated in that file, not assumed to mean there were none.
+JSON stdout escapes non-ASCII characters so legacy Windows terminal encodings
+cannot corrupt the report; JSON parsing restores the original Unicode text.
+
+Use a private scratch location outside the target for prompts/reports; reports
+can contain sensitive source details and should not be committed. `--report-file`
+is an explicit runner write even with read-only agent tools. Wait for the process
+to complete before reading it. An existing or unwritable destination fails before
+dispatch. If writing fails after work has run, the command returns a failed
+**full report on stdout**, preserving available evidence; the file may be partial.
+
+The selected agent's tool restrictions also apply; requesting full tools cannot widen a read-only agent. These are **tool restrictions, not an OS sandbox**: especially with `full`, the agent can use the invoking account's filesystem/network access. Do not point it at untrusted repositories or supply secrets in prompts.
+
+The report has `schema_version: 1`, `status` (`success`, `blocked`, or `failed`), `summary`, `files_changed`, `tests_run`, `blockers`, `agent`, `assistant`, `model`, `reasoning_effort`, effective `tools`, `target_repo`, `raw_response`, and `structured`. Both SDKs validate the same report-tool schema. Copilot's completed assistant messages are retained in `raw_response`, so findings before the final report are not lost.
+
+The parent reads stdout and the process exit code: **0** completed, **1** failed, **3** blocked, **130** interrupted. Invalid CLI syntax exits **2** with argparse help on stderr. A missing/invalid report is a failure, never inferred success from free text. Backend errors and timeouts produce failed reports; inspect the target for partial changes before retrying. `LLM_SESSION_TIMEOUT_SECONDS` bounds the task; Copilot cleanup has up to 10 seconds for graceful shutdown plus 5 seconds for forced cleanup, protected from the task's cancellation.
+
+Astra/high was verified with `github-copilot-sdk==1.0.20` and Copilot CLI `1.0.96`. After updating an older autosprint installation, run `uv tool install --reinstall --editable C:\path\to\autosprint` to refresh its dependencies; pulling Python source alone does not replace an old bundled runtime.
+
+Reports are **agent-reported evidence**, not independent verification. A successful review can still contain bugs it found. Empty file/test lists in an unstructured failure mean evidence was unavailable, not that nothing changed. The parent remains responsible for checking the diff and validations before accepting work. Each call starts a new agent session; there is no shared conversation, persistent job queue, or automatic follow-up messaging.
+
+### Check a single agent
+
+```powershell
+autosprint doctor --agent bug_hunter_gpt6
+```
+
+This standalone preflight ignores sprint teams, target selection, and per-repo
+sprint config. It requires no git repository, destination, or initialization.
+It returns JSON with the selected agent/model, SDK/runtime versions, successful
+checks, and blockers. Exit codes are 0 (passed), 1 (failed), and 130 (interrupted).
+Without `--agent`, `doctor` retains its full sprint checklist.
+
+For Copilot it checks runtime startup, authentication, model visibility/policy,
+and the configured reasoning effort, then makes **one small live structured-tool
+call using that exact model/effort**. Claude uses a live tool call with the
+selected model to verify access; a runtime version is included when the SDK
+reports it. The probe has no file, shell, web, or nested-agent tools and runs in
+an empty temporary directory, not your repository. It may consume model usage.
+It has a 60-second deadline, plus bounded Copilot cleanup; it never retries,
+falls back to another model, or treats an ordinary prose answer as tool success.
+
+### Claude delegation skill
+
+The bundled [autosprint-ask skill](.claude/skills/autosprint-ask/SKILL.md) teaches
+Claude to prepare neutral, bounded tasks, name applicable guidance/memory paths,
+choose permissions, capture exit codes, and independently verify reports.
+It is included in the existing skill-copy step during `autosprint init`.
+
+No global skill is installed automatically. To use only this skill in another
+repo **without initializing a sprint**, copy the single
+`.claude\skills\autosprint-ask` directory from this checkout into that repo's
+`.claude\skills` directory. Preserve any existing local customization. Avoid
+`init --update-skills` just for this purpose: that command refreshes all bundled
+skills/agents and overwrites matching entries.
 
 # First run
 
@@ -176,7 +279,7 @@ It then writes `autosprint/config.toml`, seeds `autosprint/examples/` with desti
 - Runs the test suite.
 - Commits on green; reverts on red. The working tree always matches the last green commit.
 
-The run ends when the plan is drained, when `MAX_SPRINTS` is hit (default 100, auto-sized to 2× the plan length in reviewed-plan mode when the default is in effect), or when you stop it (see the [CLI cookbook](#cli-cookbook) for stop commands).
+The run ends when the plan is drained, when `MAX_SPRINTS` is hit (default 500, auto-sized to 2× the plan length in reviewed-plan mode when the default is in effect), or when you stop it (see the [CLI cookbook](#cli-cookbook) for stop commands).
 
 # Run modes
 
@@ -327,10 +430,11 @@ On a clean test run the change is committed to the sprint branch with a `[autosp
 An **agent** in autosprint is a dictionary describing a single AI worker — its backend, model, role-prompt, and tool preset. Agents are defined in [`src/autosprint/agents.py`](src/autosprint/agents.py):
 
 ```python
-AGENT_ARCHITECT_GPT55 = {
-    "name": "The Architect (GPT-5.5)",
+AGENT_ARCHITECT_GPT6 = {
+    "name": "The Architect (GPT-6 Astra)",
     "assistant": "copilot",                # "claude" | "copilot"
-    "model": "gpt-5.5",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
     "system_prompt": (
         "Think deeply. Your specialty: module structure, "
         "separation of concerns, and abstraction boundaries. "
@@ -348,9 +452,9 @@ has all 10 power-team planners):
 TEAM_POWER = {
     "agents": [
         AGENT_STRATEGIST_OPUS48,
-        AGENT_ARCHITECT_GPT55,
+        AGENT_ARCHITECT_GPT6,
         AGENT_BUG_HUNTER_OPUS48,
-        # ... 7 more — 10 planners total (5 Opus 4.8 + 5 GPT-5.5)
+        # ... 7 more — 10 planners total (5 Opus 4.8 + 3 Astra + 2 GPT-5.5)
     ],
     "selector": AGENT_TEAMLEAD_OPUS48,     # omit for single-agent teams
 }
@@ -362,14 +466,15 @@ The implementor is a separate internal concept from the planning team — you ca
 
 | Team | Composition | Cost | Best for |
 |---|---|---:|---|
-| `builder` | 4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.8) + Opus 4.8 lead | medium-high | lighter balanced team — quality/coverage from GPT-5.5, quick-wins + gap-closing from Opus 4.8; good for the in-loop auto-plan cadence |
-| `hunter` | 4 planners (Bug Hunter Opus 4.8 + Bug Hunter/Guardian/Tester GPT-5.5) + Opus 4.8 lead | medium-high | stabilise-before-next-feature phases — all four voices hunt concrete failure modes |
-| `refiner` | 4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.8) + Opus 4.8 lead | medium-high | cleanup phases — structural cleanliness, naming, subtraction, test consolidation, ADR drift |
-| `quartet` | 5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.8) + Opus 4.8 lead (3 × Opus + 2 × GPT-5.5) | high | mature codebases — adds a Bug Hunter voice with North Star goal-progress bias |
-| `council` *(default)* | 6 planners (North Star + Bug Hunter + Pragmatist Opus 4.8, Tester + Minimalist + Architect GPT-5.5) + Opus 4.8 lead | high | six orthogonal lenses; built for a one-off `autosprint plan` you then hand-curate |
-| `council_gpt55` | 6 planners (North Star + Hunter + Pragmatist + Tester + Minimalist + Architect, all GPT-5.5) + GPT-5.5 lead | medium | all-Copilot mirror of `council` — same six lenses, zero Claude. Pair with `--implement-agent implementor_gpt55` or use `--preset copilot-only` |
+| `builder` | 4 planners (Tester + Minimalist Astra, Pragmatist + North Star Opus 4.8) + Opus lead | high | balanced quality, quick wins, and goal progress |
+| `hunter` | 4 planners (Bug Hunter Opus + Bug Hunter/Tester Astra + Guardian GPT-5.5) + Opus lead | high | concrete failure modes |
+| `refiner` | 4 planners (Refactorer GPT-5.5 + Minimalist/Tester Astra + Clarifier Opus) + Opus lead | high | structural cleanliness, naming, subtraction, and test consolidation |
+| `quartet` | 5 planners (Tester + Minimalist Astra, Visionary + Bug Hunter + North Star Opus) + Opus lead | high | mature codebases with goal-progress bias |
+| `council` *(default)* | 6 planners (North Star + Bug Hunter + Pragmatist Opus, Tester + Minimalist + Architect Astra) + Opus lead | high | six complementary perspectives for a plan you hand-curate |
+| `council_gpt55` | 6 planners (North Star + Hunter + Pragmatist + Tester + Minimalist + Architect, all GPT-5.5) + GPT-5.5 lead | medium | all-Copilot GPT-5.5 option: `--preset copilot-cheap` |
+| `council_gpt6` | 6 planners (North Star + Bug Hunter + Pragmatist + Tester + Minimalist + Architect, all GPT-6 Astra) + Astra lead | highest | all-Copilot, top tier — same six lenses on Copilot's strongest model. What `--preset copilot-only` expands to. ~2x the token cost of `council_gpt55` |
 | `council_opus` | 6 planners (North Star + Bug Hunter + Pragmatist + Tester + Minimalist + Architect, all Opus 4.8) + Opus 4.8 lead | high | all-Claude mirror of `council` — same six lenses, zero Copilot. Pair with `--implement-agent implementor_opus48` or use `--preset claude-only` |
-| `power` | 10 planners (5 × Opus 4.8 + 5 × GPT-5.5) + Opus 4.8 lead | high | serious work; deepest, most diverse planning |
+| `power` | 10 planners (5 × Opus 4.8 + 3 × Astra + 2 × GPT-5.5) + Opus 4.8 lead | high | broad planning |
 | `mixed` | 5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.8 lead | high | broad perspective diversity |
 | `duo` | 2 planners (Thinker Opus 4.8 + Bug Hunter GPT-5.5) + Opus 4.8 lead | medium-high | lightweight real-work runs |
 | `trio_gpt55` | 3 planners (Innovator + Visionary + Tester GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot GPT-5.5 team; pair with `implementor_gpt55` |
@@ -378,25 +483,27 @@ The implementor is a separate internal concept from the planning team — you ca
 | `research_council_gpt55` | 4 planners (Web Researcher + Synthesizer + Steelmanner + Editor, all GPT-5.5) + GPT-5.5 lead | low-medium | all-Copilot mirror of `research_council` |
 | `solo` / `solo_opus` | 1 × Opus 4.8 | medium | single-agent production runs |
 | `solo_sonnet` | 1 × Sonnet 4.6 | medium | cheaper single-agent alternative |
-| `solo_gpt52` | 1 × GPT-5.2 Copilot | low-medium | single-agent Copilot alternative |
 | `solo_gpt55` | 1 × GPT-5.5 Copilot | low-medium | cheap-plan; pair with `implementor_opus48` or use `--preset solo-gpt55` |
 | `solo_haiku_test` | 1 × Haiku 4.5 | low | A/B experiments with Haiku |
-| `solo_lite` | 1 × GPT-4.1 Copilot | very low | cheap/fast debug team |
-| `quick` | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Speed-runner GPT-4.1 lead | low | cheapest/fastest full multi-agent team |
-| `quick_mixed` | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Haiku lead | low | mixed-backend quick runs |
-| `debug_dual_gpt41` | 2 × GPT-4.1 Copilot | low | exercising multi-agent flow cheaply |
-| `superquick` | 1 × GPT-4.1 Copilot | very low | fastest debug iteration, no team lead |
+| `solo_lite` | 1 × GPT-5.4-mini Copilot | very low | cheap/fast debug team |
+| `quick` | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-5.4-mini) + Speed-runner GPT-5.4-mini lead | low | cheapest/fastest full multi-agent team |
+| `quick_mixed` | 2 planners (Decider Haiku 4.5 + Speed-runner GPT-5.4-mini) + Haiku lead | low | mixed-backend quick runs |
+| `debug_dual_mini` | 2 × GPT-5.4-mini Copilot | low | exercising multi-agent flow cheaply |
+| `superquick` | 1 × GPT-5.4-mini Copilot | very low | fastest debug iteration, no team lead |
 
 Override per run via `--team` and `--implement-agent`, or use `--preset` for bundled pairings. The `power` team's 10 personas: Strategist, Architect, Bug Hunter, Minimalist, Tester, Clarifier, Guardian, Visionary, Pragmatist, Refactorer.
+
+GPT-6 Astra and GPT-5.5 agents request `high` reasoning through the Copilot SDK. Quick/debug agents retain their lighter settings. Copilot-only initialization selects Astra for planning, implementation, and how-far; the default cross-backend implementation fallback is `implementor_gpt6`. Existing explicit per-repo overrides are not rewritten.
 
 ## Bundled CLI presets
 
 | Preset | Expands to |
 |---|---|
 | `claude-only` | `--team council_opus --implement-agent implementor_opus48` (all-Claude six-lens team + Opus implementor) |
-| `copilot-only` | `--team council_gpt55 --implement-agent implementor_gpt55` (all-Copilot six-lens team + GPT-5.5 implementor) |
+| `copilot-only` | `--team council_gpt6 --implement-agent implementor_gpt6` (all-Copilot six-lens team + GPT-6 Astra implementor — Copilot's strongest tier) |
+| `copilot-cheap` | `--team council_gpt55 --implement-agent implementor_gpt55` (same shape on GPT-5.5 — roughly half the token cost) |
 | `solo-gpt55` | `--team solo_gpt55 --implement-agent implementor_gpt55` (single GPT-5.5 planner — cheap-plan variant of `copilot-only`) |
-| `quick-debug` | `--team quick --implement-agent implementor_gpt41 --initial-tests none --sp-target 3 --sp-max 3` (fast debug iteration) |
+| `quick-debug` | `--team quick --implement-agent implementor_gpt54mini --initial-tests none --sp-target 3 --sp-max 3` (fast debug iteration) |
 
 Explicit `--team` / `--implement-agent` win over the preset values, so `--preset solo-gpt55 --implement-agent implementor_opus48` uses GPT-5.5 for planning and Opus 4.8 for implementing.
 
@@ -462,7 +569,7 @@ Configured via environment variables or `.env` (pydantic-settings, loaded eagerl
 | `TARGET_REPO` | *(cwd)* | Debug/dev fallback for the target-repo path. Normally unset — autosprint operates on the current directory, or the path given to `--target` / `autosprint init <path>`. Only consulted when cwd is not a git repo. |
 | `TEAM` | `council` | Team key from `teams.TEAMS` |
 | `IMPLEMENT_AGENT` | `implementor_opus48` | Agent key from `agents.AGENTS` |
-| `MAX_SPRINTS` | `100` | Hard sprint cap per run. In reviewed-plan mode (`autosprint run` without `--auto-replan`), if left unset it auto-sizes to 2× the pending tasks in `plan.md` (floored at 10) so a short plan doesn't spin all the way to 100 unnecessarily; an explicit value (env or `--max-sprints`) always wins. |
+| `MAX_SPRINTS` | `500` | Hard sprint cap per run. In reviewed-plan mode (`autosprint run` without `--auto-replan`), if left unset it auto-sizes to 2× the pending tasks in `plan.md` (floored at 10) so a short plan doesn't spin all the way to 500 unnecessarily; an explicit value (env or `--max-sprints`) always wins. |
 | `MAX_CONSECUTIVE_FAILURES` | `5` | Stop after N reverts in a row |
 | `REPLAN_EVERY_N_SPRINTS` | `5` | Force a re-plan at least this often |
 | `AUTO_REPLAN` | `false` | If `true`, the Plan phase regenerates `plan.md` as the loop runs — the autonomous self-planning mode, opted into with `autosprint run --auto-replan`. Default `false` is reviewed-plan mode: `autosprint run` executes `plan.md` as-is and never replans. |
@@ -491,7 +598,7 @@ Configured via environment variables or `.env` (pydantic-settings, loaded eagerl
 | `CACHE_MAX_ENTRIES` | `500` | Cap on cached response files; oldest evicted on startup. `0` disables. |
 | `LLM_RETRY_ATTEMPTS` | `3` | Retry transient dispatch failures this many times before giving up. With the default `LLM_RETRY_BACKOFF_SECONDS=5` this gives a 5s/15s/45s schedule (~65s total tolerance) — tuned for the typical 30-120s network blip seen on overnight `--auto-replan` runs. |
 | `LLM_RETRY_BACKOFF_SECONDS` | `5.0` | Initial backoff before first retry; **triples** each attempt (not doubles). Triple is tuned for real network outages where doubling burned the budget too fast. |
-| `LLM_SESSION_TIMEOUT_SECONDS` | `900` | Max wall-clock per LLM session (Copilot `send_and_wait`). 15 min default leaves room for heavy package installs. |
+| `LLM_SESSION_TIMEOUT_SECONDS` | `43200` | Max wall-clock per LLM session (Copilot `send_and_wait`). 12 h default lets a long `ask` job run to completion; lower it to fail faster on a hung call. |
 | `SELF_TEST_BEFORE_START` | `false` | Run autosprint's own pytest + black --check before each PIT loop |
 | `CREATE_BRANCH` | `true` | Cut a fresh `autosprint/<ts>` branch on start. Disable with `--no-branch`. |
 | `DEBUG_TRACEBACK` | `false` | Print full Python traceback alongside breadcrumb chain on errors |
@@ -602,9 +709,9 @@ autosprint clear-logs            # delete generated logs + cache/, keep committe
 | `--target PATH` | Point autosprint at this repo instead of the current directory |
 | `--team NAME` | Override `TEAM` for this invocation |
 | `--implement-agent KEY` | Override `IMPLEMENT_AGENT` for this invocation |
-| `--preset NAME` | Bundled preset — sets several flags at once (`claude-only`, `copilot-only`, `solo-gpt55`, `quick-debug`). Explicit flags win over preset values. |
+| `--preset NAME` | Bundled preset — sets several flags at once (`claude-only`, `copilot-only`, `copilot-cheap`, `solo-gpt55`, `quick-debug`). Explicit flags win over preset values. |
 | `--claude-only` | Shortcut for `--preset claude-only` (council_opus + Opus implementor). |
-| `--copilot-only` | Shortcut for `--preset copilot-only` (council_gpt55 + GPT-5.5 implementor). |
+| `--copilot-only` | Shortcut for `--preset copilot-only` (council_gpt6 + GPT-6 Astra implementor). |
 | `--max-sprints N` | Override `MAX_SPRINTS` |
 | `--commit-on-start` | Commit uncommitted target-repo changes without Y/N prompt |
 | `--manual-review` | Pause after Plan for approval of the chosen task |

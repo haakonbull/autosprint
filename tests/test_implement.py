@@ -1,7 +1,7 @@
 """Tests for the run_implement phase.
 
 Unit tests mock query_agent — no LLM calls.
-The integration test (test_implement_changes_number_live) calls GPT-4.1 for real.
+The integration test (test_implement_changes_number_live) calls GPT-5.4-mini for real.
 """
 
 from __future__ import annotations
@@ -537,7 +537,7 @@ async def test_structured_result_resolved_open_questions_flows_through(monkeypat
 
 @pytest.mark.live
 async def test_implement_changes_number_live(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """GPT-4.1 changes a specific number in a file and writes a test for it. Marked live: excluded by default; run explicitly with `uv run pytest -m live`."""
+    """GPT-5.4-mini changes a specific number in a file and writes a test for it. Marked live: excluded by default; run explicitly with `uv run pytest -m live`."""
     target_file = tmp_path / "config.py"
     target_file.write_text("NUMBER = 42\n")
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
@@ -545,7 +545,7 @@ async def test_implement_changes_number_live(monkeypatch: pytest.MonkeyPatch, tm
     subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True, capture_output=True)
 
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
-    monkeypatch.setattr(config, "IMPLEMENT_AGENT", "quick_a_gpt41_copilot")
+    monkeypatch.setattr(config, "IMPLEMENT_AGENT", "quick_a_gpt54mini")
     monkeypatch.setattr(implement_mod, "append_run_log", MagicMock())
     monkeypatch.setattr(implement_mod, "git_restore", MagicMock())
 

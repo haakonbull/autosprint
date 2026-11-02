@@ -4,6 +4,49 @@ Notable changes to autosprint. Format loosely follows [Keep a Changelog](https:/
 versions are unreleased until autosprint cuts a numbered tag. Until then, this file is a running log
 of meaningful shifts grouped by date.
 
+## 2026-10-13 — One-shot subagents and high-reasoning Copilot defaults
+
+- Added UTF-8 `ask --prompt-file` / `--stdin`, optional lossless compact stdout with an explicit full-report file, and safe refusal to overwrite existing reports.
+- Added standalone `doctor --agent KEY`: selected-model runtime/auth/reasoning checks plus one tool-only live probe, without sprint setup or repository access.
+- Bundled the `autosprint-ask` Claude skill for neutral, bounded delegation and independent result verification. No global installation is performed.
+- Added `autosprint ask --agent KEY "task"` for use from another repository or parent agent, without sprint initialization. It returns validated JSON by default; `--output text` is available for people.
+- Added a shared report contract for both SDKs, explicit exit statuses, captured response text, strict tool restrictions, and a per-call timeout. Missing reports fail explicitly. Ask does not retry tasks or use sprint caching, logging, stop signals, git operations, or the sprint target fallback.
+- Updated the Copilot SDK dependency and lockfile to 1.0.20. The older 0.2.1 installation bundled CLI 1.0.17, which rejected Astra/high; the updated SDK uses CLI 1.0.96 and supports that configuration.
+- Added opt-in `--tools full` / `research`; read-only remains the default. Permission presets are not an OS sandbox. Callers supply repository-memory instructions explicitly and independently verify agent-reported outcomes.
+- Copilot GPT-6 Astra/GPT-5.5 agents now pass `reasoning_effort="high"` to the SDK. Common mixed teams prefer existing Astra specialists; Copilot-only initialization and the implementation fallback select Astra. Explicit GPT-5.5 and quick/debug alternatives remain available.
+- Anchored the scratch-directory ignore rule at the repository root so new Python modules are tracked.
+
+## 2026-09-05 — GPT-6 Astra wired in as the Copilot top tier
+
+### Added
+
+- **GPT-6 Astra agents** (`gpt-6-astra`). Astra went GA in Copilot on 2026-09-04 and is the strongest coding model the subscription offers. Nine new agents: the six council lenses (`north_star_gpt6`, `bug_hunter_gpt6`, `pragmatist_gpt6`, `tester_gpt6`, `minimalist_gpt6`, `architect_gpt6`), `teamlead_gpt6`, `implementor_gpt6`, and `howfar_gpt6`. All reuse the shared lens-prompt constants, so an Astra seat and its GPT-5.5 twin argue identically and only the model differs.
+- **`council_gpt6` team** — all-Astra mirror of `council`, same six orthogonal lenses + Astra lead.
+- **`copilot-cheap` preset** — the previous `copilot-only` pairing (`council_gpt55` + `implementor_gpt55`), kept as the lower-cost Copilot option.
+
+### Changed
+
+- **`--preset copilot-only` / `--copilot-only` now expand to `council_gpt6` + `implementor_gpt6`** instead of the GPT-5.5 pair. Rationale: "Copilot only" should mean Copilot's best, particularly for the Implement phase where model quality decides whether a sprint commits or reverts. Astra is $10/$50 per 1M tokens against GPT-5.5's $5/$30 — roughly 2x, not an order of magnitude.
+
+### Note
+
+The 2026-09-05 entry below removed `gpt-4.1` and `gpt-5.2` on the claim that `gpt-5.5` was the newest GPT in Copilot. That was wrong — it was based on probing the id strings `gpt-6` and `gpt-6.0`, which are both rejected; the real slug is `gpt-6-astra`. Verified GPT ids accepted by the Copilot CLI as of 2026-09-05: `gpt-6-astra`, `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5-mini`, `auto`.
+
+## 2026-09-05 — Retired GPT models removed; cheap tier moved to GPT-5.4-mini
+
+### Removed
+
+- **`gpt-5.2` and `gpt-4.1` agents.** Both model ids were retired from Copilot's lineup and are now rejected outright (`Model "..." is not available`), so every team dispatching to them failed at the first Plan call. Deleted `analyst_gpt52_copilot`, `architect_copilot`, and `guardian_copilot` (all had GPT-5.5 or Claude twins), plus the `solo_gpt52` team (`solo_gpt55` covers it).
+
+### Changed
+
+- **Cheap/fast tier retargeted to `gpt-5.4-mini`** — the modern successor to gpt-4.1 (0.33x multiplier on legacy request billing). Affected agents renamed to match: `speed_runner_copilot` → `speed_runner_gpt54mini`, `implementor_gpt41` → `implementor_gpt54mini`, `quick_a_gpt41_copilot` / `quick_b_gpt41_copilot` → `quick_a_gpt54mini` / `quick_b_gpt54mini`. Teams `quick`, `quick_mixed`, `solo_lite`, and `superquick` keep their roles and stay the cheapest option.
+- **Team `debug_dual_gpt41` renamed to `debug_dual_mini`.**
+- `mixed` team's Guardian seat moved from the deleted gpt-5.2 agent to `guardian_gpt55`.
+- `quick-debug` preset now uses `implementor_gpt54mini`.
+
+Every Copilot agent now runs `gpt-5.5` (flagship) or `gpt-5.4-mini` (cheap). Verified against the live Copilot CLI: the only GPT ids it accepts are `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5-mini`, and `auto`.
+
 ## 2026-05-25 — Smoke test gate + longer retry tolerance + five new per-sprint gates
 
 ### Added

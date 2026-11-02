@@ -15,11 +15,12 @@ from __future__ import annotations
 from typing import Any
 
 from autosprint.agents import (
-    AGENT_ANALYST_GPT52_COPILOT,
     AGENT_ANALYST_OPUS_CLAUDE,
     AGENT_ARCHITECT_GPT55,
+    AGENT_ARCHITECT_GPT6,
     AGENT_ARCHITECT_OPUS48,
     AGENT_BUG_HUNTER_GPT55,
+    AGENT_BUG_HUNTER_GPT6,
     AGENT_BUG_HUNTER_OPUS48,
     AGENT_CLARIFIER_CLAUDE,
     AGENT_CLARIFIER_OPUS48,
@@ -28,31 +29,35 @@ from autosprint.agents import (
     AGENT_DELIBERATOR_SONNET_CLAUDE,
     AGENT_EDITOR_GPT55,
     AGENT_EDITOR_OPUS48,
-    AGENT_GUARDIAN_COPILOT,
     AGENT_GUARDIAN_GPT55,
     AGENT_INNOVATOR_GPT55,
     AGENT_MINIMALIST_GPT55,
+    AGENT_MINIMALIST_GPT6,
     AGENT_MINIMALIST_OPUS48,
     AGENT_NORTH_STAR_GPT55,
+    AGENT_NORTH_STAR_GPT6,
     AGENT_NORTH_STAR_OPUS48,
     AGENT_PRAGMATIST_CLAUDE,
     AGENT_PRAGMATIST_GPT55,
+    AGENT_PRAGMATIST_GPT6,
     AGENT_PRAGMATIST_OPUS48,
-    AGENT_QUICK_A_GPT41_COPILOT,
-    AGENT_QUICK_B_GPT41_COPILOT,
+    AGENT_QUICK_A_GPT54MINI,
+    AGENT_QUICK_B_GPT54MINI,
     AGENT_REFACTORER_GPT55,
     AGENT_RESEARCH_LEAD_GPT55,
     AGENT_RESEARCH_LEAD_OPUS48,
-    AGENT_SPEED_RUNNER_COPILOT,
+    AGENT_SPEED_RUNNER_GPT54MINI,
     AGENT_STEELMANNER_GPT55,
     AGENT_STEELMANNER_OPUS48,
     AGENT_STRATEGIST_OPUS48,
     AGENT_SYNTHESIZER_GPT55,
     AGENT_SYNTHESIZER_OPUS48,
     AGENT_TEAMLEAD_GPT55,
+    AGENT_TEAMLEAD_GPT6,
     AGENT_TEAMLEAD_OPUS48,
     AGENT_TESTER_COPILOT,
     AGENT_TESTER_GPT55,
+    AGENT_TESTER_GPT6,
     AGENT_TESTER_OPUS48,
     AGENT_THINKER_OPUS48,
     AGENT_VISIONARY_CLAUDE,
@@ -67,8 +72,7 @@ from autosprint.agents import (
 # -----------------------------------------------------------------------------
 
 TEAM_SOLO: dict[str, Any] = {"agents": [AGENT_ANALYST_OPUS_CLAUDE], "description": "1 agent (Analyst Opus 4.8) as planner + shared lead"}
-TEAM_SOLO_LITE: dict[str, Any] = {"agents": [AGENT_SPEED_RUNNER_COPILOT], "description": "1 agent (Speed-runner GPT-4.1 Copilot) — cheap/fast debug team"}
-TEAM_SOLO_GPT52: dict[str, Any] = {"agents": [AGENT_ANALYST_GPT52_COPILOT], "description": "1 agent (Analyst GPT-5.2 Copilot) as planner + shared lead"}
+TEAM_SOLO_LITE: dict[str, Any] = {"agents": [AGENT_SPEED_RUNNER_GPT54MINI], "description": "1 agent (Speed-runner GPT-5.4-mini Copilot) — cheap/fast debug team"}
 # solo_gpt55 — single GPT-5.5 planner. Pair with implementor_gpt55 via
 # `--preset solo-gpt55` for an all-Copilot GPT-5.5 run, or with
 # implementor_opus48 for a cheap-plan / strong-implement combo.
@@ -82,15 +86,15 @@ TEAM_SOLO_SONNET: dict[str, Any] = {"agents": [AGENT_DELIBERATOR_SONNET_CLAUDE],
 # Alphabetised to match the TEAMS registry.
 # -----------------------------------------------------------------------------
 
-# Debug team — two identical GPT-4.1 Copilot agents. Use to exercise
+# Debug team — two identical GPT-5.4-mini Copilot agents. Use to exercise
 # multi-agent select machinery without burning Claude tokens.
-TEAM_DEBUG_DUAL_GPT41: dict[str, Any] = {
+TEAM_DEBUG_DUAL_MINI: dict[str, Any] = {
     "agents": [
-        AGENT_QUICK_A_GPT41_COPILOT,
-        AGENT_QUICK_B_GPT41_COPILOT,
+        AGENT_QUICK_A_GPT54MINI,
+        AGENT_QUICK_B_GPT54MINI,
     ],
-    "selector": AGENT_QUICK_A_GPT41_COPILOT,
-    "description": "2 identical GPT-4.1 Copilot planners + team lead — exercises multi-agent machinery without burning Claude tokens",
+    "selector": AGENT_QUICK_A_GPT54MINI,
+    "description": "2 identical GPT-5.4-mini Copilot planners + team lead — exercises multi-agent machinery without burning Claude tokens",
 }
 
 # Duo team — 2 planners + Opus 4.8 team lead. Lighter than `power` for
@@ -103,7 +107,7 @@ TEAM_DUO: dict[str, Any] = {
 
 TEAM_MIXED: dict[str, Any] = {
     "agents": [
-        AGENT_GUARDIAN_COPILOT,
+        AGENT_GUARDIAN_GPT55,
         AGENT_PRAGMATIST_CLAUDE,
         AGENT_CLARIFIER_CLAUDE,
         AGENT_TESTER_COPILOT,
@@ -113,15 +117,15 @@ TEAM_MIXED: dict[str, Any] = {
     "description": "5 planners (3 Claude + 2 Copilot personas) + Deliberator Opus 4.8 as lead",
 }
 
-# Power team — ten-agent production roster (5 Opus 4.8 + 5 GPT-5.5)
+# Power team — ten-agent production roster (5 Opus 4.8 + 5 Copilot high-reasoning seats)
 # + Opus 4.8 team lead. The heavyweight option for deep planning.
 TEAM_POWER: dict[str, Any] = {
     "agents": [
         AGENT_STRATEGIST_OPUS48,
-        AGENT_ARCHITECT_GPT55,
+        AGENT_ARCHITECT_GPT6,
         AGENT_BUG_HUNTER_OPUS48,
-        AGENT_MINIMALIST_GPT55,
-        AGENT_TESTER_GPT55,
+        AGENT_MINIMALIST_GPT6,
+        AGENT_TESTER_GPT6,
         AGENT_CLARIFIER_OPUS48,
         AGENT_GUARDIAN_GPT55,
         AGENT_VISIONARY_OPUS48,
@@ -129,30 +133,30 @@ TEAM_POWER: dict[str, Any] = {
         AGENT_REFACTORER_GPT55,
     ],
     "selector": AGENT_TEAMLEAD_OPUS48,
-    "description": "10 planners (5 Opus 4.8 + 5 GPT-5.5) + Team Lead Opus 4.8 — heavyweight for deep planning",
+    "description": "10 planners (5 Opus 4.8 + 5 Copilot high-reasoning seats, preferring GPT-6 Astra where defined) + Team Lead Opus 4.8 — heavyweight for deep planning",
 }
 
 TEAM_QUARTET: dict[str, Any] = {
     "agents": [
-        AGENT_TESTER_GPT55,
-        AGENT_MINIMALIST_GPT55,
+        AGENT_TESTER_GPT6,
+        AGENT_MINIMALIST_GPT6,
         AGENT_VISIONARY_OPUS48,
         AGENT_BUG_HUNTER_OPUS48,
         AGENT_NORTH_STAR_OPUS48,
     ],
     "selector": AGENT_TEAMLEAD_OPUS48,
-    "description": "5 planners (Tester + Minimalist GPT-5.5, Visionary + Bug Hunter + North Star Opus 4.8) + Team Lead Opus 4.8 — North Star enforces goal-progress bias against test-pin drift",
+    "description": "5 planners (Tester + Minimalist GPT-6 Astra high-reasoning, Visionary + Bug Hunter + North Star Opus 4.8) + Team Lead Opus 4.8 — North Star enforces goal-progress bias against test-pin drift",
 }
 
 TEAM_BUILDER: dict[str, Any] = {
     "agents": [
-        AGENT_TESTER_GPT55,
-        AGENT_MINIMALIST_GPT55,
+        AGENT_TESTER_GPT6,
+        AGENT_MINIMALIST_GPT6,
         AGENT_PRAGMATIST_OPUS48,
         AGENT_NORTH_STAR_OPUS48,
     ],
     "selector": AGENT_TEAMLEAD_OPUS48,
-    "description": "4 planners (Tester + Minimalist GPT-5.5, Pragmatist + North Star Opus 4.8) + Team Lead Opus 4.8 — balanced quartet: quality/coverage from GPT-5.5, low-hanging-fruit hunting + destination gap closing from Opus 4.8; avoids the Visionary/NorthStar overlap where both voices chased goal-progress tasks",
+    "description": "4 planners (Tester + Minimalist GPT-6 Astra high-reasoning, Pragmatist + North Star Opus 4.8) + Team Lead Opus 4.8 — balanced quartet: quality/coverage from Copilot's strongest tier, low-hanging-fruit hunting + destination gap closing from Opus 4.8; avoids the Visionary/NorthStar overlap where both voices chased goal-progress tasks",
 }
 
 TEAM_COUNCIL: dict[str, Any] = {
@@ -160,12 +164,12 @@ TEAM_COUNCIL: dict[str, Any] = {
         AGENT_NORTH_STAR_OPUS48,
         AGENT_BUG_HUNTER_OPUS48,
         AGENT_PRAGMATIST_OPUS48,
-        AGENT_TESTER_GPT55,
-        AGENT_MINIMALIST_GPT55,
-        AGENT_ARCHITECT_GPT55,
+        AGENT_TESTER_GPT6,
+        AGENT_MINIMALIST_GPT6,
+        AGENT_ARCHITECT_GPT6,
     ],
     "selector": AGENT_TEAMLEAD_OPUS48,
-    "description": "6 planners (North Star + Bug Hunter + Pragmatist Opus 4.8, Tester + Minimalist + Architect GPT-5.5) + Team Lead Opus 4.8 — six deliberately orthogonal lenses: goal progress, correctness, quick wins, test quality, subtraction, structure. No two voices overlap, so the merged proposal list spans the codebase widely. Built for a one-off `autosprint plan` call you will hand-curate: wide net from the six voices, the lead dedupes, prunes, and ranks. Heavier than `builder` — use it for a thorough candidate list, not for every replan inside a loop.",
+    "description": "6 planners (North Star + Bug Hunter + Pragmatist Opus 4.8, Tester + Minimalist + Architect GPT-6 Astra high-reasoning) + Team Lead Opus 4.8 — six deliberately orthogonal lenses: goal progress, correctness, quick wins, test quality, subtraction, structure. No two voices overlap, so the merged proposal list spans the codebase widely. Built for a one-off `autosprint plan` call you will hand-curate: wide net from the six voices, the lead dedupes, prunes, and ranks. Heavier than `builder` — use it for a thorough candidate list, not for every replan inside a loop.",
 }
 
 TEAM_COUNCIL_GPT55: dict[str, Any] = {
@@ -179,6 +183,19 @@ TEAM_COUNCIL_GPT55: dict[str, Any] = {
     ],
     "selector": AGENT_TEAMLEAD_GPT55,
     "description": "All-GPT-5.5 mirror of `council` — six orthogonal lenses (goal progress, correctness, quick wins, test quality, subtraction, structure) + GPT-5.5 lead. Same role shape as `council`, every seat filled by a Copilot agent. Use when you want to lean on a Copilot subscription and spare Claude tokens. Pair with `--implement-agent implementor_gpt55` for a fully-Copilot run.",
+}
+
+TEAM_COUNCIL_GPT6: dict[str, Any] = {
+    "agents": [
+        AGENT_NORTH_STAR_GPT6,
+        AGENT_BUG_HUNTER_GPT6,
+        AGENT_PRAGMATIST_GPT6,
+        AGENT_TESTER_GPT6,
+        AGENT_MINIMALIST_GPT6,
+        AGENT_ARCHITECT_GPT6,
+    ],
+    "selector": AGENT_TEAMLEAD_GPT6,
+    "description": "All-GPT-6-Astra mirror of `council` — the same six orthogonal lenses (goal progress, correctness, quick wins, test quality, subtraction, structure) + Astra lead, on Copilot's strongest model. Roughly 2x the token cost of `council_gpt55` for seven seats; use it when planning quality matters more than spend, and drop to `council_gpt55` for routine in-loop replanning. Paired with `implementor_gpt6` by `--preset copilot-only`.",
 }
 
 TEAM_COUNCIL_OPUS: dict[str, Any] = {
@@ -197,23 +214,23 @@ TEAM_COUNCIL_OPUS: dict[str, Any] = {
 TEAM_HUNTER: dict[str, Any] = {
     "agents": [
         AGENT_BUG_HUNTER_OPUS48,
-        AGENT_BUG_HUNTER_GPT55,
+        AGENT_BUG_HUNTER_GPT6,
         AGENT_GUARDIAN_GPT55,
-        AGENT_TESTER_GPT55,
+        AGENT_TESTER_GPT6,
     ],
     "selector": AGENT_TEAMLEAD_OPUS48,
-    "description": "4 planners (Bug Hunter Opus 4.8 + Bug Hunter/Guardian/Tester GPT-5.5) + Team Lead Opus 4.8 — all four voices specialised in finding concrete failure modes (off-by-ones, unhandled None, risky changes, coverage gaps). For stabilise-before-next-feature phases where the codebase has accumulated risk and `builder`'s forward-pull would paper over real problems",
+    "description": "4 planners (Bug Hunter Opus 4.8 + Bug Hunter/Tester GPT-6 Astra high-reasoning + Guardian GPT-5.5 high-reasoning) + Team Lead Opus 4.8 — all four voices specialised in finding concrete failure modes (off-by-ones, unhandled None, risky changes, coverage gaps). For stabilise-before-next-feature phases where the codebase has accumulated risk and `builder`'s forward-pull would paper over real problems",
 }
 
 TEAM_REFINER: dict[str, Any] = {
     "agents": [
         AGENT_REFACTORER_GPT55,
-        AGENT_MINIMALIST_GPT55,
+        AGENT_MINIMALIST_GPT6,
         AGENT_CLARIFIER_OPUS48,
-        AGENT_TESTER_GPT55,
+        AGENT_TESTER_GPT6,
     ],
     "selector": AGENT_TEAMLEAD_OPUS48,
-    "description": "4 planners (Refactorer + Minimalist + Tester GPT-5.5, Clarifier Opus 4.8) + Team Lead Opus 4.8 — focused on structural cleanliness, naming, subtraction, and test consolidation. For cleanup phases after feature surface stabilises; use sparingly and not as a default — running a full repo through a refiner team when there's unfinished feature work wastes sprint budget on polish",
+    "description": "4 planners (Refactorer GPT-5.5 high-reasoning + Minimalist/Tester GPT-6 Astra high-reasoning, Clarifier Opus 4.8) + Team Lead Opus 4.8 — focused on structural cleanliness, naming, subtraction, and test consolidation. For cleanup phases after feature surface stabilises; use sparingly and not as a default — running a full repo through a refiner team when there's unfinished feature work wastes sprint budget on polish",
 }
 
 # -----------------------------------------------------------------------------
@@ -271,28 +288,28 @@ TEAM_RESEARCH_COUNCIL_THREEQUARTERS_GPT: dict[str, Any] = {
 TEAM_QUICK_MIXED: dict[str, Any] = {
     "agents": [
         AGENT_DECIDER_HAIKU_CLAUDE,
-        AGENT_SPEED_RUNNER_COPILOT,
+        AGENT_SPEED_RUNNER_GPT54MINI,
     ],
     "selector": AGENT_DECIDER_HAIKU_CLAUDE,
-    "description": "2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Haiku as lead — cheap/fast team",
+    "description": "2 planners (Decider Haiku 4.5 + Speed-runner GPT-5.4-mini) + Haiku as lead — cheap/fast team",
 }
 
 TEAM_QUICK: dict[str, Any] = {
     "agents": [
         AGENT_DECIDER_HAIKU_CLAUDE,
-        AGENT_SPEED_RUNNER_COPILOT,
+        AGENT_SPEED_RUNNER_GPT54MINI,
     ],
-    "selector": AGENT_SPEED_RUNNER_COPILOT,
-    "description": "2 planners (Decider Haiku 4.5 + Speed-runner GPT-4.1) + Speed-runner GPT-4.1 as lead — cheapest/fastest full team",
+    "selector": AGENT_SPEED_RUNNER_GPT54MINI,
+    "description": "2 planners (Decider Haiku 4.5 + Speed-runner GPT-5.4-mini) + Speed-runner GPT-5.4-mini as lead — cheapest/fastest full team",
 }
 
-# Superquick — single GPT-4.1 Copilot agent, no team lead. The orchestrator's
+# Superquick — single GPT-5.4-mini Copilot agent, no team lead. The orchestrator's
 # single-agent branch handles this: the lone agent both proposes and is used
 # as the selector (config.TEAM_SELECTOR falls back to agents[0] when no
 # explicit selector is set). For fastest-possible debug iteration.
 TEAM_SUPERQUICK: dict[str, Any] = {
-    "agents": [AGENT_QUICK_A_GPT41_COPILOT],
-    "description": "1 agent (Quick-A GPT-4.1 Copilot) — fastest-possible debug iteration",
+    "agents": [AGENT_QUICK_A_GPT54MINI],
+    "description": "1 agent (Quick-A GPT-5.4-mini Copilot) — fastest-possible debug iteration",
 }
 
 # Trio GPT-5.5 — three all-Copilot GPT-5.5 planners + GPT-5.5 team lead.
@@ -317,8 +334,9 @@ TEAMS: dict[str, dict[str, Any]] = {
     "builder": TEAM_BUILDER,
     "council": TEAM_COUNCIL,
     "council_gpt55": TEAM_COUNCIL_GPT55,
+    "council_gpt6": TEAM_COUNCIL_GPT6,
     "council_opus": TEAM_COUNCIL_OPUS,
-    "debug_dual_gpt41": TEAM_DEBUG_DUAL_GPT41,
+    "debug_dual_mini": TEAM_DEBUG_DUAL_MINI,
     "duo": TEAM_DUO,
     "hunter": TEAM_HUNTER,
     "mixed": TEAM_MIXED,
@@ -333,7 +351,6 @@ TEAMS: dict[str, dict[str, Any]] = {
     "research_council_threequartersGPT": TEAM_RESEARCH_COUNCIL_THREEQUARTERS_GPT,
     "solo": TEAM_SOLO,
     "solo_lite": TEAM_SOLO_LITE,
-    "solo_gpt52": TEAM_SOLO_GPT52,
     "solo_gpt55": TEAM_SOLO_GPT55,
     "solo_haiku_test": TEAM_SOLO_HAIKU_TEST,
     "solo_opus": TEAM_SOLO_OPUS,

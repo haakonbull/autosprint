@@ -39,7 +39,7 @@ First read applicable CLAUDE.md / AGENTS.md instructions and repository memory.
 Known guidance/memory paths: [paths discovered by the parent, if any]
 Follow relevant nested instructions; report any required guidance you cannot read.
 Requirements and acceptance criteria: [what must hold]
-Permissions: [read-only, research, or explicitly approved editing and commands]
+Permissions: [read-only, research, code, or explicitly approved full access]
 Out of scope: [decisions and files the child must not change]
 Stop and report blocked if a product, architecture, or permission decision is needed.
 Return a self-contained summary with actionable findings and file/line references,
@@ -61,9 +61,11 @@ autosprint ask --agent bug_hunter_gpt6 --target "<absolute-target>" --prompt-fil
 
 - Default tools are **read-only**: no shell, tests, edits, web, or nested agents.
 - `--tools research` permits web access **and file edits**, but not shell.
-- Use `--tools full` only for explicitly authorized edits/commands. First create
-  a dedicated worktree and give the child exclusive ownership of its slice.
-  These presets are not an OS sandbox.
+- `--tools code` permits **file edits and shell** (tests, linters, formatters),
+  but no web. Use it when the child must verify its own slice. First create a
+  dedicated worktree and give the child exclusive ownership of its slice.
+- Use `--tools full` only for explicitly authorized edits/commands that also
+  need the web. Same worktree rule. These presets are not an OS sandbox.
 - Prefer `--prompt-file` for multiline tasks and Windows quoting. Alternatively,
   pipe UTF-8 text using `--stdin`; do not combine prompt sources.
 - The report path must be new and its parent directory must exist. Nothing is

@@ -64,6 +64,41 @@ def test_sdk_exception_returns_failed_json(monkeypatch, tmp_path, capsys):
     assert "Backend unavailable." in str(report["blockers"])
 
 
+@pytest.mark.parametrize(
+    "declared,requested,expected",
+    [
+        ("full", "code", "code"),
+        ("full", "research", "research"),
+        ("full", "full", "full"),
+        ("research", "full", "research"),
+        ("research", "code", "read_only"),
+        ("code", "research", "read_only"),
+        ("code", "full", "code"),
+        ("code", "read-only", "read_only"),
+    ],
+)
+def test_ask_preset_is_what_both_ceilings_allow(declared, requested, expected):
+    from autosprint.ask import _ask_preset
+
+    assert _ask_preset({"tools": declared}, requested) == expected
+
+
+@pytest.mark.parametrize(
+    "declared,override,expected",
+    [
+        ("full", "code", "code"),
+        ("code", "full", "code"),
+        ("code", "read_only", "read_only"),
+        ("research", "code", "research"),
+        ("code", "research", "read_only"),
+    ],
+)
+def test_effective_preset_handles_code(declared, override, expected):
+    from autosprint.dispatch import _effective_preset
+
+    assert _effective_preset({"tools": declared}, override) == expected
+
+
 @pytest.mark.parametrize("agent,effective_tools", [("web_researcher_gpt55", "research"), ("howfar_gpt6", "read-only")])
 def test_error_report_retains_effective_permissions(monkeypatch, tmp_path, capsys, agent, effective_tools):
     monkeypatch.setattr(config, "TARGET_REPO", str(tmp_path))
@@ -198,7 +233,7 @@ def test_report_contract_requires_evidence_lists():
     assert capture == {}
 
 
-@pytest.mark.parametrize("preset", ["read-only", "research", "full"])
+@pytest.mark.parametrize("preset", ["read-only", "research", "code", "full"])
 def test_copilot_sdk_receives_persona_permissions_and_report_tool(monkeypatch, tmp_path, preset):
     from types import SimpleNamespace
 
@@ -244,14 +279,30 @@ def test_copilot_sdk_receives_persona_permissions_and_report_tool(monkeypatch, t
     assert kwargs["reasoning_effort"] == "high"
     assert kwargs["system_message"]["content"] == AGENTS["bug_hunter_gpt6"]["system_prompt"]
     assert kwargs["working_directory"] == str(tmp_path)
-    if preset != "full":
-        assert "submit_ask_report" in kwargs["available_tools"]
-        assert "powershell" not in kwargs["available_tools"]
-        hook = kwargs["hooks"]["on_pre_tool_use"]
-        for name in ["powershell", "bash", "task", "mcp__unknown"]:
-            assert asyncio.run(hook({"toolName": name}, {}))["permissionDecision"] == "deny"
-        if preset == "read-only":
-            assert asyncio.run(hook({"toolName": "edit"}, {}))["permissionDecision"] == "deny"
+    if preset == "full":
+        assert "available_tools" not in kwargs
+        assert "hooks" not in kwargs
+        return
+    available = kwargs["available_tools"]
+    hook = kwargs["hooks"]["on_pre_tool_use"]
+
+    def decision(name):
+        return asyncio.run(hook({"toolName": name}, {}))["permissionDecision"]
+
+    assert "submit_ask_report" in available
+    for name in ["task", "mcp__unknown"]:
+        assert name not in available
+        assert decision(name) == "deny"
+    shell = "allow" if preset == "code" else "deny"
+    web = "allow" if preset == "research" else "deny"
+    edit = "deny" if preset == "read-only" else "allow"
+    for name in ["powershell", "bash"]:
+        assert ("powershell" in available) == (shell == "allow")
+        assert decision(name) == shell
+    assert ("web_fetch" in available) == (web == "allow")
+    assert decision("web_fetch") == web
+    assert ("edit" in available) == (edit == "allow")
+    assert decision("edit") == edit
 
 
 def test_claude_report_tool_validates_the_same_contract(monkeypatch):

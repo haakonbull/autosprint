@@ -51,7 +51,7 @@ from typing import TYPE_CHECKING, Callable, Literal
 
 from pydantic import BaseModel, Field
 
-from autosprint.agents import TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH, VALID_PRESETS
+from autosprint.agents import TOOLS_CODE, TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH, VALID_PRESETS
 from autosprint.ask_report import ASK_REPORT_DESCRIPTION, AskOutcome, capture_ask_report
 from autosprint.config import config
 from autosprint.errors import StopSignalDetected, add_context
@@ -95,10 +95,15 @@ _CLAUDE_TOOLS: dict[str, list[str]] = {
     TOOLS_FULL: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "WebFetch", "WebSearch"],
     # Research preset: read + write + web, no Bash. Used by Plan-phase research agents (Web Researcher) that need web access during planning even though Plan-phase normally clips to TOOLS_READ_ONLY — see `_effective_preset`.
     TOOLS_RESEARCH: ["Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch"],
+    # Code preset: read + write + shell, no web. For an implementor that must run the project's tests and linters itself; the network stays closed so a prompt-injected file cannot exfiltrate.
+    TOOLS_CODE: ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
 }
 
 _COPILOT_READ_ONLY_TOOLS: set[str] = {"read_file", "view", "glob", "grep", "rg", "submit_ask_report"}
-_COPILOT_RESEARCH_TOOLS = _COPILOT_READ_ONLY_TOOLS | {"web_fetch", "web_search", "create", "edit", "apply_patch"}
+_COPILOT_EDIT_TOOLS: set[str] = {"create", "edit", "apply_patch"}
+_COPILOT_SHELL_TOOLS: set[str] = {"powershell", "read_powershell", "bash"}  # Copilot's shell tool is `powershell` on Windows and `bash` elsewhere; `read_powershell` reads a backgrounded command's output
+_COPILOT_RESEARCH_TOOLS = _COPILOT_READ_ONLY_TOOLS | _COPILOT_EDIT_TOOLS | {"web_fetch", "web_search"}
+_COPILOT_CODE_TOOLS = _COPILOT_READ_ONLY_TOOLS | _COPILOT_EDIT_TOOLS | _COPILOT_SHELL_TOOLS
 
 _CACHE_DIRNAME = "autosprint/cache"
 
@@ -135,13 +140,17 @@ def _evict_cache_if_over_cap() -> None:
 def _effective_preset(agent: dict, override: str | None) -> str:
     """Pick the more restrictive of the agent's declared preset and the caller's override. Research agents are a special case: their declared TOOLS_RESEARCH preset is preserved even when a caller overrides to TOOLS_READ_ONLY, because the Plan phase's read-only contract is enforced by the prompt protocol (agents are asked to *propose tasks*, not execute writes), and stripping web access from a Web Researcher member would neuter its role for no security gain."""
     declared = agent.get("tools", TOOLS_FULL)
-    if override is None:
+    if override is None or override == declared:
         return declared
     if declared == TOOLS_RESEARCH:
         return TOOLS_RESEARCH
     if TOOLS_READ_ONLY in (declared, override):
         return TOOLS_READ_ONLY
-    return TOOLS_FULL
+    if declared == TOOLS_FULL:
+        return override
+    if override == TOOLS_FULL:
+        return declared
+    return TOOLS_READ_ONLY  # research and code only share reading
 
 
 # ---------------------------------------------------------------------------
@@ -295,18 +304,28 @@ async def _run_claude(agent: dict, prompt: str, preset: str, result_capture: dic
         raise add_context(e, f"Failed to run Claude query with model {agent.get('model')}") from e
 
 
-async def _copilot_read_only_hook(input_data: dict, invocation: object) -> dict:
-    tool_name = input_data.get("toolName", "")
-    if tool_name in _COPILOT_READ_ONLY_TOOLS:
-        return {"permissionDecision": "allow"}
-    return {"permissionDecision": "deny", "permissionDecisionReason": f'Read-only preset: "{tool_name}" is not allowed.'}
+def _copilot_allowlist_hook(allowed: set[str], label: str):
+    """Build an ``on_pre_tool_use`` hook that denies every tool outside ``allowed``. ``available_tools`` already hides the rest from the model; the hook is the second lock in case the model names one anyway."""
+
+    async def hook(input_data: dict, invocation: object) -> dict:
+        tool_name = input_data.get("toolName", "")
+        if tool_name in allowed:
+            return {"permissionDecision": "allow"}
+        return {"permissionDecision": "deny", "permissionDecisionReason": f'{label} preset: "{tool_name}" is not allowed.'}
+
+    return hook
 
 
-async def _copilot_research_hook(input_data: dict, invocation: object) -> dict:
-    tool_name = input_data.get("toolName", "")
-    if tool_name in _COPILOT_RESEARCH_TOOLS:
-        return {"permissionDecision": "allow"}
-    return {"permissionDecision": "deny", "permissionDecisionReason": f'Research preset: "{tool_name}" is not allowed.'}
+_copilot_read_only_hook = _copilot_allowlist_hook(_COPILOT_READ_ONLY_TOOLS, "Read-only")
+_copilot_research_hook = _copilot_allowlist_hook(_COPILOT_RESEARCH_TOOLS, "Research")
+_copilot_code_hook = _copilot_allowlist_hook(_COPILOT_CODE_TOOLS, "Code")
+
+# Ask-mode allowlists per restricted preset; `full` sends no list and the model sees every Copilot tool.
+_COPILOT_ASK_ALLOWLISTS: dict[str, tuple[set[str], object]] = {
+    TOOLS_READ_ONLY: (_COPILOT_READ_ONLY_TOOLS, _copilot_read_only_hook),
+    TOOLS_RESEARCH: (_COPILOT_RESEARCH_TOOLS, _copilot_research_hook),
+    TOOLS_CODE: (_COPILOT_CODE_TOOLS, _copilot_code_hook),
+}
 
 
 class _ResolvedOpenQuestion(BaseModel):
@@ -466,11 +485,10 @@ async def _run_copilot(agent: dict, prompt: str, preset: str, result_capture: di
 
                 create_kwargs["on_event"] = collect_response
                 create_kwargs["system_message"] = {"mode": "append", "content": agent["system_prompt"]}
-                if preset == TOOLS_READ_ONLY:
-                    create_kwargs["available_tools"] = sorted(_COPILOT_READ_ONLY_TOOLS)
-                elif preset == TOOLS_RESEARCH:
-                    create_kwargs["available_tools"] = sorted(_COPILOT_RESEARCH_TOOLS)
-                    create_kwargs["hooks"] = {"on_pre_tool_use": _copilot_research_hook}
+                if preset in _COPILOT_ASK_ALLOWLISTS:
+                    allowed, hook = _COPILOT_ASK_ALLOWLISTS[preset]
+                    create_kwargs["available_tools"] = sorted(allowed)
+                    create_kwargs["hooks"] = {"on_pre_tool_use": hook}
             if result_capture is not None:
                 create_kwargs["tools"] = _build_copilot_ask_report_tools(result_capture) if dispatch_mode == "ask" else _build_copilot_result_tools(result_capture)
             session = await client.create_session(**create_kwargs)
@@ -577,7 +595,7 @@ async def query_agent(agent: dict, prompt: str, tools: str | None = None, cache_
     """Dispatch a prompt to the agent's assistant SDK.
 
     Args:
-        tools: A preset string (``TOOLS_READ_ONLY`` or ``TOOLS_FULL``).
+        tools: A preset string (one of ``VALID_PRESETS``).
                If ``None``, uses the agent's declared preset. The effective
                preset is the more restrictive of the two.
         cache_validator: Only runs on cached results to decide freshness; live

@@ -9,13 +9,13 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from typing import TextIO
 
-from autosprint.agents import AGENTS, TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH
+from autosprint.agents import AGENTS, TOOLS_CODE, TOOLS_FULL, TOOLS_READ_ONLY, TOOLS_RESEARCH
 from autosprint.ask_report import AskOutcome, AskReport
 from autosprint.config import config
 from autosprint.dispatch import query_agent
 from autosprint.init import _assert_target_repo_not_self
 
-_TOOL_PRESETS = {"read-only": TOOLS_READ_ONLY, "full": TOOLS_FULL, "research": TOOLS_RESEARCH}
+_TOOL_PRESETS = {"read-only": TOOLS_READ_ONLY, "full": TOOLS_FULL, "research": TOOLS_RESEARCH, "code": TOOLS_CODE}
 _EXIT_CODES = {"success": 0, "failed": 1, "blocked": 3}
 _ASK_INSTRUCTIONS = """
 This is an ad-hoc task, not an autosprint planning or implementation phase.
@@ -33,14 +33,18 @@ A successful review means the review completed, not that the code has no bugs.
 
 
 def _ask_preset(agent: dict, tools: str) -> str:
-    # The sprint planner's research exception must not widen a read-only ask.
+    # The agent's declared preset is one ceiling and the request another; the ask gets what both allow. Unlike the sprint planner, no research exception: a read-only ask stays read-only.
     declared = agent["tools"]
     requested = _TOOL_PRESETS[tools]
+    if declared == requested:
+        return declared
     if TOOLS_READ_ONLY in (declared, requested):
         return TOOLS_READ_ONLY
-    if TOOLS_RESEARCH in (declared, requested):
-        return TOOLS_RESEARCH
-    return TOOLS_FULL
+    if declared == TOOLS_FULL:
+        return requested
+    if requested == TOOLS_FULL:
+        return declared
+    return TOOLS_READ_ONLY  # research and code only share reading
 
 
 def _report(agent_key: str, tools: str, outcome: AskOutcome, raw_response: str = "", structured: bool = False) -> AskReport:

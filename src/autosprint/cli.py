@@ -209,7 +209,7 @@ def parse_cli_args() -> argparse.Namespace:
         howfar_p.add_argument("--agent", type=str, default=None, metavar="KEY", help="Override HOWFAR_AGENT for this run (a key in agents.AGENTS). Use `howfar_gpt6` for a Copilot-only run, e.g. when Claude tokens are exhausted.")
         ask_p = subparsers.add_parser("ask", help="Dispatch one ad-hoc prompt to one registered agent. Defaults to read-only tools for safe reviews from another orchestrator.")
         ask_p.add_argument("--agent", type=str, required=True, metavar="KEY", help="Agent key from `autosprint agents`, e.g. bug_hunter_gpt6.")
-        ask_p.add_argument("--tools", choices=["read-only", "full", "research"], default="read-only", help="Tool preset for the dispatch. Default read-only; use full only when you want the agent to edit/run commands.")
+        ask_p.add_argument("--tools", choices=["read-only", "research", "code", "full"], default="read-only", help="Tool preset for the dispatch. Default read-only. research adds edits and web; code adds edits and shell (tests, linters) but no web; full adds everything.")
         ask_p.add_argument("--target", default=argparse.SUPPRESS, metavar="PATH", help="Target directory (default: current working directory, never the sprint TARGET_REPO fallback).")
         ask_p.add_argument("--output", choices=["text", "json"], default="json", help="Output mode. Default json writes one report to stdout; progress goes to stderr.")
         ask_p.add_argument("prompt", nargs="*", help='Task to send, e.g. "review src/foo.py". Include required repo guidance and memory in the task.')

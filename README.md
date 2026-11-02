@@ -105,6 +105,7 @@ Replace the example file with a real path. Prompts do not inherit the parent Cla
 | `--agent KEY` | Required registry key; list keys with `autosprint agents`. Astra agents (`*_gpt6`) use `gpt-6-astra` with `high` reasoning. Explicit `*_gpt55` keys remain GPT-5.5. |
 | `--tools read-only` | Default. Exposes file-reading/search tools and the report tool, not edits, shell commands, web access, or nested agents. |
 | `--tools research` | Reading, file edits, and web tools, but no shell. **Write-capable.** |
+| `--tools code` | Reading, file edits, and shell (tests, linters, formatters), but no web. **Write-capable.** The preset for an implementor that must verify its own work; use a dedicated target worktree. |
 | `--tools full` | Explicit permission for the agent's full tool capabilities, including commands and edits. Use a dedicated target worktree. |
 | `--output json` | Default. Exactly one JSON report on stdout; diagnostic output goes to stderr. |
 | `--output text` | Human-readable status, response, changed files, validation, and blockers. |

@@ -35,8 +35,9 @@ from typing import Any
 
 TOOLS_READ_ONLY = "read_only"
 TOOLS_FULL = "full"
-TOOLS_RESEARCH = "research"  # read + write + web — for research agents that fetch external sources into the artifacts
-VALID_PRESETS = {TOOLS_READ_ONLY, TOOLS_FULL, TOOLS_RESEARCH}
+TOOLS_RESEARCH = "research"  # read + write + web, no shell — for research agents that fetch external sources into the artifacts
+TOOLS_CODE = "code"  # read + write + shell, no web — for implementors that must run the project's tests and linters but have no business on the network
+VALID_PRESETS = {TOOLS_READ_ONLY, TOOLS_FULL, TOOLS_RESEARCH, TOOLS_CODE}
 
 
 # =============================================================================
